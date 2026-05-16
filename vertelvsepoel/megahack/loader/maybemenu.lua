@@ -63,7 +63,7 @@ local HubData = {
     -- === НОВОЕ ===
     LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/lootup.lua"),
 }
-
+_G.MaybeMenuIdentifier = "Infinity_MegaHack_Official_2026"
 -- ══════════════════════════════════════
 --  COLOUR THEME
 -- ══════════════════════════════════════
