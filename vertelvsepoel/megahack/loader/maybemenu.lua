@@ -20,7 +20,9 @@ end
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local platformName = isMobile and "Mobile" or "PC"
 
-
+-- ══════════════════════════════════════
+--  SAFE LOAD
+-- ══════════════════════════════════════
 local function safeLoad(url)
     local ok, res = pcall(function()
         return loadstring(game:HttpGet(url, true))()
@@ -30,7 +32,9 @@ local function safeLoad(url)
     return {}
 end
 
-
+-- ══════════════════════════════════════
+--  HUB DATA
+-- ══════════════════════════════════════
 local HubData = {
     Brookhaven = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/brookhaven"),
     Evade = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/evade"),
@@ -55,10 +59,14 @@ local HubData = {
     IKEA3008 = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/3008.lua"),
     Rivals = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Rivals.lua"),
     FORSAKEN = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/FORSAKEN.lua"),
+
+    -- === НОВОЕ ===
     LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/base/lootup.lua"),
 }
 
-
+-- ══════════════════════════════════════
+--  COLOUR THEME
+-- ══════════════════════════════════════
 local T = {
     BgBase    = Color3.fromRGB(13, 13, 17),
     BgSide    = Color3.fromRGB(19, 19, 25),
@@ -76,44 +84,16 @@ local T = {
     Separator = Color3.fromRGB(35, 35, 46),
 }
 
+-- ── Accent registry: persistent elements that use T.Accent ────────────────
+-- Each entry: { obj = Instance, prop = "PropertyName" }
 local accentRegistry = {}
 local function regA(obj, prop)
     table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
 end
 
--- STATS
-local stats = {}
-
-local function loadStats()
-    pcall(function()
-        if isfile("MegaHack/stats.json") then
-            stats = HttpService:JSONDecode(readfile("MegaHack/stats.json"))
-        end
-    end)
-    if not stats.totalHours then stats.totalHours = 0 end
-    if not stats.sessions then stats.sessions = 0 end
-    if not stats.tabUsage then stats.tabUsage = {} end
-    if not stats.mostUsedTab then stats.mostUsedTab = "None" end
-end
-
-local function saveStats()
-    pcall(function()
-        if not isfolder("MegaHack") then makefolder("MegaHack") end
-        writefile("MegaHack/stats.json", HttpService:JSONEncode(stats))
-    end)
-end
-
-local function trackTab(tabName)
-    if not stats.tabUsage then stats.tabUsage = {} end
-    stats.tabUsage[tabName] = (stats.tabUsage[tabName] or 0) + 1
-    local maxCount, maxTab = 0, "None"
-    for tab, count in pairs(stats.tabUsage) do
-        if count > maxCount then maxCount = count; maxTab = tab end
-    end
-    stats.mostUsedTab = maxTab
-    saveStats()
-end
-
+-- ══════════════════════════════════════
+--  NOTIFICATION
+-- ══════════════════════════════════════
 local function createNotification(title, subtitle, duration, iconId)
     local notificationGui = Instance.new("ScreenGui")
     notificationGui.Name = "MH_Notification"
@@ -208,7 +188,9 @@ local function createNotification(title, subtitle, duration, iconId)
     task.delay(duration, fadeOut)
 end
 
-
+-- ══════════════════════════════════════
+--  COUNT SCRIPTS
+-- ══════════════════════════════════════
 local function countScripts()
     local count = 0
     for _, category in pairs(HubData) do
@@ -217,7 +199,9 @@ local function countScripts()
     return count
 end
 
-
+-- ══════════════════════════════════════
+--  SCREEN GUI
+-- ══════════════════════════════════════
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "HackGui"
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -237,7 +221,9 @@ local function Hide_UI(gui)
 end
 Hide_UI(screenGui)
 
-
+-- ══════════════════════════════════════
+--  HELPER: rounded frame
+-- ══════════════════════════════════════
 local function mkCorner(parent, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius or 8)
@@ -253,7 +239,9 @@ local function mkStroke(parent, thickness, color, transparency)
     return s
 end
 
-
+-- ══════════════════════════════════════
+--  MAIN FRAME  (560 × 370)
+-- ══════════════════════════════════════
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.BackgroundColor3 = T.BgBase
@@ -267,7 +255,9 @@ mainFrame.Parent = screenGui
 mkCorner(mainFrame, 12)
 mkStroke(mainFrame, 1.5, T.StrokeBrt, 0.55)
 
-
+-- ══════════════════════════════════════
+--  HEADER  (full width × 44)
+-- ══════════════════════════════════════
 local headerFrame = Instance.new("Frame")
 headerFrame.Name = "Header"
 headerFrame.BackgroundColor3 = T.BgSide
@@ -382,7 +372,7 @@ closeBtn.BackgroundTransparency = 0.4
 closeBtn.BorderSizePixel = 0
 closeBtn.Size = UDim2.new(0, 24, 0, 24)
 closeBtn.Position = UDim2.new(1, -36, 0.5, -12)
-closeBtn.Text = "x"
+closeBtn.Text = "×"
 closeBtn.TextColor3 = T.TextMain
 closeBtn.TextSize = 18
 closeBtn.Font = Enum.Font.GothamBold
@@ -397,6 +387,9 @@ closeBtn.MouseLeave:Connect(function()
     TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.4}):Play()
 end)
 
+-- ══════════════════════════════════════
+--  SIDEBAR  (130 × remaining height)
+-- ══════════════════════════════════════
 local sidebarFrame = Instance.new("Frame")
 sidebarFrame.Name = "Sidebar"
 sidebarFrame.BackgroundColor3 = T.BgSide
@@ -461,6 +454,9 @@ catLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     catScroll.CanvasSize = UDim2.new(0, 0, 0, catLayout.AbsoluteContentSize.Y + 10)
 end)
 
+-- ══════════════════════════════════════
+--  CONTENT PANEL
+-- ══════════════════════════════════════
 local contentFrame = Instance.new("Frame")
 contentFrame.Name = "ContentFrame"
 contentFrame.BackgroundTransparency = 1
@@ -497,6 +493,9 @@ scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 16)
 end)
 
+-- ══════════════════════════════════════
+--  REOPEN BUTTON
+-- ══════════════════════════════════════
 local reopenButton = Instance.new("ImageButton")
 reopenButton.Size = UDim2.new(0, 46, 0, 46)
 reopenButton.Position = UDim2.new(0.5, -23, 0.9, -23)
@@ -518,6 +517,9 @@ reopenButton.MouseLeave:Connect(function()
     TweenService:Create(reopenButton, TweenInfo.new(0.2), {BackgroundColor3 = T.BgSide, BackgroundTransparency = 0.1}):Play()
 end)
 
+-- ══════════════════════════════════════
+--  SECTION HEADER (for content)
+-- ══════════════════════════════════════
 local function createSectionHeader(text, parent)
     local container = Instance.new("Frame")
     container.BackgroundTransparency = 1
@@ -559,7 +561,9 @@ local function createSectionHeader(text, parent)
     return container
 end
 
-
+-- ══════════════════════════════════════
+--  CREATE BUTTON  (content area)
+-- ══════════════════════════════════════
 local function createButton(text, parent, callback, isCategoryButton)
     if isCategoryButton then
         local btn = Instance.new("TextButton")
@@ -610,7 +614,6 @@ local function createButton(text, parent, callback, isCategoryButton)
             btn:SetAttribute("Active", true)
             TweenService:Create(btn, TweenInfo.new(0.18), {BackgroundColor3 = T.Accent, BackgroundTransparency = 0.35, TextColor3 = T.TextMain}):Play()
             TweenService:Create(activeIndicator, TweenInfo.new(0.18), {BackgroundTransparency = 0}):Play()
-            trackTab(text)
             callback()
         end)
         return btn
@@ -628,7 +631,7 @@ local function createButton(text, parent, callback, isCategoryButton)
         btn.Font = Enum.Font.Gotham
         btn.ZIndex = 4
         btn.Parent = parent
-        btn:SetAttribute("TextRole", "main")
+        btn:SetAttribute("TextRole", "main")   -- ← tagged for updateGuiColors
         mkCorner(btn, 7)
         mkStroke(btn, 1, T.Stroke, 0.4)
 
@@ -666,7 +669,9 @@ local function createButton(text, parent, callback, isCategoryButton)
     end
 end
 
-
+-- ══════════════════════════════════════
+--  CREATE LABEL
+-- ══════════════════════════════════════
 local function createLabel(text, parent, size, position)
     local label = Instance.new("TextLabel")
     label.BackgroundTransparency = 1
@@ -681,11 +686,13 @@ local function createLabel(text, parent, size, position)
     label.TextWrapped = true
     label.ZIndex = 4
     label.Parent = parent
-    label:SetAttribute("TextRole", "main")
+    label:SetAttribute("TextRole", "main")     -- ← tagged for updateGuiColors
     return label
 end
 
-
+-- ══════════════════════════════════════
+--  SETTINGS STATE
+-- ══════════════════════════════════════
 local rgbConnections = {}
 local colorPickerConnections = {}
 local settings = {
@@ -708,7 +715,9 @@ local function clearRgbConnections()
     rgbConnections = {}
 end
 
-
+-- ══════════════════════════════════════
+--  UPDATE GUI COLORS  (central)
+-- ══════════════════════════════════════
 local function updateGuiColors()
     clearRgbConnections()
 
@@ -716,6 +725,7 @@ local function updateGuiColors()
     local bg  = settings.colors.bgColor
     local tx  = settings.colors.textColor
 
+    -- ── 1. Sync theme variables ───────────────────────────────
     T.Accent     = acc
     T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
     T.AccentGlow = Color3.new(math.min(acc.R*1.35,1), math.min(acc.G*1.35,1), math.min(acc.B*1.35,1))
@@ -726,12 +736,15 @@ local function updateGuiColors()
     T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
     T.TextMain   = tx
 
+    -- ── 2. Accent registry ────────────────────────────────────
     for _, entry in ipairs(accentRegistry) do
         if entry.obj and entry.obj.Parent then
             entry.obj[entry.prop] = acc
         end
     end
 
+    -- ── 3. Persistent structural frames (BG colour) ───────────
+    -- These are created once at startup and never destroyed.
     mainFrame.BackgroundColor3       = bg
     mainFrame.BackgroundTransparency = settings.transparency
     headerFrame.BackgroundColor3     = T.BgSide
@@ -740,6 +753,7 @@ local function updateGuiColors()
     sidebarPatch.BackgroundColor3    = T.BgSide
     sidebarBLCorner.BackgroundColor3 = T.BgSide
 
+    -- ── 4. All descendants: stroke colour + text colour ───────
     for _, obj in pairs(mainFrame:GetDescendants()) do
         if obj:IsA("UIStroke") then
             if settings.rgbStroke then
@@ -762,6 +776,8 @@ local function updateGuiColors()
                 end)
                 table.insert(rgbConnections, conn)
             else
+                -- Only update elements explicitly tagged as "main" text.
+                -- Sub/muted labels, colour-picker overlays etc. keep their own colour.
                 if obj:GetAttribute("TextRole") == "main" then
                     obj.TextColor3 = tx
                 end
@@ -770,7 +786,9 @@ local function updateGuiColors()
     end
 end
 
-
+-- ══════════════════════════════════════
+--  SAVE / LOAD COLOR SETTINGS (executor)
+-- ══════════════════════════════════════
 local function saveColorSettings()
     pcall(function()
         if not isfolder("MegaHack") then makefolder("MegaHack") end
@@ -803,7 +821,9 @@ local function loadColorSettings()
     end)
 end
 
-
+-- ══════════════════════════════════════
+--  SEARCH
+-- ══════════════════════════════════════
 local function searchScriptsByMegahack(query)
     local results = {}
     for categoryName, hacks in pairs(HubData) do
@@ -837,7 +857,9 @@ local function searchScriptsOnScriptBlox(query)
     return results
 end
 
-
+-- ══════════════════════════════════════
+--  LOAD CATEGORY
+-- ══════════════════════════════════════
 local function clearContent()
     for _, c in pairs(colorPickerConnections) do
         pcall(function() c:Disconnect() end)
@@ -870,6 +892,9 @@ local function loadHacksFromCategory(categoryName)
     end
 end
 
+-- ══════════════════════════════════════
+--  SHOW ALL SCRIPTS (search)
+-- ══════════════════════════════════════
 local function showAllScripts()
     clearContent()
     createSectionHeader("Search Scripts", scrollingFrame)
@@ -930,7 +955,9 @@ local function showAllScripts()
     end)
 end
 
-
+-- ══════════════════════════════════════
+--  SHOW HOME
+-- ══════════════════════════════════════
 local function showHome()
     clearContent()
     createSectionHeader("Overview", scrollingFrame)
@@ -1039,65 +1066,15 @@ local function showHome()
         end
     end)
 
-    -- STATS CARD
-    createSectionHeader("Your Stats", scrollingFrame)
-
-    local statsCard = Instance.new("Frame")
-    statsCard.Size = UDim2.new(1, 0, 0, 80)
-    statsCard.BackgroundColor3 = T.BgPanel
-    statsCard.BackgroundTransparency = 0.15
-    statsCard.BorderSizePixel = 0
-    statsCard.ZIndex = 4
-    statsCard.Parent = scrollingFrame
-    mkCorner(statsCard, 8)
-    mkStroke(statsCard, 1, T.Stroke, 0.5)
-
-    local hoursLabel = Instance.new("TextLabel")
-    hoursLabel.Text = string.format("Hours with MegaHack: %.1f", stats.totalHours or 0)
-    hoursLabel.Font = Enum.Font.Gotham
-    hoursLabel.TextSize = 12
-    hoursLabel.TextColor3 = T.TextMain
-    hoursLabel.TextXAlignment = Enum.TextXAlignment.Left
-    hoursLabel.BackgroundTransparency = 1
-    hoursLabel.Size = UDim2.new(1, -16, 0, 20)
-    hoursLabel.Position = UDim2.new(0, 16, 0, 8)
-    hoursLabel.ZIndex = 5
-    hoursLabel.Parent = statsCard
-    hoursLabel:SetAttribute("TextRole", "main")
-
-    local sessionsLabel = Instance.new("TextLabel")
-    sessionsLabel.Text = "Sessions: " .. (stats.sessions or 0)
-    sessionsLabel.Font = Enum.Font.Gotham
-    sessionsLabel.TextSize = 12
-    sessionsLabel.TextColor3 = T.TextMain
-    sessionsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    sessionsLabel.BackgroundTransparency = 1
-    sessionsLabel.Size = UDim2.new(1, -16, 0, 20)
-    sessionsLabel.Position = UDim2.new(0, 16, 0, 30)
-    sessionsLabel.ZIndex = 5
-    sessionsLabel.Parent = statsCard
-    sessionsLabel:SetAttribute("TextRole", "main")
-
-    local tabLabel = Instance.new("TextLabel")
-    tabLabel.Text = "Most used tab: " .. (stats.mostUsedTab or "None")
-    tabLabel.Font = Enum.Font.Gotham
-    tabLabel.TextSize = 12
-    tabLabel.TextColor3 = T.TextMain
-    tabLabel.TextXAlignment = Enum.TextXAlignment.Left
-    tabLabel.BackgroundTransparency = 1
-    tabLabel.Size = UDim2.new(1, -16, 0, 20)
-    tabLabel.Position = UDim2.new(0, 16, 0, 52)
-    tabLabel.ZIndex = 5
-    tabLabel.Parent = statsCard
-    tabLabel:SetAttribute("TextRole", "main")
-
     createSectionHeader("Social", scrollingFrame)
     createLabel("YouTube  ·  https://www.youtube.com/@Vermax", scrollingFrame)
     createLabel("Telegram  ·  https://t.me/@vermax", scrollingFrame)
     createLabel("Discord  ·  https://discord.com/invite/vermax", scrollingFrame)
 end
 
-
+-- ══════════════════════════════════════
+--  UTILITY FUNCTIONS
+-- ══════════════════════════════════════
 local function checkFunctions()
     local functionsToCheck = {
         "getrawmetatable","makefolder","getscriptbytecode","setthreadidentity","delfile","request",
@@ -1184,7 +1161,9 @@ local function teleportToCoordinates()
     end
 end
 
-
+-- ══════════════════════════════════════
+--  HSV COLOR PICKER WIDGET
+-- ══════════════════════════════════════
 local function createColorPicker(parent)
     local selType = "bgColor"
     local curH, curS, curV = Color3.toHSV(settings.colors.bgColor)
@@ -1215,6 +1194,7 @@ local function createColorPicker(parent)
         container.Size = UDim2.new(1, 0, 0, innerLayout.AbsoluteContentSize.Y + 4)
     end)
 
+    -- ── 1. Type selector ─────────────────────────────────────
     local typeRow = Instance.new("Frame")
     typeRow.BackgroundTransparency = 1
     typeRow.Size = UDim2.new(1, 0, 0, 28)
@@ -1236,7 +1216,7 @@ local function createColorPicker(parent)
         { label = "Accent",     key = "accentColor" },
     }
 
-    local updatePickerUI
+    local updatePickerUI  -- forward declaration
 
     local function refreshTypeBtns(activeKey)
         for _, td in ipairs(typeItems) do
@@ -1280,6 +1260,7 @@ local function createColorPicker(parent)
     end
     refreshTypeBtns(selType)
 
+    -- ── 2. Main area: SV square + right info panel ────────────
     local sqSz = 148
 
     local mainArea = Instance.new("Frame")
@@ -1416,6 +1397,7 @@ local function createColorPicker(parent)
         rgbReadouts[i] = lbl
     end
 
+    -- ── 3. Hue slider ─────────────────────────────────────────
     local hueTrack = Instance.new("Frame")
     hueTrack.Size = UDim2.new(1, 0, 0, 16)
     hueTrack.BackgroundColor3 = Color3.new(1, 0, 0)
@@ -1449,6 +1431,7 @@ local function createColorPicker(parent)
     mkCorner(hueCursor, 3)
     mkStroke(hueCursor, 1, T.Stroke, 0)
 
+    -- ── 4. RGB sliders ────────────────────────────────────────
     local rgbTracks  = {}
     local rgbCursors = {}
     local rgbValLbls = {}
@@ -1515,12 +1498,13 @@ local function createColorPicker(parent)
         rgbValLbls[i] = valLbl
     end
 
+    -- ── 5. Apply & Save button ────────────────────────────────
     local applyBtn = Instance.new("TextButton")
     applyBtn.Size = UDim2.new(1, 0, 0, 30)
     applyBtn.BackgroundColor3 = T.Accent
     applyBtn.BackgroundTransparency = 0.15
     applyBtn.BorderSizePixel = 0
-    applyBtn.Text = "Apply & Save"
+    applyBtn.Text = "✔  Apply & Save"
     applyBtn.TextColor3 = T.TextMain
     applyBtn.TextSize = 13
     applyBtn.Font = Enum.Font.GothamBold
@@ -1538,6 +1522,7 @@ local function createColorPicker(parent)
         TweenService:Create(applyBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.15}):Play()
     end)
 
+    -- ── Update all visual elements from curH/S/V ─────────────
     updatePickerUI = function()
         local col = Color3.fromHSV(curH, curS, curV)
         svBase.BackgroundColor3 = Color3.fromHSV(curH, 1, 1)
@@ -1572,6 +1557,7 @@ local function createColorPicker(parent)
         end)
     end)
 
+    -- ── Drag state ────────────────────────────────────────────
     local draggingSV  = false
     local draggingHue = false
     local draggingRGB = 0
@@ -1642,7 +1628,9 @@ local function createColorPicker(parent)
     return container
 end
 
-
+-- ══════════════════════════════════════
+--  SHOW SETTINGS
+-- ══════════════════════════════════════
 local function showSettings()
     clearContent()
 
@@ -1717,7 +1705,8 @@ local function showSettings()
     createButton("Close GUI", scrollingFrame, function() screenGui:Destroy() end)
 end
 
-
+-- CATEGORIES
+-- ══════════════════════════════════════════════════════════════
 local categories = {
     ["Home"] = showHome,
     ["Settings"] = showSettings,
@@ -1745,6 +1734,8 @@ local categories = {
     ["Rivals"] = function() loadHacksFromCategory("Rivals") end,
     ["Duels MVS"] = function() loadHacksFromCategory("DuelsMVS") end,
     ["Violence District"] = function() loadHacksFromCategory("ViolenceDistrict") end,
+
+    -- === НОВОЕ ===
     ["Loot Up"] = function() loadHacksFromCategory("LootUp") end,
 }
 
@@ -1755,9 +1746,13 @@ local categoryOrder = {
     "MM2", "Duels MVS", "Evade", "IKEA 3008", "Blox Fruit", "Brookhaven",
     "Adopt Me", "Tower of Hell", "Night99", "FORSAKEN",
     "Grow Garden", "Violence District", "Weird Gun Game", "Rivals",
+
+    -- Новое
     "Loot Up",
 }
 
+-- Sidebar buttons: call updateGuiColors() AFTER content is created
+-- so newly spawned text elements get the correct colour immediately.
 for _, catName in ipairs(categoryOrder) do
     createButton(catName, catScroll, function()
         clearContent()
@@ -1766,7 +1761,9 @@ for _, catName in ipairs(categoryOrder) do
     end, true)
 end
 
-
+-- ══════════════════════════════════════
+--  DRAGGING
+-- ══════════════════════════════════════
 local function MakeDraggable(frame, dragPart)
     dragPart = dragPart or frame
     local dragging, dragInput, mousePos, framePos
@@ -1800,7 +1797,9 @@ end
 MakeDraggable(mainFrame, headerFrame)
 MakeDraggable(reopenButton, reopenButton)
 
-
+-- ══════════════════════════════════════
+--  CLOSE / REOPEN
+-- ══════════════════════════════════════
 closeBtn.MouseButton1Click:Connect(function()
     TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
         Size = UDim2.new(0, 560, 0, 0), BackgroundTransparency = 1
@@ -1823,27 +1822,22 @@ reopenButton.MouseButton1Click:Connect(function()
     }):Play()
 end)
 
-
+-- ══════════════════════════════════════
+--  INTRO ANIMATION
+-- ══════════════════════════════════════
 mainFrame.Size = UDim2.new(0, 0, 0, 0)
 mainFrame.BackgroundTransparency = 1
 
 loadColorSettings()
-loadStats()
-stats.sessions = (stats.sessions or 0) + 1
-saveStats()
-
-task.spawn(function()
-    while task.wait(60) do
-        stats.totalHours = (stats.totalHours or 0) + (1/60)
-        saveStats()
-    end
-end)
 
 TweenService:Create(mainFrame,
     TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
     {Size = UDim2.new(0, 560, 0, 370), BackgroundTransparency = settings.transparency}
 ):Play()
 
+-- ══════════════════════════════════════
+--  INIT
+-- ══════════════════════════════════════
 showHome()
 updateGuiColors()
 
