@@ -1,1144 +1,200 @@
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local CoreGui = game:GetService("CoreGui")
-local RunService = game:GetService("RunService")
-local MarketplaceService = game:GetService("MarketplaceService")
-local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
-local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
+-- MEGAHACK V2 - SEPARATED CORE + NEW GUI
+-- Core Functionality (Save as MegaHackCore.lua or load directly)
 
-local player = Players.LocalPlayer
+local Core = {}
+
+local Services = {
+    TweenService = game:GetService("TweenService"),
+    UserInputService = game:GetService("UserInputService"),
+    Players = game:GetService("Players"),
+    CoreGui = game:GetService("CoreGui"),
+    RunService = game:GetService("RunService"),
+    MarketplaceService = game:GetService("MarketplaceService"),
+    TeleportService = game:GetService("TeleportService"),
+    HttpService = game:GetService("HttpService"),
+    Lighting = game:GetService("Lighting"),
+    Workspace = game:GetService("Workspace"),
+    StarterGui = game:GetService("StarterGui")
+}
+
+local player = Services.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui", 5)
-if not playerGui then return end
 
-local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local platformName = isMobile and "Mobile" or "PC"
+Core.Services = Services
+Core.Player = player
+Core.PlayerGui = playerGui
 
-local function safeLoad(url)
+Core.isMobile = Services.UserInputService.TouchEnabled and not Services.UserInputService.KeyboardEnabled
+
+-- Safe Load
+Core.safeLoad = function(url)
     local ok, res = pcall(function()
         return loadstring(game:HttpGet(url, true))()
     end)
-    if ok and res then return res end
+    if ok then return res or {} end
+    warn("[MH Core] Failed to load:", url)
     return {}
 end
 
-local HubData = {
-    Brookhaven = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/brookhaven"),
-    Evade = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/evade"),
-    MM2 = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/MM2.lua"),
-    MegaHack = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/megapizda"),
-    Hacks = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Hacks.lua"),
-    Admins = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/admin"),
-    Animations = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/animation"),
-    FE = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/FE.lua"),
-    RagdollEngine = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/ragdoll"),
-    NaturalDisaster = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/NaturalDisaster.lua"),
-    BloxFruit = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/BloxFruit.lua"),
-    BladeBall = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/BladeBall.lua"),
-    StealBrainRoot = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/StealBrainRoot.lua"),
-    TowerOfHell = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/tower.lua"),
-    AdoptMe = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/adoptme"),
-    GrowGarden = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/GrowGarden.lua"),
-    Night = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Night.lua"),
-    Weird = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Weird.lua"),
-    DuelsMVS = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/DuelsMVS.lua"),
-    ViolenceDistrict = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/ViolenceDistrict.lua"),
-    IKEA3008 = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/3008.lua"),
-    Rivals = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Rivals.lua"),
-    FORSAKEN = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/FORSAKEN.lua"),
-    LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/base/lootup.lua"),
+-- Hub Data (same as before)
+Core.HubData = {
+    Brookhaven = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/brookhaven"),
+    Evade = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/evade"),
+    MM2 = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/MM2.lua"),
+    MegaHack = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/megapizda"),
+    Hacks = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Hacks.lua"),
+    Admins = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/admin"),
+    Animations = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/animation"),
+    FE = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/FE.lua"),
+    RagdollEngine = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/ragdoll"),
+    NaturalDisaster = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/NaturalDisaster.lua"),
+    BloxFruit = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/BloxFruit.lua"),
+    BladeBall = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/BladeBall.lua"),
+    StealBrainRoot = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/StealBrainRoot.lua"),
+    TowerOfHell = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/tower.lua"),
+    AdoptMe = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/adoptme"),
+    GrowGarden = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/GrowGarden.lua"),
+    Night = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Night.lua"),
+    Weird = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Weird.lua"),
+    DuelsMVS = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/DuelsMVS.lua"),
+    ViolenceDistrict = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/ViolenceDistrict.lua"),
+    IKEA3008 = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/3008.lua"),
+    Rivals = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Rivals.lua"),
+    FORSAKEN = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/FORSAKEN.lua"),
+    LootUp = Core.safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/base/lootup.lua"),
 }
 
-local AccentColors = {
-    Red = { Accent = Color3.fromRGB(220, 50, 50), AccentHov = Color3.fromRGB(240, 70, 70), AccentGlow = Color3.fromRGB(255, 100, 100) },
-    Green = { Accent = Color3.fromRGB(50, 200, 80), AccentHov = Color3.fromRGB(70, 220, 100), AccentGlow = Color3.fromRGB(100, 255, 130) },
-    Purple = { Accent = Color3.fromRGB(140, 60, 220), AccentHov = Color3.fromRGB(160, 80, 240), AccentGlow = Color3.fromRGB(180, 110, 255) },
-    Yellow = { Accent = Color3.fromRGB(220, 180, 30), AccentHov = Color3.fromRGB(240, 200, 50), AccentGlow = Color3.fromRGB(255, 220, 90) }
-}
-
-local T = {
-    BgBase    = Color3.fromRGB(13, 13, 17),
-    BgSide    = Color3.fromRGB(19, 19, 25),
-    BgPanel   = Color3.fromRGB(24, 24, 32),
-    BgBtn     = Color3.fromRGB(30, 30, 40),
-    BgBtnHov  = Color3.fromRGB(38, 38, 52),
-    Accent    = AccentColors.Red.Accent,
-    AccentHov = AccentColors.Red.AccentHov,
-    AccentGlow= AccentColors.Red.AccentGlow,
-    TextMain  = Color3.fromRGB(228, 228, 235),
-    TextSub   = Color3.fromRGB(140, 140, 152),
-    TextMuted = Color3.fromRGB(90, 90, 100),
-    Stroke    = Color3.fromRGB(44, 44, 56),
-    StrokeBrt = Color3.fromRGB(68, 68, 82),
-    Separator = Color3.fromRGB(35, 35, 46),
-}
-
-local stats = {}
-local function loadStats()
+-- Stats
+Core.Stats = {totalHours = 0, sessions = 0, tabUsage = {}, mostUsedTab = "Home"}
+function Core:LoadStats()
     pcall(function()
         if isfile("MegaHack/stats.json") then
-            stats = HttpService:JSONDecode(readfile("MegaHack/stats.json"))
+            Core.Stats = Services.HttpService:JSONDecode(readfile("MegaHack/stats.json"))
         end
     end)
-    stats.totalHours = stats.totalHours or 0
-    stats.sessions = stats.sessions or 0
-    stats.tabUsage = stats.tabUsage or {}
-    stats.mostUsedTab = stats.mostUsedTab or "None"
+    Core.Stats.totalHours = Core.Stats.totalHours or 0
+    Core.Stats.sessions = Core.Stats.sessions or 0
 end
-local function saveStats()
+
+function Core:SaveStats()
     pcall(function()
         if not isfolder("MegaHack") then makefolder("MegaHack") end
-        writefile("MegaHack/stats.json", HttpService:JSONEncode(stats))
-    end)
-end
-local function trackTab(tabName)
-    stats.tabUsage[tabName] = (stats.tabUsage[tabName] or 0) + 1
-    local maxCount, maxTab = 0, "None"
-    for tab, count in pairs(stats.tabUsage) do
-        if count > maxCount then maxCount = count; maxTab = tab end
-    end
-    stats.mostUsedTab = maxTab
-    saveStats()
-end
-
-local function createNotification(title, subtitle, duration, iconId)
-    local notificationGui = Instance.new("ScreenGui")
-    notificationGui.Name = "MH_Notification"
-    notificationGui.Parent = playerGui
-    notificationGui.ResetOnSpawn = false
-    local notifW, notifH = 240, 64
-    local mainF = Instance.new("Frame")
-    mainF.Size = UDim2.new(0, notifW, 0, notifH)
-    mainF.Position = UDim2.new(1, -(notifW + 16), 0, 24)
-    mainF.BackgroundColor3 = T.BgSide
-    mainF.BackgroundTransparency = 1
-    mainF.Parent = notificationGui
-    local bg = Instance.new("Frame")
-    bg.Size = UDim2.new(1, 0, 1, 0)
-    bg.BackgroundColor3 = T.BgSide
-    bg.BackgroundTransparency = 1
-    bg.Parent = mainF
-    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 1
-    stroke.Color = T.Stroke
-    stroke.Transparency = 1
-    stroke.Parent = bg
-    local bar = Instance.new("Frame")
-    bar.Size = UDim2.new(0, 3, 1, -16)
-    bar.Position = UDim2.new(0, 0, 0, 8)
-    bar.BackgroundColor3 = T.AccentGlow
-    bar.BackgroundTransparency = 1
-    bar.BorderSizePixel = 0
-    bar.Parent = bg
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 4)
-    local icon = Instance.new("ImageLabel")
-    icon.Size = UDim2.new(0, 28, 0, 28)
-    icon.Position = UDim2.new(0, 12, 0.5, -14)
-    icon.BackgroundTransparency = 1
-    icon.Image = "rbxassetid://" .. tostring(iconId or 74283928898866)
-    icon.ImageTransparency = 1
-    icon.Parent = bg
-    local mainText = Instance.new("TextLabel")
-    mainText.Text = title
-    mainText.Font = Enum.Font.GothamBold
-    mainText.TextColor3 = T.TextMain
-    mainText.TextSize = 13
-    mainText.TextXAlignment = Enum.TextXAlignment.Left
-    mainText.Size = UDim2.new(1, -56, 0, 18)
-    mainText.Position = UDim2.new(0, 50, 0, 12)
-    mainText.BackgroundTransparency = 1
-    mainText.TextTransparency = 1
-    mainText.Parent = bg
-    local subText = Instance.new("TextLabel")
-    subText.Text = subtitle
-    subText.Font = Enum.Font.Gotham
-    subText.TextColor3 = T.TextSub
-    subText.TextSize = 11
-    subText.TextXAlignment = Enum.TextXAlignment.Left
-    subText.Size = UDim2.new(1, -56, 0, 14)
-    subText.Position = UDim2.new(0, 50, 0, 32)
-    subText.BackgroundTransparency = 1
-    subText.TextTransparency = 1
-    subText.Parent = bg
-    local function fadeIn()
-        local ti = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        TweenService:Create(bg, ti, {BackgroundTransparency = 0}):Play()
-        TweenService:Create(stroke, ti, {Transparency = 0.4}):Play()
-        TweenService:Create(bar, ti, {BackgroundTransparency = 0}):Play()
-        TweenService:Create(mainText, ti, {TextTransparency = 0}):Play()
-        TweenService:Create(subText, ti, {TextTransparency = 0.1}):Play()
-        TweenService:Create(icon, ti, {ImageTransparency = 0}):Play()
-        TweenService:Create(mainF, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-            {Position = UDim2.new(1, -(notifW + 16), 0, 24)}):Play()
-    end
-    local function fadeOut()
-        local ti = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
-        TweenService:Create(bg, ti, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(stroke, ti, {Transparency = 1}):Play()
-        TweenService:Create(bar, ti, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(mainText, ti, {TextTransparency = 1}):Play()
-        TweenService:Create(subText, ti, {TextTransparency = 1}):Play()
-        TweenService:Create(icon, ti, {ImageTransparency = 1}):Play()
-        task.delay(0.35, function() notificationGui:Destroy() end)
-    end
-    fadeIn()
-    task.delay(duration, fadeOut)
-end
-
-local function countScripts()
-    local count = 0
-    for _, category in pairs(HubData) do
-        if type(category) == "table" then count = count + #category end
-    end
-    return count
-end
-
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "HackGui"
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.IgnoreGuiInset = false
-screenGui.ResetOnSpawn = false
-
-local function Hide_UI(gui)
-    local success = pcall(function()
-        if get_hidden_gui then gui.Parent = get_hidden_gui()
-        elseif gethui then gui.Parent = gethui()
-        elseif syn and typeof(syn)=="table" and syn.protect_gui then
-            syn.protect_gui(gui); gui.Parent = CoreGui
-        elseif CoreGui:FindFirstChild("RobloxGui") then gui.Parent = CoreGui.RobloxGui
-        else gui.Parent = CoreGui end
-    end)
-    if not success then gui.Parent = CoreGui end
-end
-Hide_UI(screenGui)
-
-local function mkCorner(parent, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius or 8)
-    c.Parent = parent
-    return c
-end
-local function mkStroke(parent, thickness, color, transparency)
-    local s = Instance.new("UIStroke")
-    s.Thickness = thickness or 1
-    s.Color = color or T.Stroke
-    s.Transparency = transparency or 0.5
-    s.Parent = parent
-    return s
-end
-
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.BackgroundColor3 = T.BgBase
-mainFrame.BackgroundTransparency = 0.04
-mainFrame.BorderSizePixel = 0
-mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-mainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-mainFrame.Size = UDim2.new(0, 580, 0, 400)
-mainFrame.ZIndex = 2
-mainFrame.Parent = screenGui
-mkCorner(mainFrame, 12)
-mkStroke(mainFrame, 1.5, T.StrokeBrt, 0.55)
-
-local headerFrame = Instance.new("Frame")
-headerFrame.Name = "Header"
-headerFrame.BackgroundColor3 = T.BgSide
-headerFrame.BackgroundTransparency = 0
-headerFrame.BorderSizePixel = 0
-headerFrame.Size = UDim2.new(1, 0, 0, 40)
-headerFrame.ZIndex = 4
-headerFrame.Parent = mainFrame
-mkCorner(headerFrame, 12)
-local headerPatch = Instance.new("Frame")
-headerPatch.BackgroundColor3 = T.BgSide
-headerPatch.BackgroundTransparency = 0
-headerPatch.BorderSizePixel = 0
-headerPatch.Size = UDim2.new(1, 0, 0, 12)
-headerPatch.Position = UDim2.new(0, 0, 1, -12)
-headerPatch.ZIndex = 4
-headerPatch.Parent = headerFrame
-
-local logoIcon = Instance.new("ImageLabel")
-logoIcon.BackgroundTransparency = 1
-logoIcon.Image = "rbxassetid://7072717762"
-logoIcon.Size = UDim2.new(0, 20, 0, 20)
-logoIcon.Position = UDim2.new(0, 14, 0.5, -10)
-logoIcon.ZIndex = 5
-logoIcon.Parent = headerFrame
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "MEGAHACK"
-titleLabel.Font = Enum.Font.GothamBlack
-titleLabel.TextSize = 15
-titleLabel.TextColor3 = T.TextMain
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.Size = UDim2.new(0, 100, 0, 20)
-titleLabel.Position = UDim2.new(0, 40, 0.5, -10)
-titleLabel.ZIndex = 5
-titleLabel.Parent = headerFrame
-
-local versionBadge = Instance.new("Frame")
-versionBadge.BackgroundColor3 = T.Accent
-versionBadge.BackgroundTransparency = 0.3
-versionBadge.BorderSizePixel = 0
-versionBadge.Size = UDim2.new(0, 36, 0, 16)
-versionBadge.Position = UDim2.new(0, 144, 0.5, -8)
-versionBadge.ZIndex = 5
-versionBadge.Parent = headerFrame
-mkCorner(versionBadge, 4)
-local versionText = Instance.new("TextLabel")
-versionText.BackgroundTransparency = 1
-versionText.Text = "v2.0"
-versionText.Font = Enum.Font.GothamBold
-versionText.TextSize = 10
-versionText.TextColor3 = T.TextMain
-versionText.Size = UDim2.new(1, 0, 1, 0)
-versionText.ZIndex = 5
-versionText.Parent = versionBadge
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseBtn"
-closeBtn.BackgroundColor3 = Color3.fromRGB(160, 40, 40)
-closeBtn.BackgroundTransparency = 0.4
-closeBtn.BorderSizePixel = 0
-closeBtn.Size = UDim2.new(0, 22, 0, 22)
-closeBtn.Position = UDim2.new(1, -32, 0.5, -11)
-closeBtn.Text = "✕"
-closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-closeBtn.TextSize = 14
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.ZIndex = 8
-closeBtn.Parent = headerFrame
-mkCorner(closeBtn, 6)
-closeBtn.MouseEnter:Connect(function()
-    TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.1}):Play()
-end)
-closeBtn.MouseLeave:Connect(function()
-    TweenService:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.4}):Play()
-end)
-
-local tabBar = Instance.new("Frame")
-tabBar.Name = "TabBar"
-tabBar.BackgroundColor3 = T.BgSide
-tabBar.BackgroundTransparency = 0
-tabBar.BorderSizePixel = 0
-tabBar.Size = UDim2.new(1, 0, 0, 34)
-tabBar.Position = UDim2.new(0, 0, 0, 40)
-tabBar.ZIndex = 3
-tabBar.Parent = mainFrame
-local tabBarSep = Instance.new("Frame")
-tabBarSep.BackgroundColor3 = T.Separator
-tabBarSep.BorderSizePixel = 0
-tabBarSep.Size = UDim2.new(1, 0, 0, 1)
-tabBarSep.Position = UDim2.new(0, 0, 1, -1)
-tabBarSep.ZIndex = 4
-tabBarSep.Parent = tabBar
-
-local tabScroll = Instance.new("ScrollingFrame")
-tabScroll.Name = "TabScroll"
-tabScroll.BackgroundTransparency = 1
-tabScroll.BorderSizePixel = 0
-tabScroll.Size = UDim2.new(1, -8, 1, -4)
-tabScroll.Position = UDim2.new(0, 4, 0, 2)
-tabScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-tabScroll.ScrollBarThickness = 0
-tabScroll.ZIndex = 4
-tabScroll.Parent = tabBar
-local tabList = Instance.new("UIListLayout")
-tabList.FillDirection = Enum.FillDirection.Horizontal
-tabList.Padding = UDim.new(0, 4)
-tabList.SortOrder = Enum.SortOrder.LayoutOrder
-tabList.Parent = tabScroll
-local tabPadding = Instance.new("UIPadding")
-tabPadding.PaddingLeft = UDim.new(0, 2)
-tabPadding.PaddingRight = UDim.new(0, 2)
-tabPadding.Parent = tabScroll
-tabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    tabScroll.CanvasSize = UDim2.new(0, tabList.AbsoluteContentSize.X + 8, 0, 0)
-end)
-
-local contentFrame = Instance.new("Frame")
-contentFrame.Name = "ContentFrame"
-contentFrame.BackgroundTransparency = 1
-contentFrame.BorderSizePixel = 0
-contentFrame.Size = UDim2.new(1, 0, 1, -74)
-contentFrame.Position = UDim2.new(0, 0, 0, 74)
-contentFrame.ZIndex = 2
-contentFrame.Parent = mainFrame
-
-local scrollingFrame = Instance.new("ScrollingFrame")
-scrollingFrame.Name = "ScrollingFrame"
-scrollingFrame.BackgroundTransparency = 1
-scrollingFrame.BorderSizePixel = 0
-scrollingFrame.Size = UDim2.new(1, -4, 1, 0)
-scrollingFrame.Position = UDim2.new(0, 0, 0, 0)
-scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
-scrollingFrame.ScrollBarThickness = 3
-scrollingFrame.ScrollBarImageColor3 = T.Accent
-scrollingFrame.ZIndex = 3
-scrollingFrame.Parent = contentFrame
-local scrollLayout = Instance.new("UIListLayout")
-scrollLayout.Padding = UDim.new(0, 5)
-scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-scrollLayout.Parent = scrollingFrame
-local scrollPadding = Instance.new("UIPadding")
-scrollPadding.PaddingLeft = UDim.new(0, 8)
-scrollPadding.PaddingRight = UDim.new(0, 8)
-scrollPadding.PaddingTop = UDim.new(0, 6)
-scrollPadding.Parent = scrollingFrame
-scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 16)
-end)
-
-local reopenButton = Instance.new("ImageButton")
-reopenButton.Size = UDim2.new(0, 44, 0, 44)
-reopenButton.Position = UDim2.new(0.5, -22, 0.9, -22)
-reopenButton.BackgroundColor3 = T.BgSide
-reopenButton.BackgroundTransparency = 0.1
-reopenButton.Image = "rbxassetid://74283928898866"
-reopenButton.ImageTransparency = 0.15
-reopenButton.ImageColor3 = T.TextMain
-reopenButton.Visible = false
-reopenButton.ZIndex = 10
-reopenButton.Parent = screenGui
-mkCorner(reopenButton, 22)
-mkStroke(reopenButton, 1.5, T.Accent, 0.3)
-reopenButton.MouseEnter:Connect(function()
-    TweenService:Create(reopenButton, TweenInfo.new(0.2), {BackgroundColor3 = T.Accent, BackgroundTransparency = 0}):Play()
-end)
-reopenButton.MouseLeave:Connect(function()
-    TweenService:Create(reopenButton, TweenInfo.new(0.2), {BackgroundColor3 = T.BgSide, BackgroundTransparency = 0.1}):Play()
-end)
-
-local function createSectionHeader(text, parent)
-    local container = Instance.new("Frame")
-    container.BackgroundTransparency = 1
-    container.Size = UDim2.new(1, 0, 0, 24)
-    container.ZIndex = 3
-    container.Parent = parent
-    local pip = Instance.new("Frame")
-    pip.BackgroundColor3 = T.Accent
-    pip.BorderSizePixel = 0
-    pip.Size = UDim2.new(0, 3, 0, 12)
-    pip.Position = UDim2.new(0, 0, 0.5, -6)
-    pip.ZIndex = 4
-    pip.Parent = container
-    mkCorner(pip, 2)
-    local lbl = Instance.new("TextLabel")
-    lbl.BackgroundTransparency = 1
-    lbl.Text = string.upper(text)
-    lbl.Font = Enum.Font.GothamBold
-    lbl.TextSize = 11
-    lbl.TextColor3 = T.TextSub
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Size = UDim2.new(1, -12, 1, 0)
-    lbl.Position = UDim2.new(0, 10, 0, 0)
-    lbl.ZIndex = 4
-    lbl.Parent = container
-    return container
-end
-
-local function createButton(text, parent, callback, isTabButton)
-    local btn = Instance.new("TextButton")
-    if isTabButton then
-        btn.Size = UDim2.new(0, 0, 1, -6)
-        btn.BackgroundColor3 = T.BgBtn
-        btn.BackgroundTransparency = 1
-        btn.BorderSizePixel = 0
-        btn.Text = text
-        btn.TextColor3 = T.TextSub
-        btn.TextSize = 12
-        btn.Font = Enum.Font.GothamMedium
-        btn.ZIndex = 5
-        btn.Parent = parent
-        mkCorner(btn, 6)
-        local btnPad = Instance.new("UIPadding")
-        btnPad.PaddingLeft = UDim.new(0, 10)
-        btnPad.PaddingRight = UDim.new(0, 10)
-        btnPad.Parent = btn
-        btn.Size = UDim2.new(0, game:GetService("TextService"):GetTextSize(text, 12, Enum.Font.GothamMedium, Vector2.new(1000, 100)).X + 20, 1, -6)
-        local indicator = Instance.new("Frame")
-        indicator.Name = "Indicator"
-        indicator.BackgroundColor3 = T.Accent
-        indicator.BackgroundTransparency = 1
-        indicator.BorderSizePixel = 0
-        indicator.Size = UDim2.new(1, 0, 0, 2)
-        indicator.Position = UDim2.new(0, 0, 1, -1)
-        indicator.ZIndex = 6
-        indicator.Parent = btn
-        btn.MouseEnter:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 0.5, TextColor3 = T.TextMain}):Play()
-        end)
-        btn.MouseLeave:Connect(function()
-            if btn:GetAttribute("Active") then return end
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundTransparency = 1, TextColor3 = T.TextSub}):Play()
-        end)
-        btn.MouseButton1Click:Connect(function()
-            for _, child in ipairs(parent:GetChildren()) do
-                if child:IsA("TextButton") then
-                    child:SetAttribute("Active", false)
-                    TweenService:Create(child, TweenInfo.new(0.15), {BackgroundColor3 = T.BgBtn, BackgroundTransparency = 1, TextColor3 = T.TextSub}):Play()
-                    local ind = child:FindFirstChild("Indicator")
-                    if ind then TweenService:Create(ind, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play() end
-                end
-            end
-            btn:SetAttribute("Active", true)
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = T.Accent, BackgroundTransparency = 0.4, TextColor3 = T.TextMain}):Play()
-            TweenService:Create(btn.Indicator, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
-            trackTab(text)
-            callback()
-        end)
-        return btn
-    else
-        btn.Size = UDim2.new(1, 0, 0, 32)
-        btn.BackgroundColor3 = T.BgBtn
-        btn.BackgroundTransparency = 0.3
-        btn.BorderSizePixel = 0
-        btn.Text = text
-        btn.TextColor3 = T.TextMain
-        btn.TextSize = 13
-        btn.TextTransparency = 0.05
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        btn.Font = Enum.Font.GothamMedium
-        btn.ZIndex = 4
-        btn.Parent = parent
-        mkCorner(btn, 7)
-        mkStroke(btn, 1, T.Stroke, 0.4)
-        local btnPad = Instance.new("UIPadding")
-        btnPad.PaddingLeft = UDim.new(0, 12)
-        btnPad.Parent = btn
-        local accentLine = Instance.new("Frame")
-        accentLine.BackgroundColor3 = T.Accent
-        accentLine.BackgroundTransparency = 1
-        accentLine.BorderSizePixel = 0
-        accentLine.Size = UDim2.new(0, 2, 0, 16)
-        accentLine.Position = UDim2.new(0, 6, 0.5, -8)
-        accentLine.ZIndex = 5
-        accentLine.Parent = btn
-        mkCorner(accentLine, 2)
-        btn.MouseEnter:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = T.BgBtnHov, BackgroundTransparency = 0.1}):Play()
-            TweenService:Create(accentLine, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
-        end)
-        btn.MouseLeave:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = T.BgBtn, BackgroundTransparency = 0.3}):Play()
-            TweenService:Create(accentLine, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
-        end)
-        btn.MouseButton1Click:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.08), {BackgroundColor3 = T.Accent, BackgroundTransparency = 0.4}):Play()
-            task.delay(0.12, function()
-                TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = T.BgBtnHov, BackgroundTransparency = 0.1}):Play()
-            end)
-            callback()
-        end)
-        return btn
-    end
-end
-
-local function createLabel(text, parent, size, position)
-    local label = Instance.new("TextLabel")
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.Size = size or UDim2.new(1, 0, 0, 24)
-    label.Position = position or UDim2.new(0, 0, 0, 0)
-    label.TextSize = 13
-    label.TextColor3 = T.TextMain
-    label.TextTransparency = 0.1
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Font = Enum.Font.Gotham
-    label.TextWrapped = true
-    label.ZIndex = 4
-    label.Parent = parent
-    return label
-end
-
-local function clearContent()
-    for _, child in ipairs(scrollingFrame:GetChildren()) do
-        if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then child:Destroy() end
-    end
-end
-
-local function loadHacksFromCategory(categoryName)
-    clearContent()
-    local data = HubData[categoryName]
-    if not data or #data == 0 then
-        createSectionHeader("No scripts available", scrollingFrame)
-        createLabel("⚠  Failed to load or empty: " .. categoryName, scrollingFrame)
-        return
-    end
-    createSectionHeader(categoryName, scrollingFrame)
-    for _, hack in ipairs(data) do
-        if type(hack)=="table" and hack[1] and type(hack[1])=="string" and hack[2] and type(hack[2])=="function" then
-            createButton(hack[1], scrollingFrame, function()
-                local success, err = pcall(hack[2])
-                if not success then createNotification("ERROR", "Script error: " .. tostring(err), 5, 7733968497) end
-            end)
-        end
-    end
-end
-
-local function showAllScripts()
-    clearContent()
-    createSectionHeader("Search Scripts", scrollingFrame)
-    local searchBox = Instance.new("TextBox")
-    searchBox.Size = UDim2.new(1, 0, 0, 32)
-    searchBox.BackgroundColor3 = T.BgPanel
-    searchBox.BackgroundTransparency = 0.2
-    searchBox.TextColor3 = T.TextMain
-    searchBox.PlaceholderText = "Search scripts..."
-    searchBox.PlaceholderColor3 = T.TextMuted
-    searchBox.TextSize = 13
-    searchBox.Text = ""
-    searchBox.Font = Enum.Font.Gotham
-    searchBox.ClearTextOnFocus = false
-    searchBox.ZIndex = 4
-    searchBox.Parent = scrollingFrame
-    mkCorner(searchBox, 7)
-    mkStroke(searchBox, 1, T.Stroke, 0.3)
-    local sbPad = Instance.new("UIPadding")
-    sbPad.PaddingLeft = UDim.new(0, 10)
-    sbPad.Parent = searchBox
-    local resultsLabel = createLabel("Type to search...", scrollingFrame)
-    resultsLabel.TextColor3 = T.TextMuted
-    local function searchScriptsByMegahack(query)
-        local results = {}
-        for categoryName, hacks in pairs(HubData) do
-            if type(hacks) == "table" then
-                for _, hack in ipairs(hacks) do
-                    if type(hack)=="table" and hack[1] and type(hack[1])=="string" then
-                        if string.find(string.lower(hack[1]), string.lower(query)) or
-                           string.find(string.lower(categoryName), "megahack") then
-                            table.insert(results, {name=hack[1], category=categoryName, func=hack[2]})
-                        end
-                    end
-                end
-            end
-        end
-        return results
-    end
-    local function searchScriptsOnScriptBlox(query)
-        local results = {}
-        local success, response = pcall(function()
-            return HttpService:GetAsync("https://scriptblox.com/api/script/search?q=" .. HttpService:UrlEncode(query))
-        end)
-        if success then
-            local data = HttpService:JSONDecode(response)
-            if data and data.result and data.result.scripts then
-                for _, script in ipairs(data.result.scripts) do
-                    table.insert(results, {name=script.title, category="ScriptBlox", scriptId=script._id})
-                end
-            end
-        end
-        return results
-    end
-    local function updateSearchResults(query)
-        for _, child in ipairs(scrollingFrame:GetChildren()) do
-            if child ~= searchBox and child ~= resultsLabel
-               and not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
-                child:Destroy()
-            end
-        end
-        if query == "" then resultsLabel.Text = "Type to search..."; return end
-        resultsLabel.Text = "Searching..."
-        local mhResults = searchScriptsByMegahack(query)
-        local sbResults = searchScriptsOnScriptBlox(query)
-        resultsLabel.Text = "Found " .. (#mhResults + #sbResults) .. " results"
-        for _, r in ipairs(mhResults) do
-            createButton(r.name .. "  [" .. r.category .. "]", scrollingFrame, function()
-                local s, e = pcall(r.func)
-                if not s then createNotification("ERROR", tostring(e), 5, 7733968497) end
-            end)
-        end
-        for _, r in ipairs(sbResults) do
-            createButton(r.name .. "  [ScriptBlox]", scrollingFrame, function()
-                createNotification("INFO", "ScriptBlox ID: " .. r.scriptId, 5)
-            end)
-        end
-    end
-    searchBox.FocusLost:Connect(function() updateSearchResults(searchBox.Text) end)
-    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        if #searchBox.Text >= 3 then
-            task.delay(0.5, function() updateSearchResults(searchBox.Text) end)
-        end
+        writefile("MegaHack/stats.json", Services.HttpService:JSONEncode(Core.Stats))
     end)
 end
 
-local function showHome()
-    clearContent()
-    createSectionHeader("Overview", scrollingFrame)
-    local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 90)
-    card.BackgroundColor3 = T.BgPanel
-    card.BackgroundTransparency = 0.15
-    card.BorderSizePixel = 0
-    card.ZIndex = 4
-    card.Parent = scrollingFrame
-    mkCorner(card, 8)
-    mkStroke(card, 1, T.Stroke, 0.5)
-    local success, thumbnail = pcall(function()
-        return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size180x180)
-    end)
-    local avatarImg = Instance.new("ImageLabel")
-    avatarImg.Size = UDim2.new(0, 64, 0, 64)
-    avatarImg.Position = UDim2.new(0, 12, 0.5, -32)
-    avatarImg.BackgroundColor3 = T.BgSide
-    avatarImg.BackgroundTransparency = 0
-    avatarImg.Image = success and thumbnail or ""
-    avatarImg.ZIndex = 5
-    avatarImg.Parent = card
-    mkCorner(avatarImg, 32)
-    mkStroke(avatarImg, 2, T.Accent, 0.4)
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Text = player.Name
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 15
-    nameLabel.TextColor3 = T.TextMain
-    nameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Size = UDim2.new(1, -90, 0, 20)
-    nameLabel.Position = UDim2.new(0, 86, 0, 14)
-    nameLabel.ZIndex = 5
-    nameLabel.Parent = card
-    local uidLabel = Instance.new("TextLabel")
-    uidLabel.Text = "UserID: " .. player.UserId
-    uidLabel.Font = Enum.Font.Gotham
-    uidLabel.TextSize = 11
-    uidLabel.TextColor3 = T.TextSub
-    uidLabel.TextXAlignment = Enum.TextXAlignment.Left
-    uidLabel.BackgroundTransparency = 1
-    uidLabel.Size = UDim2.new(1, -90, 0, 14)
-    uidLabel.Position = UDim2.new(0, 86, 0, 36)
-    uidLabel.ZIndex = 5
-    uidLabel.Parent = card
-    local gameLabel = Instance.new("TextLabel")
-    local ok, gname = pcall(function() return MarketplaceService:GetProductInfo(game.PlaceId).Name end)
-    gameLabel.Text = "Game: " .. (ok and gname or "Unknown") .. "  ·  PlaceId: " .. game.PlaceId
-    gameLabel.Font = Enum.Font.Gotham
-    gameLabel.TextSize = 10
-    gameLabel.TextColor3 = T.TextMuted
-    gameLabel.TextXAlignment = Enum.TextXAlignment.Left
-    gameLabel.BackgroundTransparency = 1
-    gameLabel.Size = UDim2.new(1, -90, 0, 14)
-    gameLabel.Position = UDim2.new(0, 86, 0, 52)
-    gameLabel.ZIndex = 5
-    gameLabel.Parent = card
-    local platformLabel = Instance.new("TextLabel")
-    platformLabel.Text = platformName
-    platformLabel.Font = Enum.Font.GothamBold
-    platformLabel.TextSize = 10
-    platformLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    platformLabel.TextXAlignment = Enum.TextXAlignment.Left
-    platformLabel.BackgroundTransparency = 1
-    platformLabel.Size = UDim2.new(0, 60, 0, 14)
-    platformLabel.Position = UDim2.new(0, 86, 0, 68)
-    platformLabel.ZIndex = 5
-    platformLabel.Parent = card
-    local fpsCard = Instance.new("Frame")
-    fpsCard.Size = UDim2.new(1, 0, 0, 32)
-    fpsCard.BackgroundColor3 = T.BgPanel
-    fpsCard.BackgroundTransparency = 0.2
-    fpsCard.BorderSizePixel = 0
-    fpsCard.ZIndex = 4
-    fpsCard.Parent = scrollingFrame
-    mkCorner(fpsCard, 7)
-    mkStroke(fpsCard, 1, T.Stroke, 0.5)
-    local fpsLabel = Instance.new("TextLabel")
-    fpsLabel.Text = "FPS: Calculating..."
-    fpsLabel.Font = Enum.Font.Gotham
-    fpsLabel.TextSize = 12
-    fpsLabel.TextColor3 = T.TextMain
-    fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    fpsLabel.BackgroundTransparency = 1
-    fpsLabel.Size = UDim2.new(1, -16, 1, 0)
-    fpsLabel.Position = UDim2.new(0, 16, 0, 0)
-    fpsLabel.ZIndex = 5
-    fpsLabel.Parent = fpsCard
-    local lastTime, frameCount = tick(), 0
-    RunService.Heartbeat:Connect(function()
-        frameCount = frameCount + 1
-        local cur = tick()
-        if cur - lastTime >= 1 then
-            fpsLabel.Text = "FPS: " .. frameCount
-            frameCount = 0; lastTime = cur
-        end
-    end)
-    createSectionHeader("Your Stats", scrollingFrame)
-    local statsCard = Instance.new("Frame")
-    statsCard.Size = UDim2.new(1, 0, 0, 80)
-    statsCard.BackgroundColor3 = T.BgPanel
-    statsCard.BackgroundTransparency = 0.15
-    statsCard.BorderSizePixel = 0
-    statsCard.ZIndex = 4
-    statsCard.Parent = scrollingFrame
-    mkCorner(statsCard, 8)
-    mkStroke(statsCard, 1, T.Stroke, 0.5)
-    local hoursLabel = Instance.new("TextLabel")
-    hoursLabel.Text = string.format("Hours with MegaHack: %.1f", stats.totalHours or 0)
-    hoursLabel.Font = Enum.Font.Gotham
-    hoursLabel.TextSize = 12
-    hoursLabel.TextColor3 = T.TextMain
-    hoursLabel.TextXAlignment = Enum.TextXAlignment.Left
-    hoursLabel.BackgroundTransparency = 1
-    hoursLabel.Size = UDim2.new(1, -16, 0, 20)
-    hoursLabel.Position = UDim2.new(0, 16, 0, 8)
-    hoursLabel.ZIndex = 5
-    hoursLabel.Parent = statsCard
-    local sessionsLabel = Instance.new("TextLabel")
-    sessionsLabel.Text = "Sessions: " .. (stats.sessions or 0)
-    sessionsLabel.Font = Enum.Font.Gotham
-    sessionsLabel.TextSize = 12
-    sessionsLabel.TextColor3 = T.TextMain
-    sessionsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    sessionsLabel.BackgroundTransparency = 1
-    sessionsLabel.Size = UDim2.new(1, -16, 0, 20)
-    sessionsLabel.Position = UDim2.new(0, 16, 0, 30)
-    sessionsLabel.ZIndex = 5
-    sessionsLabel.Parent = statsCard
-    local tabLabel = Instance.new("TextLabel")
-    tabLabel.Text = "Most used tab: " .. (stats.mostUsedTab or "None")
-    tabLabel.Font = Enum.Font.Gotham
-    tabLabel.TextSize = 12
-    tabLabel.TextColor3 = T.TextMain
-    tabLabel.TextXAlignment = Enum.TextXAlignment.Left
-    tabLabel.BackgroundTransparency = 1
-    tabLabel.Size = UDim2.new(1, -16, 0, 20)
-    tabLabel.Position = UDim2.new(0, 16, 0, 52)
-    tabLabel.ZIndex = 5
-    tabLabel.Parent = statsCard
-    createSectionHeader("Social", scrollingFrame)
-    createLabel("YouTube  ·  https://www.youtube.com/@Vermax", scrollingFrame)
-    createLabel("Telegram  ·  https://t.me/@vermax", scrollingFrame)
-    createLabel("Discord  ·  https://discord.com/invite/vermax", scrollingFrame)
-end
-
-local function showUpdate()
-    clearContent()
-    createSectionHeader("What's New", scrollingFrame)
-    createLabel("🔥 New modern UI with horizontal tabs", scrollingFrame)
-    createLabel("🌈 Accent color system: Red, Green, Purple, Yellow", scrollingFrame)
-    createLabel("⚙ Settings with theme and transparency control", scrollingFrame)
-    createLabel("📂 Config auto-saves your preferences", scrollingFrame)
-    createLabel("🛡 Anti-Ban / Anti-Kick protection", scrollingFrame)
-    createLabel("📊 Stats tracking and improved performance", scrollingFrame)
-    createLabel("🔍 Script search with ScriptBlox integration", scrollingFrame)
-end
-
-local function checkFunctions()
-    local functionsToCheck = {
-        "getrawmetatable","makefolder","getscriptbytecode","setthreadidentity","delfile","request",
-        "Drawing.Fonts","isscriptable","iscclosure","debug.setconstant","debug.getprotos","lz4compress",
-        "getscripts","isfolder","sethiddenproperty","getthreadidentity","readfile","getscriptclosure",
-        "delfolder","setscriptable","Drawing.new","debug.getupvalues","hookmetamethod","debug.getproto",
-        "getrunningscripts","checkcaller","debug.setupvalue","setrawmetatable","gethiddenproperty","writefile",
-        "setrenderproperty","getnamecallmethod","isfile","fireclickdetector","getnilinstances","getcustomasset",
-        "islclosure","loadstring","cache.iscached","cache.invalidate","cloneref","cache.replace","getgc",
-        "compareinstances","base64_encode","getrenv","hookfunction","debug.getupvalue","setreadonly",
-        "getloadedmodules","debug.getinfo","fireproximityprompt","WebSocket.connect","listfiles","gethui",
-        "isreadonly","getrenderproperty","lz4decompress","appendfile","loadfile","getinstances","isexecutorclosure",
-        "getcallbackvalue","getfunctionhash","replicatesignal","cleardrawcache","decompile","filtergc",
-        "identifyexecutor","getscripthash","firesignal","firetouchinterest","debug.setstack","isrenderobj",
-        "getcallingscript","debug.getstack","getsenv","clonefunction","debug.getconstant","getgenv","newcclosure",
-        "base64_decode","debug.getconstants","getconnections","restorefunction"
-    }
-    local available, unavailable = {}, {}
-    for _, funcName in ipairs(functionsToCheck) do
-        local s = pcall(function()
-            if funcName:find("%.") then
-                local parts = funcName:split("%."); local obj = _G
-                for i, p in ipairs(parts) do
-                    if i==#parts then if obj[p]~=nil then return true end
-                    else obj=obj[p]; if obj==nil then return false end end
-                end
-            else return _G[funcName]~=nil end
-        end)
-        if s then table.insert(available, funcName) else table.insert(unavailable, funcName) end
+function Core:TrackTab(tabName)
+    Core.Stats.tabUsage[tabName] = (Core.Stats.tabUsage[tabName] or 0) + 1
+    local maxC, maxT = 0, "Home"
+    for t, c in pairs(Core.Stats.tabUsage) do
+        if c > maxC then maxC, maxT = c, t end
     end
-    return available, unavailable
+    Core.Stats.mostUsedTab = maxT
+    Core:SaveStats()
 end
 
-local function setupAntiBanKick()
+-- Notifications
+function Core:Notify(title, subtitle, duration, icon)
+    duration = duration or 3
+    local gui = Instance.new("ScreenGui", Core.PlayerGui)
+    gui.ResetOnSpawn = false
+    gui.Name = "MH_Notif"
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 280, 0, 70)
+    frame.Position = UDim2.new(1, -300, 0, 80)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    frame.Parent = gui
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+
+    local iconLbl = Instance.new("ImageLabel")
+    iconLbl.Size = UDim2.new(0, 40, 0, 40)
+    iconLbl.Position = UDim2.new(0, 15, 0.5, -20)
+    iconLbl.BackgroundTransparency = 1
+    iconLbl.Image = icon and ("rbxassetid://" .. icon) or "rbxassetid://74283928898866"
+    iconLbl.Parent = frame
+
+    local titleLbl = Instance.new("TextLabel")
+    titleLbl.Text = title
+    titleLbl.Font = Enum.Font.GothamBold
+    titleLbl.TextSize = 15
+    titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLbl.Position = UDim2.new(0, 65, 0, 12)
+    titleLbl.Size = UDim2.new(1, -80, 0, 20)
+    titleLbl.BackgroundTransparency = 1
+    titleLbl.Parent = frame
+
+    local subLbl = Instance.new("TextLabel")
+    subLbl.Text = subtitle
+    subLbl.Font = Enum.Font.Gotham
+    subLbl.TextSize = 13
+    subLbl.TextColor3 = Color3.fromRGB(180, 180, 190)
+    subLbl.Position = UDim2.new(0, 65, 0, 35)
+    subLbl.Size = UDim2.new(1, -80, 0, 20)
+    subLbl.BackgroundTransparency = 1
+    subLbl.Parent = frame
+
+    -- Animation
+    Services.TweenService:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Position = UDim2.new(1, -300, 0, 80)}):Play()
+    task.delay(duration, function()
+        Services.TweenService:Create(frame, TweenInfo.new(0.3), {Position = UDim2.new(1, 50, 0, 80)}):Play()
+        task.delay(0.4, function() gui:Destroy() end)
+    end)
+end
+
+-- Anti Ban
+function Core:SetupAntiBan()
     local mt = getrawmetatable(game)
     if mt then
-        local oldNamecall = mt.__namecall
+        local old = mt.__namecall
         setreadonly(mt, false)
         mt.__namecall = newcclosure(function(self, ...)
             local method = getnamecallmethod()
-            if method=="Kick" or method=="kick" then
-                createNotification("ANTI-KICK","Kick attempt blocked",3,7733960981); return nil
+            if method:lower():find("kick") or method:lower():find("ban") then
+                Core:Notify("ANTI-BAN", "Blocked " .. method, 3)
+                return
             end
-            if method=="Ban" or method=="ban" then
-                createNotification("ANTI-BAN","Ban attempt blocked",3,7733960981); return nil
-            end
-            return oldNamecall(self,...)
+            return old(self, ...)
         end)
         setreadonly(mt, true)
     end
-    createNotification("PROTECTION","Anti-Ban/Anti-Kick enabled",3,7733960981)
 end
 
-local function saveCoordinates()
-    local character = player.Character or player.CharacterAdded:Wait()
-    local rootPart = character:FindFirstChild("HumanoidRootPart")
-    if rootPart then
-        local pos = rootPart.Position
-        local txt = string.format("X: %.2f, Y: %.2f, Z: %.2f", pos.X, pos.Y, pos.Z)
+-- Other utilities (coordinates, etc.)
+function Core:SavePosition()
+    local char = player.Character or player.CharacterAdded:Wait()
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if root then
+        local pos = root.Position
+        local str = string.format("X:%.2f Y:%.2f Z:%.2f", pos.X, pos.Y, pos.Z)
         if not isfolder("MegaHack") then makefolder("MegaHack") end
-        writefile("MegaHack/coordinates.txt", txt)
-        createNotification("SAVED", txt, 4, 7733960981)
-    else
-        createNotification("ERROR","No HumanoidRootPart found",3,7733968497)
+        writefile("MegaHack/pos.txt", str)
+        Core:Notify("SAVED", str, 4)
     end
 end
 
-local function teleportToCoordinates()
-    if isfile("MegaHack/coordinates.txt") then
-        local txt = readfile("MegaHack/coordinates.txt")
-        local x, y, z = txt:match("X: ([%d%.]+), Y: ([%d%.]+), Z: ([%d%.]+)")
+function Core:TeleportToSaved()
+    if isfile("MegaHack/pos.txt") then
+        local data = readfile("MegaHack/pos.txt")
+        local x,y,z = data:match("X:(%d+%.?%d*) Y:(%d+%.?%d*) Z:(%d+%.?%d*)")
         if x and y and z then
-            local character = player.Character or player.CharacterAdded:Wait()
-            local rootPart = character:FindFirstChild("HumanoidRootPart")
-            if rootPart then
-                rootPart.CFrame = CFrame.new(tonumber(x), tonumber(y), tonumber(z))
-                createNotification("TELEPORT","Teleported to saved coordinates",3,7733960981)
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = CFrame.new(tonumber(x), tonumber(y), tonumber(z))
             end
-        else
-            createNotification("ERROR","Invalid coordinates format",3,7733968497)
         end
-    else
-        createNotification("ERROR","No saved coordinates found",3,7733968497)
     end
 end
 
-local settings = {
-    locked = false,
-    transparency = 0.04,
-    accentColor = "Red"
-}
-
-local function loadConfig()
-    pcall(function()
-        if isfile("MegaHack/config.json") then
-            local cfg = HttpService:JSONDecode(readfile("MegaHack/config.json"))
-            if cfg.accentColor and AccentColors[cfg.accentColor] then
-                settings.accentColor = cfg.accentColor
-            end
-            if cfg.transparency then settings.transparency = cfg.transparency end
-            if cfg.locked ~= nil then settings.locked = cfg.locked end
-        end
-    end)
-end
-local function saveConfig()
-    pcall(function()
-        if not isfolder("MegaHack") then makefolder("MegaHack") end
-        writefile("MegaHack/config.json", HttpService:JSONEncode(settings))
-    end)
-end
-local function applyAccentColor()
-    local cols = AccentColors[settings.accentColor]
-    T.Accent = cols.Accent
-    T.AccentHov = cols.AccentHov
-    T.AccentGlow = cols.AccentGlow
-end
-
-loadConfig()
-applyAccentColor()
-mainFrame.BackgroundTransparency = settings.transparency
-
-local function showSettings()
-    clearContent()
-    createSectionHeader("Theme", scrollingFrame)
-    for name, _ in pairs(AccentColors) do
-        createButton(name, scrollingFrame, function()
-            settings.accentColor = name
-            applyAccentColor()
-            saveConfig()
-            createNotification("THEME", "Accent color set to " .. name, 3)
-        end)
-    end
-    createSectionHeader("Transparency", scrollingFrame)
-    for _, t in ipairs({{"0%",0},{"10%",0.1},{"25%",0.25},{"50%",0.5},{"75%",0.75}}) do
-        createButton(t[1], scrollingFrame, function()
-            settings.transparency = t[2]
-            mainFrame.BackgroundTransparency = settings.transparency
-            saveConfig()
-        end)
-    end
-    createSectionHeader("Server", scrollingFrame)
-    createButton("Rejoin", scrollingFrame, function()
-        local s, e = pcall(function() TeleportService:Teleport(game.PlaceId, player) end)
-        if not s then createNotification("ERROR","Rejoin failed: "..tostring(e),5,7733968497) end
-    end)
-    createButton("Server Hop", scrollingFrame, function()
-        local s, e = pcall(function()
-            local servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"))
-            if #servers.data > 0 then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, servers.data[math.random(1,#servers.data)].id, player)
-            else createNotification("ERROR","No servers found",5,7733968497) end
-        end)
-        if not s then createNotification("ERROR","Server hop failed: "..tostring(e),5,7733968497) end
-    end)
-    createButton("Copy Server ID", scrollingFrame, function()
-        local s, e = pcall(function() setclipboard(game.JobId); createNotification("SUCCESS","Copied!",3) end)
-        if not s then createNotification("ERROR",tostring(e),5,7733968497) end
-    end)
-    createSectionHeader("Coordinates", scrollingFrame)
-    createButton("Save Current Position", scrollingFrame, saveCoordinates)
-    createButton("Teleport to Saved Position", scrollingFrame, teleportToCoordinates)
-    createSectionHeader("Security", scrollingFrame)
-    createButton("Enable Anti-Ban / Anti-Kick", scrollingFrame, setupAntiBanKick)
-    createButton("Check Executor Functions", scrollingFrame, function()
-        local av, unav = checkFunctions()
-        createNotification("FUNCTIONS","Available: "..#av.."/"..(#av+#unav),5,7733960981)
-        print("=== AVAILABLE ==="); for _, f in ipairs(av) do print("✓ "..f) end
-        print("=== UNAVAILABLE ==="); for _, f in ipairs(unav) do print("✗ "..f) end
-    end)
-    createSectionHeader("Appearance", scrollingFrame)
-    createButton((settings.locked and "Unlock GUI" or "Lock GUI"), scrollingFrame, function()
-        settings.locked = not settings.locked
-        saveConfig()
-    end)
-    createSectionHeader("Actions", scrollingFrame)
-    createButton("Close GUI", scrollingFrame, function() screenGui:Destroy() end)
-end
-
-local categories = {
-    ["Home"] = showHome,
-    ["Update"] = showUpdate,
-    ["Settings"] = showSettings,
-    ["All Scripts"] = showAllScripts,
-    ["MegaHack"] = function() loadHacksFromCategory("MegaHack") end,
-    ["Hacks"] = function() loadHacksFromCategory("Hacks") end,
-    ["MM2"] = function() loadHacksFromCategory("MM2") end,
-    ["Admins"] = function() loadHacksFromCategory("Admins") end,
-    ["Animations"] = function() loadHacksFromCategory("Animations") end,
-    ["FE"] = function() loadHacksFromCategory("FE") end,
-    ["Ragdoll Engine"] = function() loadHacksFromCategory("RagdollEngine") end,
-    ["Natural Disaster"] = function() loadHacksFromCategory("NaturalDisaster") end,
-    ["Evade"] = function() loadHacksFromCategory("Evade") end,
-    ["IKEA 3008"] = function() loadHacksFromCategory("IKEA3008") end,
-    ["Brookhaven"] = function() loadHacksFromCategory("Brookhaven") end,
-    ["Blade Ball"] = function() loadHacksFromCategory("BladeBall") end,
-    ["Blox Fruit"] = function() loadHacksFromCategory("BloxFruit") end,
-    ["Steal Brain Root"] = function() loadHacksFromCategory("StealBrainRoot") end,
-    ["Tower of Hell"] = function() loadHacksFromCategory("TowerOfHell") end,
-    ["Adopt Me"] = function() loadHacksFromCategory("AdoptMe") end,
-    ["Grow Garden"] = function() loadHacksFromCategory("GrowGarden") end,
-    ["Night99"] = function() loadHacksFromCategory("Night") end,
-    ["FORSAKEN"] = function() loadHacksFromCategory("FORSAKEN") end,
-    ["Weird Gun Game"] = function() loadHacksFromCategory("Weird") end,
-    ["Rivals"] = function() loadHacksFromCategory("Rivals") end,
-    ["Duels MVS"] = function() loadHacksFromCategory("DuelsMVS") end,
-    ["Violence District"] = function() loadHacksFromCategory("ViolenceDistrict") end,
-    ["Loot Up"] = function() loadHacksFromCategory("LootUp") end,
-}
-
-local categoryOrder = {
-    "Home", "Update", "Settings", "All Scripts",
-    "MegaHack", "Hacks", "Admins", "Animations", "FE", "Steal Brain Root",
-    "Blade Ball", "Ragdoll Engine", "Natural Disaster",
-    "MM2", "Duels MVS", "Evade", "IKEA 3008", "Blox Fruit", "Brookhaven",
-    "Adopt Me", "Tower of Hell", "Night99", "FORSAKEN",
-    "Grow Garden", "Violence District", "Weird Gun Game", "Rivals",
-    "Loot Up",
-}
-
-for _, catName in ipairs(categoryOrder) do
-    createButton(catName, tabScroll, function()
-        clearContent()
-        categories[catName]()
-    end, true)
-end
-
-local function MakeDraggable(frame, dragPart)
-    dragPart = dragPart or frame
-    local dragging, dragInput, mousePos, framePos
-    dragPart.InputBegan:Connect(function(input)
-        if not settings.locked and (input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            dragging = true
-            mousePos = input.Position
-            framePos = frame.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then dragging = false end
-            end)
-        end
-    end)
-    dragPart.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - mousePos
-            frame.Position = UDim2.new(
-                framePos.X.Scale, framePos.X.Offset + delta.X,
-                framePos.Y.Scale, framePos.Y.Offset + delta.Y
-            )
-        end
-    end)
-end
-MakeDraggable(mainFrame, headerFrame)
-MakeDraggable(reopenButton, reopenButton)
-
-closeBtn.MouseButton1Click:Connect(function()
-    TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
-        Size = UDim2.new(0, 580, 0, 0), BackgroundTransparency = 1
-    }):Play()
-    task.delay(0.25, function()
-        mainFrame.Visible = false
-        mainFrame.Size = UDim2.new(0, 580, 0, 400)
-        mainFrame.BackgroundTransparency = settings.transparency
-        reopenButton.Visible = true
-    end)
-end)
-
-reopenButton.MouseButton1Click:Connect(function()
-    mainFrame.Visible = true
-    mainFrame.Size = UDim2.new(0, 580, 0, 0)
-    mainFrame.BackgroundTransparency = 1
-    reopenButton.Visible = false
-    TweenService:Create(mainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 580, 0, 400), BackgroundTransparency = settings.transparency
-    }):Play()
-end)
-
-mainFrame.Size = UDim2.new(0, 0, 0, 0)
-mainFrame.BackgroundTransparency = 1
-
-loadStats()
-stats.sessions = (stats.sessions or 0) + 1
-saveStats()
+Core:LoadStats()
+Core.Stats.sessions = Core.Stats.sessions + 1
+Core:SaveStats()
 
 task.spawn(function()
-    while task.wait(60) do
-        stats.totalHours = (stats.totalHours or 0) + (1/60)
-        saveStats()
+    while wait(60) do
+        Core.Stats.totalHours = Core.Stats.totalHours + 1/60
+        Core:SaveStats()
     end
 end)
 
-TweenService:Create(mainFrame,
-    TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
-    {Size = UDim2.new(0, 580, 0, 400), BackgroundTransparency = settings.transparency}
-):Play()
-
-showHome()
-
-task.delay(0.2, function()
-    local firstBtn = tabScroll:FindFirstChildWhichIsA("TextButton")
-    if firstBtn then
-        firstBtn:SetAttribute("Active", true)
-        TweenService:Create(firstBtn, TweenInfo.new(0.15), {
-            BackgroundColor3 = T.Accent, BackgroundTransparency = 0.4, TextColor3 = T.TextMain
-        }):Play()
-        local ind = firstBtn:FindFirstChild("Indicator")
-        if ind then TweenService:Create(ind, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play() end
-    end
-end)
-
-createNotification("MEGAHACK V2", "Loaded  ·  " .. platformName, 3, 74283928898866)
+return Core
