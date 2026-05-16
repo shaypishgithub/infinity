@@ -35,4 +35,5 @@ Since this runs via a dynamic loader, you cannot just copy-paste raw script file
 
 ```lua
 -- Copy and paste this into your Roblox executor:
-loadstring(game:HttpGet("(https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/maybemenu.lua)"))()
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/maybemenu.lua", true))()
