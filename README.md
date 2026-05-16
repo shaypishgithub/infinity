@@ -4,17 +4,17 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Scripts%20Count-10,000%2B-00ff66?style=for-the-badge&logo=lua&logoColor=black" alt="Scripts Count">
+  <img src="https://img.shields.io/badge/Developer-vertelvsepoel-ffaa00?style=for-the-badge&logo=github&logoColor=white" alt="Developer">
   <img src="https://img.shields.io/badge/Project%20Type-Pure%20Enthusiasm-ff0055?style=for-the-badge&logo=heart&logoColor=white" alt="Project Type">
-  <img src="https://img.shields.io/badge/License-Open%20Source-007acc?style=for-the-badge" alt="License">
 </p>
 
 ---
 
 ## ⚡ Overview
 
-Welcome to the ultimate **Mega Hack Lua Hub**! This repository is a massive, curated collection of over **10,000 Lua scripts** designed to enhance, tweak, and push your game modding experience to its absolute limits. 
+Welcome to the ultimate **Mega Hack Lua Hub**, developed by **vertelvsepoel**. This repository is a massive, curated collection of over **10,000 Lua scripts** designed to tweak and push your game modding experience to its limits.
 
-> 🧪 **Driven by Passion:** This entire project was built from scratch out of pure enthusiasm, late-night coding sessions, and love for the community. No paywalls, no corporate backing—just raw code and dedication.
+> 🛠️ **Author's Note:** Let's be real—this code isn't anything grand or revolutionary. I simply took the brilliant concept and ideas from the original Geometry Dash Mega Hack and recreated/expanded them here. It's a passion project built out of pure enthusiasm, late-night coding, and love for the game.
 
 ---
 
@@ -54,15 +54,13 @@ Want to inject some scripts? It’s as simple as copy-pasting.
 
 ---
 
-## 🤝 Contribution & Support
+## 🤝 Credits & Disclaimer
 
-Since this project runs entirely on **pure enthusiasm**, community contributions are what keep it alive! 
-
-*   Found a bug or broken script? Open an [Issue](../../issues).
-*   Have a cool Lua script to add? Submit a [Pull Request](../../pulls) and help us reach the next thousand!
+*   **Inspiration:** Huge credit goes to Absolute and the original **Mega Hack for Geometry Dash** for the brilliant ideas behind these features. 
+*   **Contribute:** Found a bug or broken script? Feel free to open an [Issue](../../issues) or submit a [Pull Request](../../pulls).
 
 ---
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Made%20with%20💚%20by%20an%20Enthusiast-00ff66?style=flat-square" alt="Footer" />
+  <img src="https://img.shields.io/badge/Made%20with%20💚%20by%20vertelvsepoel-00ff66?style=flat-square" alt="Footer" />
 </p>
