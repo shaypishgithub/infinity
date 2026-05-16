@@ -55,7 +55,7 @@ local HubData = {
     IKEA3008 = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/3008.lua"),
     Rivals = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Rivals.lua"),
     FORSAKEN = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/FORSAKEN.lua"),
-    LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/lootup.lua"),
+    LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/base/lootup.lua"),
 }
 
 
