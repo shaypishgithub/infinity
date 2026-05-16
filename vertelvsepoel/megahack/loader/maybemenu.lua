@@ -1,6 +1,3 @@
--- ==============================================
---  MEGAHACK LOADER (с загрузкой базы из base.lua)
--- ==============================================
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -36,23 +33,59 @@ local function safeLoad(url)
 end
 
 -- ══════════════════════════════════════
---  ЗАГРУЗКА БАЗЫ (отдельный файл base.lua)
+--  ЗАГРУЗКА БАЗЫ (base.lua)
 -- ══════════════════════════════════════
 local baseConfigUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/base.lua"
 local baseConfig = safeLoad(baseConfigUrl) or {}
 local baseUrl = baseConfig.baseUrl or "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base"
 local categoryMap = baseConfig.categories or {}
 
--- Кэш загруженных данных категорий
+-- Кэш скриптов
 local HubData = {}
-
--- ====== ПРЕДЗАГРУЗКА ВСЕХ КАТЕГОРИЙ ДЛЯ КОРРЕКТНОГО ПОДСЧЁТА ======
+-- Предзагрузка всех категорий для правильного подсчёта
 for categoryName, fileName in pairs(categoryMap) do
     local data = safeLoad(baseUrl .. "/" .. fileName)
     if type(data) == "table" and #data > 0 then
         HubData[categoryName] = data
     end
 end
+
+-- ══════════════════════════════════════
+--  ЗАГРУЗКА ТЕМЫ (theme.lua)
+-- ══════════════════════════════════════
+local themeUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/theme.lua"
+local themeFactory = safeLoad(themeUrl)
+if type(themeFactory) ~= "function" then
+    warn("[MH] Theme module failed to load or invalid format!")
+    return
+end
+
+-- Создаём общий реестр акцентных элементов (будет передан в тему)
+local accentRegistry = {}
+
+-- Функция уведомлений (объявлена ниже, но нужна теме)
+local createNotification  -- forward
+
+-- Инициализация темы, передаём все зависимости
+local theme = themeFactory({
+    TweenService         = TweenService,
+    RunService           = RunService,
+    HttpService          = HttpService,
+    playerGui            = playerGui,
+    mainFrame            = nil,   -- будет заполнено позже
+    scrollingFrame       = nil,   -- будет заполнено позже
+    accentRegistry       = accentRegistry,
+    createNotification   = function(...) return createNotification(...) end,
+    -- ссылки на главные фреймы добавим после их создания
+})
+
+local T = theme.T
+local regA = theme.regA or function(obj, prop) table.insert(accentRegistry, {obj=obj, prop=prop or "BackgroundColor3"}) end
+local updateGuiColors = theme.updateGuiColors
+local createColorPicker = theme.createColorPicker
+local saveColorSettings = theme.saveColorSettings
+local loadColorSettings = theme.loadColorSettings
+local clearRgbConnections = theme.clearRgbConnections
 
 -- ══════════════════════════════════════
 --  COUNT SCRIPTS
@@ -66,35 +99,9 @@ local function countScripts()
 end
 
 -- ══════════════════════════════════════
---  COLOUR THEME
--- ══════════════════════════════════════
-local T = {
-    BgBase    = Color3.fromRGB(13, 13, 17),
-    BgSide    = Color3.fromRGB(19, 19, 25),
-    BgPanel   = Color3.fromRGB(24, 24, 32),
-    BgBtn     = Color3.fromRGB(30, 30, 40),
-    BgBtnHov  = Color3.fromRGB(38, 38, 52),
-    Accent    = Color3.fromRGB(155, 28, 28),
-    AccentHov = Color3.fromRGB(190, 42, 42),
-    AccentGlow= Color3.fromRGB(200, 50, 50),
-    TextMain  = Color3.fromRGB(228, 228, 235),
-    TextSub   = Color3.fromRGB(140, 140, 152),
-    TextMuted = Color3.fromRGB(90, 90, 100),
-    Stroke    = Color3.fromRGB(44, 44, 56),
-    StrokeBrt = Color3.fromRGB(68, 68, 82),
-    Separator = Color3.fromRGB(35, 35, 46),
-}
-
--- ── Accent registry ──
-local accentRegistry = {}
-local function regA(obj, prop)
-    table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
-end
-
--- ══════════════════════════════════════
 --  NOTIFICATION
 -- ══════════════════════════════════════
-local function createNotification(title, subtitle, duration, iconId)
+createNotification = function(title, subtitle, duration, iconId)
     local notificationGui = Instance.new("ScreenGui")
     notificationGui.Name = "MH_Notification"
     notificationGui.Parent = playerGui
@@ -188,6 +195,9 @@ local function createNotification(title, subtitle, duration, iconId)
     task.delay(duration, fadeOut)
 end
 
+-- Теперь, когда createNotification определена, можно обновить тему с правильной ссылкой
+theme.createNotification = createNotification
+
 -- ══════════════════════════════════════
 --  SCREEN GUI
 -- ══════════════════════════════════════
@@ -245,12 +255,10 @@ mkCorner(mainFrame, 12)
 mkStroke(mainFrame, 1.5, T.StrokeBrt, 0.55)
 
 -- ══════════════════════════════════════
---  HEADER  (full width × 44)
+--  HEADER
 -- ══════════════════════════════════════
 local headerFrame = Instance.new("Frame")
-headerFrame.Name = "Header"
 headerFrame.BackgroundColor3 = T.BgSide
-headerFrame.BackgroundTransparency = 0
 headerFrame.BorderSizePixel = 0
 headerFrame.Size = UDim2.new(1, 0, 0, 44)
 headerFrame.ZIndex = 4
@@ -259,7 +267,6 @@ mkCorner(headerFrame, 12)
 
 local headerPatch = Instance.new("Frame")
 headerPatch.BackgroundColor3 = T.BgSide
-headerPatch.BackgroundTransparency = 0
 headerPatch.BorderSizePixel = 0
 headerPatch.Size = UDim2.new(1, 0, 0, 12)
 headerPatch.Position = UDim2.new(0, 0, 1, -12)
@@ -268,7 +275,6 @@ headerPatch.Parent = headerFrame
 
 local headerLine = Instance.new("Frame")
 headerLine.BackgroundColor3 = T.Separator
-headerLine.BackgroundTransparency = 0
 headerLine.BorderSizePixel = 0
 headerLine.Size = UDim2.new(1, 0, 0, 1)
 headerLine.Position = UDim2.new(0, 0, 1, -1)
@@ -277,7 +283,6 @@ headerLine.Parent = headerFrame
 
 local headerAccent = Instance.new("Frame")
 headerAccent.BackgroundColor3 = T.Accent
-headerAccent.BackgroundTransparency = 0
 headerAccent.BorderSizePixel = 0
 headerAccent.Size = UDim2.new(0, 4, 0, 24)
 headerAccent.Position = UDim2.new(0, 12, 0.5, -12)
@@ -329,10 +334,9 @@ versionText.ZIndex = 7
 versionText.Parent = versionBadge
 versionText:SetAttribute("TextRole", "main")
 
--- Теперь создаём label, но текст поставим позже (после предзагрузки)
 local scriptCountLabel = Instance.new("TextLabel")
 scriptCountLabel.BackgroundTransparency = 1
-scriptCountLabel.Text = "..." -- временная заглушка
+scriptCountLabel.Text = "..." 
 scriptCountLabel.Font = Enum.Font.Gotham
 scriptCountLabel.TextSize = 11
 scriptCountLabel.TextColor3 = T.TextSub
@@ -341,8 +345,6 @@ scriptCountLabel.Size = UDim2.new(0, 120, 0, 20)
 scriptCountLabel.Position = UDim2.new(1, -160, 0.5, -10)
 scriptCountLabel.ZIndex = 6
 scriptCountLabel.Parent = headerFrame
-
--- Обновляем счётчик после предзагрузки
 scriptCountLabel.Text = countScripts() .. " scripts"
 
 local gameNameHeader = Instance.new("TextLabel")
@@ -381,12 +383,10 @@ closeBtn.MouseLeave:Connect(function()
 end)
 
 -- ══════════════════════════════════════
---  SIDEBAR  (130 × remaining height)
+--  SIDEBAR
 -- ══════════════════════════════════════
 local sidebarFrame = Instance.new("Frame")
-sidebarFrame.Name = "Sidebar"
 sidebarFrame.BackgroundColor3 = T.BgSide
-sidebarFrame.BackgroundTransparency = 0
 sidebarFrame.BorderSizePixel = 0
 sidebarFrame.Size = UDim2.new(0, 130, 1, -44)
 sidebarFrame.Position = UDim2.new(0, 0, 0, 44)
@@ -395,7 +395,6 @@ sidebarFrame.Parent = mainFrame
 
 local sidebarPatch = Instance.new("Frame")
 sidebarPatch.BackgroundColor3 = T.BgSide
-sidebarPatch.BackgroundTransparency = 0
 sidebarPatch.BorderSizePixel = 0
 sidebarPatch.Size = UDim2.new(1, 0, 0, 12)
 sidebarPatch.Position = UDim2.new(0, 0, 0, 0)
@@ -404,7 +403,6 @@ sidebarPatch.Parent = sidebarFrame
 
 local sidebarBLCorner = Instance.new("Frame")
 sidebarBLCorner.BackgroundColor3 = T.BgSide
-sidebarBLCorner.BackgroundTransparency = 0
 sidebarBLCorner.BorderSizePixel = 0
 sidebarBLCorner.Size = UDim2.new(0, 12, 0, 12)
 sidebarBLCorner.Position = UDim2.new(0, 0, 1, -12)
@@ -414,7 +412,6 @@ mkCorner(sidebarBLCorner, 12)
 
 local sidebarSep = Instance.new("Frame")
 sidebarSep.BackgroundColor3 = T.Separator
-sidebarSep.BackgroundTransparency = 0
 sidebarSep.BorderSizePixel = 0
 sidebarSep.Size = UDim2.new(0, 1, 1, -44)
 sidebarSep.Position = UDim2.new(0, 130, 0, 44)
@@ -422,7 +419,6 @@ sidebarSep.ZIndex = 4
 sidebarSep.Parent = mainFrame
 
 local catScroll = Instance.new("ScrollingFrame")
-catScroll.Name = "CatScroll"
 catScroll.BackgroundTransparency = 1
 catScroll.BorderSizePixel = 0
 catScroll.Size = UDim2.new(1, 0, 1, -8)
@@ -451,7 +447,6 @@ end)
 --  CONTENT PANEL
 -- ══════════════════════════════════════
 local contentFrame = Instance.new("Frame")
-contentFrame.Name = "ContentFrame"
 contentFrame.BackgroundTransparency = 1
 contentFrame.BorderSizePixel = 0
 contentFrame.Size = UDim2.new(1, -131, 1, -48)
@@ -460,7 +455,6 @@ contentFrame.ZIndex = 3
 contentFrame.Parent = mainFrame
 
 local scrollingFrame = Instance.new("ScrollingFrame")
-scrollingFrame.Name = "ScrollingFrame"
 scrollingFrame.BackgroundTransparency = 1
 scrollingFrame.BorderSizePixel = 0
 scrollingFrame.Size = UDim2.new(1, -4, 1, 0)
@@ -485,6 +479,10 @@ scrollPadding.Parent = scrollingFrame
 scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 16)
 end)
+
+-- Обновляем ссылки в теме на актуальные объекты
+theme.mainFrame = mainFrame
+theme.scrollingFrame = scrollingFrame
 
 -- ══════════════════════════════════════
 --  REOPEN BUTTON
