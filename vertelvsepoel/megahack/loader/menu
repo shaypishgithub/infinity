@@ -81,7 +81,7 @@ local function regA(obj, prop)
     table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
 end
 
--- STATS
+
 local stats = {}
 
 local function loadStats()
@@ -1039,7 +1039,6 @@ local function showHome()
         end
     end)
 
-    -- STATS CARD
     createSectionHeader("Your Stats", scrollingFrame)
 
     local statsCard = Instance.new("Frame")
