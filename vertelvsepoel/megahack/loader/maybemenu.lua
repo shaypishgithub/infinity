@@ -1,4 +1,6 @@
-
+-- ==============================================
+--  MEGAHACK LOADER (с загрузкой базы из base.lua)
+-- ==============================================
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -33,34 +35,20 @@ local function safeLoad(url)
     return {}
 end
 
-
-local BASE_CONFIG_URL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/base.lua"
-
-local BaseConfig = {}
-local success, err = pcall(function()
-    BaseConfig = loadstring(game:HttpGet(BASE_CONFIG_URL, true))()
-end)
-
-if not success or not BaseConfig or not BaseConfig.baseUrl then
-    warn("[MH] Не удалось загрузить base.lua! Используем резервную конфигурацию.")
-    BaseConfig = {
-        baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base",
-        categories = {}
-    }
-end
-
 -- ══════════════════════════════════════
---  HUB DATA (Автозагрузка из base.lua)
+--  ЗАГРУЗКА БАЗЫ (отдельный файл base.lua)
 -- ══════════════════════════════════════
+local baseConfigUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/base.lua"
+local baseConfig = safeLoad(baseConfigUrl) or {}
+local baseUrl = baseConfig.baseUrl or "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base"
+local categoryMap = baseConfig.categories or {}
+
+-- Кэш загруженных данных категорий
 local HubData = {}
 
-for categoryName, fileName in pairs(BaseConfig.categories or {}) do
-    HubData[categoryName] = safeLoad(BaseConfig.baseUrl .. "/" .. fileName)
-end
-
-print("[MegaHack] Загружено категорий: " .. (#(BaseConfig.categories or {})))
-
-
+-- ══════════════════════════════════════
+--  COLOUR THEME
+-- ══════════════════════════════════════
 local T = {
     BgBase    = Color3.fromRGB(13, 13, 17),
     BgSide    = Color3.fromRGB(19, 19, 25),
@@ -78,11 +66,12 @@ local T = {
     Separator = Color3.fromRGB(35, 35, 46),
 }
 
--- ── Accent registry ────────────────
+-- ── Accent registry ──
 local accentRegistry = {}
 local function regA(obj, prop)
     table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
 end
+
 -- ══════════════════════════════════════
 --  NOTIFICATION
 -- ══════════════════════════════════════
@@ -623,7 +612,7 @@ local function createButton(text, parent, callback, isCategoryButton)
         btn.Font = Enum.Font.Gotham
         btn.ZIndex = 4
         btn.Parent = parent
-        btn:SetAttribute("TextRole", "main")   -- ← tagged for updateGuiColors
+        btn:SetAttribute("TextRole", "main")
         mkCorner(btn, 7)
         mkStroke(btn, 1, T.Stroke, 0.4)
 
@@ -678,7 +667,7 @@ local function createLabel(text, parent, size, position)
     label.TextWrapped = true
     label.ZIndex = 4
     label.Parent = parent
-    label:SetAttribute("TextRole", "main")     -- ← tagged for updateGuiColors
+    label:SetAttribute("TextRole", "main")
     return label
 end
 
@@ -717,7 +706,6 @@ local function updateGuiColors()
     local bg  = settings.colors.bgColor
     local tx  = settings.colors.textColor
 
-    -- ── 1. Sync theme variables ───────────────────────────────
     T.Accent     = acc
     T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
     T.AccentGlow = Color3.new(math.min(acc.R*1.35,1), math.min(acc.G*1.35,1), math.min(acc.B*1.35,1))
@@ -728,15 +716,12 @@ local function updateGuiColors()
     T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
     T.TextMain   = tx
 
-    -- ── 2. Accent registry ────────────────────────────────────
     for _, entry in ipairs(accentRegistry) do
         if entry.obj and entry.obj.Parent then
             entry.obj[entry.prop] = acc
         end
     end
 
-    -- ── 3. Persistent structural frames (BG colour) ───────────
-    -- These are created once at startup and never destroyed.
     mainFrame.BackgroundColor3       = bg
     mainFrame.BackgroundTransparency = settings.transparency
     headerFrame.BackgroundColor3     = T.BgSide
@@ -745,7 +730,6 @@ local function updateGuiColors()
     sidebarPatch.BackgroundColor3    = T.BgSide
     sidebarBLCorner.BackgroundColor3 = T.BgSide
 
-    -- ── 4. All descendants: stroke colour + text colour ───────
     for _, obj in pairs(mainFrame:GetDescendants()) do
         if obj:IsA("UIStroke") then
             if settings.rgbStroke then
@@ -768,8 +752,6 @@ local function updateGuiColors()
                 end)
                 table.insert(rgbConnections, conn)
             else
-                -- Only update elements explicitly tagged as "main" text.
-                -- Sub/muted labels, colour-picker overlays etc. keep their own colour.
                 if obj:GetAttribute("TextRole") == "main" then
                     obj.TextColor3 = tx
                 end
@@ -850,7 +832,7 @@ local function searchScriptsOnScriptBlox(query)
 end
 
 -- ══════════════════════════════════════
---  LOAD CATEGORY
+--  LOAD CATEGORY (ленивая загрузка из base.lua)
 -- ══════════════════════════════════════
 local function clearContent()
     for _, c in pairs(colorPickerConnections) do
@@ -864,14 +846,29 @@ end
 
 local function loadHacksFromCategory(categoryName)
     clearContent()
-    local data = HubData[categoryName]
-    if not data or #data == 0 then
-        createSectionHeader("No scripts available", scrollingFrame)
-        createLabel("⚠  Failed to load or empty: " .. categoryName, scrollingFrame)
+
+    -- Проверяем, есть ли такая категория в categoryMap (из base.lua)
+    local fileName = categoryMap[categoryName]
+    if not fileName then
+        createSectionHeader("Category not found", scrollingFrame)
+        createLabel("⚠  No entry in base.lua for: " .. categoryName, scrollingFrame)
         return
     end
+
+    -- Если данные ещё не загружены, загружаем их
+    if not HubData[categoryName] then
+        local data = safeLoad(baseUrl .. "/" .. fileName)
+        if type(data) == "table" and #data > 0 then
+            HubData[categoryName] = data
+        else
+            createSectionHeader("Error loading", scrollingFrame)
+            createLabel("⚠  Failed to load or empty: " .. categoryName, scrollingFrame)
+            return
+        end
+    end
+
     createSectionHeader(categoryName, scrollingFrame)
-    for _, hack in ipairs(data) do
+    for _, hack in ipairs(HubData[categoryName]) do
         if type(hack)=="table" and hack[1] and type(hack[1])=="string"
            and hack[2] and type(hack[2])=="function" then
             createButton(hack[1], scrollingFrame, function()
@@ -1697,52 +1694,29 @@ local function showSettings()
     createButton("Close GUI", scrollingFrame, function() screenGui:Destroy() end)
 end
 
-
-local categories = {
+-- ══════════════════════════════════════
+--  ПОСТРОЕНИЕ КАТЕГОРИЙ (sidebar) ИЗ base.lua
+-- ══════════════════════════════════════
+local specialCategories = {
     ["Home"] = showHome,
     ["Settings"] = showSettings,
     ["All Scripts"] = showAllScripts,
-    ["MegaHack"] = function() loadHacksFromCategory("MegaHack") end,
-    ["Hacks"] = function() loadHacksFromCategory("Hacks") end,
-    ["MM2"] = function() loadHacksFromCategory("MM2") end,
-    ["Admins"] = function() loadHacksFromCategory("Admins") end,
-    ["Animations"] = function() loadHacksFromCategory("Animations") end,
-    ["FE"] = function() loadHacksFromCategory("FE") end,
-    ["Ragdoll Engine"] = function() loadHacksFromCategory("RagdollEngine") end,
-    ["Natural Disaster"] = function() loadHacksFromCategory("NaturalDisaster") end,
-    ["Evade"] = function() loadHacksFromCategory("Evade") end,
-    ["IKEA 3008"] = function() loadHacksFromCategory("IKEA3008") end,
-    ["Brookhaven"] = function() loadHacksFromCategory("Brookhaven") end,
-    ["Blade Ball"] = function() loadHacksFromCategory("BladeBall") end,
-    ["Blox Fruit"] = function() loadHacksFromCategory("BloxFruit") end,
-    ["Steal Brain Root"] = function() loadHacksFromCategory("StealBrainRoot") end,
-    ["Tower of Hell"] = function() loadHacksFromCategory("TowerOfHell") end,
-    ["Adopt Me"] = function() loadHacksFromCategory("AdoptMe") end,
-    ["Grow Garden"] = function() loadHacksFromCategory("GrowGarden") end,
-    ["Night99"] = function() loadHacksFromCategory("Night") end,
-    ["FORSAKEN"] = function() loadHacksFromCategory("FORSAKEN") end,
-    ["Weird Gun Game"] = function() loadHacksFromCategory("Weird") end,
-    ["Rivals"] = function() loadHacksFromCategory("Rivals") end,
-    ["Duels MVS"] = function() loadHacksFromCategory("DuelsMVS") end,
-    ["Violence District"] = function() loadHacksFromCategory("ViolenceDistrict") end,
-    ["Loot Up"] = function() loadHacksFromCategory("LootUp") end,
 }
 
-local categoryOrder = {
-    "Home", "Settings", "All Scripts",
-    "MegaHack", "Hacks", "Admins", "Animations", "FE", "Steal Brain Root",
-    "Blade Ball", "Ragdoll Engine", "Natural Disaster",
-    "MM2", "Duels MVS", "Evade", "IKEA 3008", "Blox Fruit", "Brookhaven",
-    "Adopt Me", "Tower of Hell", "Night99", "FORSAKEN",
-    "Grow Garden", "Violence District", "Weird Gun Game", "Rivals",
-    "Loot Up",
-}
-
--- Sidebar buttons
-for _, catName in ipairs(categoryOrder) do
-    createButton(catName, catScroll, function()
+-- Сначала добавляем специальные категории
+for name, func in pairs(specialCategories) do
+    createButton(name, catScroll, function()
         clearContent()
-        categories[catName]()
+        func()
+        updateGuiColors()
+    end, true)
+end
+
+-- Затем добавляем все категории из categoryMap (base.lua)
+for categoryName, fileName in pairs(categoryMap) do
+    createButton(categoryName, catScroll, function()
+        clearContent()
+        loadHacksFromCategory(categoryName)
         updateGuiColors()
     end, true)
 end
