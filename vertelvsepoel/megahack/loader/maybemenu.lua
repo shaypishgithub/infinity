@@ -1,4 +1,4 @@
-_G.MegaHackOwnerKey = "Infinity_MegaHack_Official_2026"
+
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
