@@ -1,8 +1,8 @@
--- MEGAHACK BASE CONFIG
+
 return {
     baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base",
 
-    -- Здесь можно добавлять новые категории
+
     categories = {
         Brookhaven       = "brookhaven.lua",
         Evade            = "evade.lua",
@@ -28,6 +28,6 @@ return {
         Rivals           = "rivals.lua",
         FORSAKEN         = "forsaken.lua",
         LootUp           = "lootup.lua",
-        -- Добавляй новые сюда ↓
+   
     }
 }
