@@ -33,46 +33,34 @@ local function safeLoad(url)
     return {}
 end
 
--- ══════════════════════════════════════
---  HUB DATA
--- ══════════════════════════════════════
--- ══════════════════════════════════════
---  HUB DATA (ВСЕ В ПАПКЕ BASE)
--- ══════════════════════════════════════
-local config = {
-    -- Ваша единая базовая ссылка
-    baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base"
-}
 
-local HubData = {
-    Brookhaven       = safeLoad(config.baseUrl .. "/brookhaven.lua"),
-    Evade            = safeLoad(config.baseUrl .. "/evade.lua"),
-    MM2              = safeLoad(config.baseUrl .. "/mm2.lua"),
-    MegaHack         = safeLoad(config.baseUrl .. "/megapizda.lua"),
-    Hacks            = safeLoad(config.baseUrl .. "/hacks.lua"),
-    Admins           = safeLoad(config.baseUrl .. "/admin.lua"),
-    Animations       = safeLoad(config.baseUrl .. "/animation.lua"),
-    FE               = safeLoad(config.baseUrl .. "/fe.lua"),
-    RagdollEngine    = safeLoad(config.baseUrl .. "/ragdoll.lua"),
-    NaturalDisaster  = safeLoad(config.baseUrl .. "/naturaldisaster.lua"),
-    BloxFruit        = safeLoad(config.baseUrl .. "/bloxfruit.lua"),
-    BladeBall        = safeLoad(config.baseUrl .. "/bladeball.lua"),
-    StealBrainRoot   = safeLoad(config.baseUrl .. "/stealbrainroot.lua"),
-    TowerOfHell      = safeLoad(config.baseUrl .. "/tower.lua"), -- Теперь тоже тут!
-    AdoptMe          = safeLoad(config.baseUrl .. "/adoptme.lua"),
-    GrowGarden       = safeLoad(config.baseUrl .. "/growgarden.lua"),
-    Night            = safeLoad(config.baseUrl .. "/night.lua"),
-    Weird            = safeLoad(config.baseUrl .. "/weird.lua"),
-    DuelsMVS         = safeLoad(config.baseUrl .. "/duelsmvs.lua"),
-    ViolenceDistrict = safeLoad(config.baseUrl .. "/violencedistrict.lua"),
-    IKEA3008         = safeLoad(config.baseUrl .. "/3008.lua"),
-    Rivals           = safeLoad(config.baseUrl .. "/rivals.lua"),
-    FORSAKEN         = safeLoad(config.baseUrl .. "/forsaken.lua"),
-    LootUp           = safeLoad(config.baseUrl .. "/lootup.lua"),
-}
+local BASE_CONFIG_URL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/base.lua"
+
+local BaseConfig = {}
+local success, err = pcall(function()
+    BaseConfig = loadstring(game:HttpGet(BASE_CONFIG_URL, true))()
+end)
+
+if not success or not BaseConfig or not BaseConfig.baseUrl then
+    warn("[MH] Не удалось загрузить base.lua! Используем резервную конфигурацию.")
+    BaseConfig = {
+        baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base",
+        categories = {}
+    }
+end
+
 -- ══════════════════════════════════════
---  COLOUR THEME
+--  HUB DATA (Автозагрузка из base.lua)
 -- ══════════════════════════════════════
+local HubData = {}
+
+for categoryName, fileName in pairs(BaseConfig.categories or {}) do
+    HubData[categoryName] = safeLoad(BaseConfig.baseUrl .. "/" .. fileName)
+end
+
+print("[MegaHack] Загружено категорий: " .. (#(BaseConfig.categories or {})))
+
+
 local T = {
     BgBase    = Color3.fromRGB(13, 13, 17),
     BgSide    = Color3.fromRGB(19, 19, 25),
@@ -90,13 +78,11 @@ local T = {
     Separator = Color3.fromRGB(35, 35, 46),
 }
 
--- ── Accent registry: persistent elements that use T.Accent ────────────────
--- Each entry: { obj = Instance, prop = "PropertyName" }
+-- ── Accent registry ────────────────
 local accentRegistry = {}
 local function regA(obj, prop)
     table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
 end
-
 -- ══════════════════════════════════════
 --  NOTIFICATION
 -- ══════════════════════════════════════
@@ -1711,8 +1697,7 @@ local function showSettings()
     createButton("Close GUI", scrollingFrame, function() screenGui:Destroy() end)
 end
 
--- CATEGORIES
--- ══════════════════════════════════════════════════════════════
+
 local categories = {
     ["Home"] = showHome,
     ["Settings"] = showSettings,
@@ -1740,8 +1725,6 @@ local categories = {
     ["Rivals"] = function() loadHacksFromCategory("Rivals") end,
     ["Duels MVS"] = function() loadHacksFromCategory("DuelsMVS") end,
     ["Violence District"] = function() loadHacksFromCategory("ViolenceDistrict") end,
-
-    -- === НОВОЕ ===
     ["Loot Up"] = function() loadHacksFromCategory("LootUp") end,
 }
 
@@ -1752,13 +1735,10 @@ local categoryOrder = {
     "MM2", "Duels MVS", "Evade", "IKEA 3008", "Blox Fruit", "Brookhaven",
     "Adopt Me", "Tower of Hell", "Night99", "FORSAKEN",
     "Grow Garden", "Violence District", "Weird Gun Game", "Rivals",
-
-    -- Новое
     "Loot Up",
 }
 
--- Sidebar buttons: call updateGuiColors() AFTER content is created
--- so newly spawned text elements get the correct colour immediately.
+-- Sidebar buttons
 for _, catName in ipairs(categoryOrder) do
     createButton(catName, catScroll, function()
         clearContent()
