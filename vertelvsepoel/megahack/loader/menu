@@ -55,8 +55,6 @@ local HubData = {
     IKEA3008 = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/3008.lua"),
     Rivals = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/Rivals.lua"),
     FORSAKEN = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/FORSAKEN.lua"),
-
-    -- НОВОЕ доделать ;)
     LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/megahack/refs/heads/main/base/lootup.lua"),
 }
 
@@ -78,13 +76,43 @@ local T = {
     Separator = Color3.fromRGB(35, 35, 46),
 }
 
-
-
 local accentRegistry = {}
 local function regA(obj, prop)
     table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
 end
 
+-- STATS
+local stats = {}
+
+local function loadStats()
+    pcall(function()
+        if isfile("MegaHack/stats.json") then
+            stats = HttpService:JSONDecode(readfile("MegaHack/stats.json"))
+        end
+    end)
+    if not stats.totalHours then stats.totalHours = 0 end
+    if not stats.sessions then stats.sessions = 0 end
+    if not stats.tabUsage then stats.tabUsage = {} end
+    if not stats.mostUsedTab then stats.mostUsedTab = "None" end
+end
+
+local function saveStats()
+    pcall(function()
+        if not isfolder("MegaHack") then makefolder("MegaHack") end
+        writefile("MegaHack/stats.json", HttpService:JSONEncode(stats))
+    end)
+end
+
+local function trackTab(tabName)
+    if not stats.tabUsage then stats.tabUsage = {} end
+    stats.tabUsage[tabName] = (stats.tabUsage[tabName] or 0) + 1
+    local maxCount, maxTab = 0, "None"
+    for tab, count in pairs(stats.tabUsage) do
+        if count > maxCount then maxCount = count; maxTab = tab end
+    end
+    stats.mostUsedTab = maxTab
+    saveStats()
+end
 
 local function createNotification(title, subtitle, duration, iconId)
     local notificationGui = Instance.new("ScreenGui")
@@ -226,8 +254,6 @@ local function mkStroke(parent, thickness, color, transparency)
 end
 
 
---  560 x 370
-
 local mainFrame = Instance.new("Frame")
 mainFrame.Name = "MainFrame"
 mainFrame.BackgroundColor3 = T.BgBase
@@ -356,7 +382,7 @@ closeBtn.BackgroundTransparency = 0.4
 closeBtn.BorderSizePixel = 0
 closeBtn.Size = UDim2.new(0, 24, 0, 24)
 closeBtn.Position = UDim2.new(1, -36, 0.5, -12)
-closeBtn.Text = "×"
+closeBtn.Text = "x"
 closeBtn.TextColor3 = T.TextMain
 closeBtn.TextSize = 18
 closeBtn.Font = Enum.Font.GothamBold
@@ -584,6 +610,7 @@ local function createButton(text, parent, callback, isCategoryButton)
             btn:SetAttribute("Active", true)
             TweenService:Create(btn, TweenInfo.new(0.18), {BackgroundColor3 = T.Accent, BackgroundTransparency = 0.35, TextColor3 = T.TextMain}):Play()
             TweenService:Create(activeIndicator, TweenInfo.new(0.18), {BackgroundTransparency = 0}):Play()
+            trackTab(text)
             callback()
         end)
         return btn
@@ -601,7 +628,7 @@ local function createButton(text, parent, callback, isCategoryButton)
         btn.Font = Enum.Font.Gotham
         btn.ZIndex = 4
         btn.Parent = parent
-        btn:SetAttribute("TextRole", "main")   
+        btn:SetAttribute("TextRole", "main")
         mkCorner(btn, 7)
         mkStroke(btn, 1, T.Stroke, 0.4)
 
@@ -654,7 +681,7 @@ local function createLabel(text, parent, size, position)
     label.TextWrapped = true
     label.ZIndex = 4
     label.Parent = parent
-    label:SetAttribute("TextRole", "main")     -- ← tagged for updateGuiColors
+    label:SetAttribute("TextRole", "main")
     return label
 end
 
@@ -689,7 +716,6 @@ local function updateGuiColors()
     local bg  = settings.colors.bgColor
     local tx  = settings.colors.textColor
 
-
     T.Accent     = acc
     T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
     T.AccentGlow = Color3.new(math.min(acc.R*1.35,1), math.min(acc.G*1.35,1), math.min(acc.B*1.35,1))
@@ -706,7 +732,6 @@ local function updateGuiColors()
         end
     end
 
-    
     mainFrame.BackgroundColor3       = bg
     mainFrame.BackgroundTransparency = settings.transparency
     headerFrame.BackgroundColor3     = T.BgSide
@@ -714,7 +739,6 @@ local function updateGuiColors()
     sidebarFrame.BackgroundColor3    = T.BgSide
     sidebarPatch.BackgroundColor3    = T.BgSide
     sidebarBLCorner.BackgroundColor3 = T.BgSide
-
 
     for _, obj in pairs(mainFrame:GetDescendants()) do
         if obj:IsA("UIStroke") then
@@ -738,7 +762,6 @@ local function updateGuiColors()
                 end)
                 table.insert(rgbConnections, conn)
             else
-           
                 if obj:GetAttribute("TextRole") == "main" then
                     obj.TextColor3 = tx
                 end
@@ -747,8 +770,6 @@ local function updateGuiColors()
     end
 end
 
-
---  кофичег
 
 local function saveColorSettings()
     pcall(function()
@@ -782,20 +803,6 @@ local function loadColorSettings()
     end)
 end
 
-loadStats()
-stats.sessions = (stats.sessions or 0) + 1
-saveStats()
-
-
-local sessionStart = tick()
-task.spawn(function()
-    while task.wait(60) do
-        stats.totalHours = (stats.totalHours or 0) + (1/60)
-        saveStats()
-    end
-end)
-
---  это тоже поисковичек не трогать 
 
 local function searchScriptsByMegahack(query)
     local results = {}
@@ -831,8 +838,6 @@ local function searchScriptsOnScriptBlox(query)
 end
 
 
--- важное не трогать
-
 local function clearContent()
     for _, c in pairs(colorPickerConnections) do
         pcall(function() c:Disconnect() end)
@@ -865,7 +870,6 @@ local function loadHacksFromCategory(categoryName)
     end
 end
 
--- поисковичек
 local function showAllScripts()
     clearContent()
     createSectionHeader("Search Scripts", scrollingFrame)
@@ -1035,6 +1039,58 @@ local function showHome()
         end
     end)
 
+    -- STATS CARD
+    createSectionHeader("Your Stats", scrollingFrame)
+
+    local statsCard = Instance.new("Frame")
+    statsCard.Size = UDim2.new(1, 0, 0, 80)
+    statsCard.BackgroundColor3 = T.BgPanel
+    statsCard.BackgroundTransparency = 0.15
+    statsCard.BorderSizePixel = 0
+    statsCard.ZIndex = 4
+    statsCard.Parent = scrollingFrame
+    mkCorner(statsCard, 8)
+    mkStroke(statsCard, 1, T.Stroke, 0.5)
+
+    local hoursLabel = Instance.new("TextLabel")
+    hoursLabel.Text = string.format("Hours with MegaHack: %.1f", stats.totalHours or 0)
+    hoursLabel.Font = Enum.Font.Gotham
+    hoursLabel.TextSize = 12
+    hoursLabel.TextColor3 = T.TextMain
+    hoursLabel.TextXAlignment = Enum.TextXAlignment.Left
+    hoursLabel.BackgroundTransparency = 1
+    hoursLabel.Size = UDim2.new(1, -16, 0, 20)
+    hoursLabel.Position = UDim2.new(0, 16, 0, 8)
+    hoursLabel.ZIndex = 5
+    hoursLabel.Parent = statsCard
+    hoursLabel:SetAttribute("TextRole", "main")
+
+    local sessionsLabel = Instance.new("TextLabel")
+    sessionsLabel.Text = "Sessions: " .. (stats.sessions or 0)
+    sessionsLabel.Font = Enum.Font.Gotham
+    sessionsLabel.TextSize = 12
+    sessionsLabel.TextColor3 = T.TextMain
+    sessionsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    sessionsLabel.BackgroundTransparency = 1
+    sessionsLabel.Size = UDim2.new(1, -16, 0, 20)
+    sessionsLabel.Position = UDim2.new(0, 16, 0, 30)
+    sessionsLabel.ZIndex = 5
+    sessionsLabel.Parent = statsCard
+    sessionsLabel:SetAttribute("TextRole", "main")
+
+    local tabLabel = Instance.new("TextLabel")
+    tabLabel.Text = "Most used tab: " .. (stats.mostUsedTab or "None")
+    tabLabel.Font = Enum.Font.Gotham
+    tabLabel.TextSize = 12
+    tabLabel.TextColor3 = T.TextMain
+    tabLabel.TextXAlignment = Enum.TextXAlignment.Left
+    tabLabel.BackgroundTransparency = 1
+    tabLabel.Size = UDim2.new(1, -16, 0, 20)
+    tabLabel.Position = UDim2.new(0, 16, 0, 52)
+    tabLabel.ZIndex = 5
+    tabLabel.Parent = statsCard
+    tabLabel:SetAttribute("TextRole", "main")
+
     createSectionHeader("Social", scrollingFrame)
     createLabel("YouTube  ·  https://www.youtube.com/@Vermax", scrollingFrame)
     createLabel("Telegram  ·  https://t.me/@vermax", scrollingFrame)
@@ -1042,7 +1098,6 @@ local function showHome()
 end
 
 
---   Анк крч проверяет
 local function checkFunctions()
     local functionsToCheck = {
         "getrawmetatable","makefolder","getscriptbytecode","setthreadidentity","delfile","request",
@@ -1130,7 +1185,6 @@ local function teleportToCoordinates()
 end
 
 
-
 local function createColorPicker(parent)
     local selType = "bgColor"
     local curH, curS, curV = Color3.toHSV(settings.colors.bgColor)
@@ -1182,7 +1236,7 @@ local function createColorPicker(parent)
         { label = "Accent",     key = "accentColor" },
     }
 
-    local updatePickerUI  -- forward declaration
+    local updatePickerUI
 
     local function refreshTypeBtns(activeKey)
         for _, td in ipairs(typeItems) do
@@ -1225,7 +1279,6 @@ local function createColorPicker(parent)
         end)
     end
     refreshTypeBtns(selType)
-
 
     local sqSz = 148
 
@@ -1363,7 +1416,6 @@ local function createColorPicker(parent)
         rgbReadouts[i] = lbl
     end
 
-
     local hueTrack = Instance.new("Frame")
     hueTrack.Size = UDim2.new(1, 0, 0, 16)
     hueTrack.BackgroundColor3 = Color3.new(1, 0, 0)
@@ -1397,7 +1449,6 @@ local function createColorPicker(parent)
     mkCorner(hueCursor, 3)
     mkStroke(hueCursor, 1, T.Stroke, 0)
 
-   
     local rgbTracks  = {}
     local rgbCursors = {}
     local rgbValLbls = {}
@@ -1464,13 +1515,12 @@ local function createColorPicker(parent)
         rgbValLbls[i] = valLbl
     end
 
-
     local applyBtn = Instance.new("TextButton")
     applyBtn.Size = UDim2.new(1, 0, 0, 30)
     applyBtn.BackgroundColor3 = T.Accent
     applyBtn.BackgroundTransparency = 0.15
     applyBtn.BorderSizePixel = 0
-    applyBtn.Text = "✔  Apply & Save"
+    applyBtn.Text = "Apply & Save"
     applyBtn.TextColor3 = T.TextMain
     applyBtn.TextSize = 13
     applyBtn.Font = Enum.Font.GothamBold
@@ -1521,7 +1571,6 @@ local function createColorPicker(parent)
             TweenService:Create(applyBtn, TweenInfo.new(0.2), {BackgroundColor3 = T.Accent, BackgroundTransparency = 0.15}):Play()
         end)
     end)
-
 
     local draggingSV  = false
     local draggingHue = false
@@ -1661,7 +1710,7 @@ local function showSettings()
         saveSettings()
         local s, r = pcall(function()
             screenGui:Destroy()
-            loadstring(game:HttpGet("https://pastefy.app/QVzDuYQA/raw", true))()
+            loadstring(game:HttpGet("", true))()
         end)
         if not s then createNotification("ERROR","Restart failed: "..tostring(r),5,7733968497) end
     end)
@@ -1696,8 +1745,6 @@ local categories = {
     ["Rivals"] = function() loadHacksFromCategory("Rivals") end,
     ["Duels MVS"] = function() loadHacksFromCategory("DuelsMVS") end,
     ["Violence District"] = function() loadHacksFromCategory("ViolenceDistrict") end,
-
-    -- НОВОЕ
     ["Loot Up"] = function() loadHacksFromCategory("LootUp") end,
 }
 
@@ -1708,11 +1755,8 @@ local categoryOrder = {
     "MM2", "Duels MVS", "Evade", "IKEA 3008", "Blox Fruit", "Brookhaven",
     "Adopt Me", "Tower of Hell", "Night99", "FORSAKEN",
     "Grow Garden", "Violence District", "Weird Gun Game", "Rivals",
-
-    -- Новые базы
     "Loot Up",
 }
-
 
 for _, catName in ipairs(categoryOrder) do
     createButton(catName, catScroll, function()
@@ -1722,8 +1766,6 @@ for _, catName in ipairs(categoryOrder) do
     end, true)
 end
 
-
---  зуйня нада переделать
 
 local function MakeDraggable(frame, dragPart)
     dragPart = dragPart or frame
@@ -1759,8 +1801,6 @@ MakeDraggable(mainFrame, headerFrame)
 MakeDraggable(reopenButton, reopenButton)
 
 
---  переделать нахуй
-
 closeBtn.MouseButton1Click:Connect(function()
     TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
         Size = UDim2.new(0, 560, 0, 0), BackgroundTransparency = 1
@@ -1788,12 +1828,21 @@ mainFrame.Size = UDim2.new(0, 0, 0, 0)
 mainFrame.BackgroundTransparency = 1
 
 loadColorSettings()
+loadStats()
+stats.sessions = (stats.sessions or 0) + 1
+saveStats()
+
+task.spawn(function()
+    while task.wait(60) do
+        stats.totalHours = (stats.totalHours or 0) + (1/60)
+        saveStats()
+    end
+end)
 
 TweenService:Create(mainFrame,
     TweenInfo.new(0.55, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
     {Size = UDim2.new(0, 560, 0, 370), BackgroundTransparency = settings.transparency}
 ):Play()
-
 
 showHome()
 updateGuiColors()
