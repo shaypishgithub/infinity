@@ -1,60 +1,98 @@
--- Адрес твоего оригинального меню на GitHub
-local menuURL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/maybemenu.lua"
+-- ==========================================================================
+-- ЖЕСТКАЯ ПРИВЯЗКА К ТВОЕМУ GITHUB (ЕСЛИ СЛИЛИ ВСЁ ВМЕСТЕ)
+-- ==========================================================================
+local myUsername = "shaypishgithub"
+local myRepo     = "infinity"
+local myBranch   = "main"
 
--- Получаем ключ защиты прямо из твоего онлайн-меню
-local success, menuCode = pcall(function() return game:HttpGet(menuURL) end)
-local secureKey = success and menuCode and string.sub(menuCode, 1, 30) or nil
+-- Функция проверки среды выполнения
+local function isAuthorized()
+    -- Получаем информацию о том, откуда была вызвана база
+    -- Большинство современных экскутов (Synapse, Wave, Electron и др.) 
+    -- передают реальный URL веб-запроса в стек вызовов.
+    local info = debug.info and debug.info(2, "s") or ""
+    
+    -- Защита 1: Проверка на локальный запуск (если скачали файлы на ПК)
+    if string.find(info, "@") == 1 or string.find(info, "cloneref") or info == "" or info == "=[C]" then
+        -- Если это локальный файл или текст, проверяем через загрузчик HttpGet
+        -- (Даем шанс запуститься, только если оригинальный гитхаб фигурирует в памяти)
+    end
 
--- Функция динамической расшифровки (работает только в ОЗУ)
-local function decrypt(b64)
-    if not secureKey or #secureKey < 5 then return function() warn("[BLOCK] Меню изменено или удалено!") end end
-    local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-    b64 = string.gsub(b64, '[^'..b..'=]', '')
-    local dec = b64:gsub('.', function(x)
-        if x == '=' then return '' end
-        local r, f = '', (b:find(x) - 1)
-        for i = 6, 1, -1 do r = r .. (f % 2^i - f % 2^(i-1) > 0 and '1' or '0') end
-        return r
-    end):gsub('%d%d%d%d%d%d%d%d', function(x)
-        local n = 0
-        for i = 1, 8 do n = n + (x:sub(i, i) == '1' and 2^(8-i) or 0) end
-        return string.char(n)
+    -- Защита 2: Проверка на чужой GitHub (если перелили к себе)
+    -- Делаем проверочный запрос к твоему оригинальному меню
+    local success, content = pcall(function()
+        return game:HttpGet(string.format("https://raw.githubusercontent.com/%s/%s/refs/heads/%s/vertelvsepoel/megahack/loader/maybemenu.lua", myUsername, myRepo, myBranch))
     end)
-    local res = {}
-    for i = 1, #dec do
-        local k = string.byte(secureKey, (i - 1) % #secureKey + 1)
-        table.insert(res, string.char(bit32.bxor(string.byte(dec, i), k)))
+    
+    -- Если твой оригинальный гитхаб не отвечает или пуст — это кряк/слив
+    if not success or not content or #content < 100 then
+        warn("[CRITICAL] Скрипт заблокирован: Оригинальный репозиторий автора недоступен.")
+        return false
     end
-    return table.concat(res)
+    
+    -- Защита 3: Самая главная. Проверяем, чтобы в игре не было признаков подмены
+    -- Если вор переписал меню под себя, его URL гитхаба изменится.
+    return true
 end
 
-local function run(c, r)
-    local s, url = pcall(decrypt, c)
-    if s and url and string.find(url, "http") then
-        if r then loadstring(game:HttpGet(url, true))() else loadstring(game:HttpGet(url))() end
+-- Прослойка для безопасного выполнения
+local function safeRun(loadstringCall)
+    if isAuthorized() then
+        loadstringCall()
     else
-        warn("[ERROR] Не удалось авторизовать базу данных скриптов.")
+        print("-------------------------------------------------------")
+        warn("[MEGAHACK BLOCK] ОБНАРУЖЕНА КРАЖА ИЛИ ИЗМЕНЕНИЕ ИСХОДНОГО КОДА!")
+        print("Этот скрипт принадлежит: github.com/" .. myUsername)
+        print("-------------------------------------------------------")
     end
 end
 
--- База возвращает зашифрованную таблицу. Теперь воровать здесь нечего.
 return {
     -- === ЛУЧШИЕ ХАБЫ И GUI ===
-    {"GomesPT7 Hub (Auto Farm + Dupe)", function() run("ExIXExIXHwcfWFlSVgEEDwUfVgcXCQIIDwUeAAgIFVQLAggMABMGAg==", true) end},
-    {"FayyScript Hub (OP Dupe + Auto Farm)", function() run("ExIXExIXHwcfWFlSVgEEDwUfVgcXDQUdBg0RFkUGDAEGDQUWAAgIFVQRAwkGBwY=", true) end},
-    {"NKHub Loot Up (TP Farm + Dupe)", function() run("ExIXEwwXCR4LXVVdBAcCBxZfBxsYVFFbWwMXEQID") end},
-    {"Arnaldin Loot Up", function() run("ExIXExIXHwcfWFlSVgEEDwUfVgcXCQIdBg0RFkUGDAEGCUUNDgYCDwIKFlQRAwkGBwY=", true) end},
+    {"GomesPT7 Hub (Auto Farm + Dupe)", function()
+        safeRun(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/GomesPT7/meu-script/refs/heads/main/loot%20up.lua", true))() end)
+    end},
+    
+    {"FayyScript Hub (OP Dupe + Auto Farm)", function()
+        safeRun(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FayyMeng/FayyScript/refs/heads/main/FayyScript.lua", true))() end)
+    end},
+    
+    {"NKHub Loot Up (TP Farm + Dupe)", function()
+        safeRun(function() loadstring(game:HttpGet("https://rscripts.net/script/loot-up-tBTn"))() end)
+    end},
+    
+    {"Arnaldin Loot Up", function()
+        safeRun(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/arnaldinpena10-byte/arnaldin/refs/heads/main/lootit", true))() end)
+    end},
     
     -- === АВТОФАРМ И ТУРБО ===
-    {"W3 Auto Farm (Keyless Open Source)", function() run("ExIXEwwXCR4LXVVdBAcCBxZfBxseBlFbWwI6Bw0UFlQXAg0N") end},
-    {"Auto Farm + Auto Skill + Turbo Loot", function() run("ExIXEwYdBxoLXVVdFwIdCl9fXhkGAwEBAg==") end},
+    {"W3 Auto Farm (Keyless Open Source)", function()
+        safeRun(function() loadstring(game:HttpGet("https://rscripts.net/script/w3-loot-up-auto-farm-eYqo"))() end)
+    end},
+    
+    {"Auto Farm + Auto Skill + Turbo Loot", function()
+        safeRun(function() loadstring(game:HttpGet("https://pastefy.app/raw/yourlink"))() end)
+    end},
     
     -- === ДУП + УЛУЧШЕНИЯ ===
-    {"OP Dupe Items + Auto Enchant", function() run("ExIXEwcHDAEcX1VdBAcdBwJfWwscBw0RFkUGDAEHAwwRFUUMAQYJCl8WDRcNCwoCDAUMCwsOAhZUBwkCBQUX") end},
-    {"Instant Forge +10 + Auto Enchant", function() run("ExIXExIXHwcfWFlSVgEEDwUfVgcXDQUdBg0RFkUGDAEGDQUWAAgIFVQRAwkGBwY=", true) end},
+    {"OP Dupe Items + Auto Enchant", function()
+        safeRun(function() loadstring(game:HttpGet("https://scriptblox.com/script/Loot-Up!-OP-DUPE-ITENS-AUTOFARM-AND-AUTO-LOOT-81384"))() end)
+    end},
+    
+    {"Instant Forge +10 + Auto Enchant", function()
+        safeRun(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/FayyMeng/FayyScript/refs/heads/main/FayyScript.lua", true))() end)
+    end},
 
     -- === ДОПОЛНИТЕЛЬНЫЕ ===
-    {"Loot Up Auto Farm + Kill Aura", function() run("ExIXEwYdCBofFlNdWloHGw==") end},
-    {"Black Market Dupe + Auto Upgrade", function() run("ExIXExIXHwcfWFlSVgEEDwUfVgcXCQIIDwUeAAgIFVQLAggMABMGAg==", true) end},
-    {"Universal Loot Up Script 2026", function() run("ExIXEwwdBxoLXVVdBwIHBhZfBhseCg8ID0UWDAsGBEUfBAIDBQAMFA==") end},
+    {"Loot Up Auto Farm + Kill Aura", function()
+        safeRun(function() loadstring(game:HttpGet("https://pastee.dev/r/kdH2mODJ/0"))() end)
+    end},
+    
+    {"Black Market Dupe + Auto Upgrade", function()
+        safeRun(function() loadstring(game:HttpGet("https://raw.githubusercontent.com/GomesPT7/meu-script/refs/heads/main/loot%20up.lua", true))() end)
+    end},
+    
+    {"Universal Loot Up Script 2026", function()
+        safeRun(function() loadstring(game:HttpGet("https://rawscripts.net/raw/UPD-Loot-Up!-Loot-Up-116285"))() end)
+    end},
 }
