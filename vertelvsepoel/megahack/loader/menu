@@ -85,7 +85,7 @@ local function regA(obj, prop)
     table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
 end
 
-══
+
 local function createNotification(title, subtitle, duration, iconId)
     local notificationGui = Instance.new("ScreenGui")
     notificationGui.Name = "MH_Notification"
