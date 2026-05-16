@@ -1,5 +1,5 @@
 -- menu.lua
-local Core = loadstring(game:HttpGet("https://pastefy.app/XXXX/raw", true))() 
+local Core = loadstring(game:HttpGet("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/core.lua", true))() 
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
