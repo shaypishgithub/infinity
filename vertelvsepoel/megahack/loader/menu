@@ -601,7 +601,7 @@ local function createButton(text, parent, callback, isCategoryButton)
         btn.Font = Enum.Font.Gotham
         btn.ZIndex = 4
         btn.Parent = parent
-        btn:SetAttribute("TextRole", "main")   -- ← tagged for updateGuiColors
+        btn:SetAttribute("TextRole", "main")   
         mkCorner(btn, 7)
         mkStroke(btn, 1, T.Stroke, 0.4)
 
