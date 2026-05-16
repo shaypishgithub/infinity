@@ -706,7 +706,7 @@ local function updateGuiColors()
         end
     end
 
-    -- These are created once at startup and never destroyed.
+    
     mainFrame.BackgroundColor3       = bg
     mainFrame.BackgroundTransparency = settings.transparency
     headerFrame.BackgroundColor3     = T.BgSide
@@ -738,8 +738,7 @@ local function updateGuiColors()
                 end)
                 table.insert(rgbConnections, conn)
             else
-                -- Only update elements explicitly tagged as "main" text.
-                -- Sub/muted labels, colour-picker overlays etc. keep their own colour.
+           
                 if obj:GetAttribute("TextRole") == "main" then
                     obj.TextColor3 = tx
                 end
@@ -783,6 +782,18 @@ local function loadColorSettings()
     end)
 end
 
+loadStats()
+stats.sessions = (stats.sessions or 0) + 1
+saveStats()
+
+
+local sessionStart = tick()
+task.spawn(function()
+    while task.wait(60) do
+        stats.totalHours = (stats.totalHours or 0) + (1/60)
+        saveStats()
+    end
+end)
 
 --  это тоже поисковичек не трогать 
 
