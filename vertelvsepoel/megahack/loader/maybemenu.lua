@@ -36,33 +36,39 @@ end
 -- ══════════════════════════════════════
 --  HUB DATA
 -- ══════════════════════════════════════
-local HubData = {
-    Brookhaven = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/brookhaven.lua"),
-    Evade = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/evade.lua"),
-    MM2 = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/mm2.lua"),
-    MegaHack = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/megapizda.lua"),
-    Hacks = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/hacks.lua"),
-    Admins = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/admin.lua"),
-    Animations = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/animation.lua"),
-    FE = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/fe.lua"),
-    RagdollEngine = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/ragdoll.lua"),
-    NaturalDisaster = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/naturaldisaster.lua"),
-    BloxFruit = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/bloxfruit.lua"),
-    BladeBall = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/bladeball.lua"),
-    StealBrainRoot = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/stealbrainroot.lua"),
-    TowerOfHell = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/tower.lua"),
-    AdoptMe = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/adoptme.lua"),
-    GrowGarden = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/growgarden.lua"),
-    Night = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/night.lua"),
-    Weird = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/weird.lua"),
-    DuelsMVS = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/duelsmvs.lua"),
-    ViolenceDistrict = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/violencedistrict.lua"),
-    IKEA3008 = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/3008.lua"),
-    Rivals = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/rivals.lua"),
-    FORSAKEN = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/forsaken.lua"),
+-- ══════════════════════════════════════
+--  HUB DATA (ВСЕ В ПАПКЕ BASE)
+-- ══════════════════════════════════════
+local config = {
+    -- Ваша единая базовая ссылка
+    baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base"
+}
 
-    -- === НОВОЕ ===
-    LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/lootup.lua"),
+local HubData = {
+    Brookhaven       = safeLoad(config.baseUrl .. "/brookhaven.lua"),
+    Evade            = safeLoad(config.baseUrl .. "/evade.lua"),
+    MM2              = safeLoad(config.baseUrl .. "/mm2.lua"),
+    MegaHack         = safeLoad(config.baseUrl .. "/megapizda.lua"),
+    Hacks            = safeLoad(config.baseUrl .. "/hacks.lua"),
+    Admins           = safeLoad(config.baseUrl .. "/admin.lua"),
+    Animations       = safeLoad(config.baseUrl .. "/animation.lua"),
+    FE               = safeLoad(config.baseUrl .. "/fe.lua"),
+    RagdollEngine    = safeLoad(config.baseUrl .. "/ragdoll.lua"),
+    NaturalDisaster  = safeLoad(config.baseUrl .. "/naturaldisaster.lua"),
+    BloxFruit        = safeLoad(config.baseUrl .. "/bloxfruit.lua"),
+    BladeBall        = safeLoad(config.baseUrl .. "/bladeball.lua"),
+    StealBrainRoot   = safeLoad(config.baseUrl .. "/stealbrainroot.lua"),
+    TowerOfHell      = safeLoad(config.baseUrl .. "/tower.lua"), -- Теперь тоже тут!
+    AdoptMe          = safeLoad(config.baseUrl .. "/adoptme.lua"),
+    GrowGarden       = safeLoad(config.baseUrl .. "/growgarden.lua"),
+    Night            = safeLoad(config.baseUrl .. "/night.lua"),
+    Weird            = safeLoad(config.baseUrl .. "/weird.lua"),
+    DuelsMVS         = safeLoad(config.baseUrl .. "/duelsmvs.lua"),
+    ViolenceDistrict = safeLoad(config.baseUrl .. "/violencedistrict.lua"),
+    IKEA3008         = safeLoad(config.baseUrl .. "/3008.lua"),
+    Rivals           = safeLoad(config.baseUrl .. "/rivals.lua"),
+    FORSAKEN         = safeLoad(config.baseUrl .. "/forsaken.lua"),
+    LootUp           = safeLoad(config.baseUrl .. "/lootup.lua"),
 }
 -- ══════════════════════════════════════
 --  COLOUR THEME
