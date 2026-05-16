@@ -1,3 +1,4 @@
+_G.MaybeMenuIdentifier = "Infinity_MegaHack_Official_2026"
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
@@ -63,7 +64,7 @@ local HubData = {
     -- === НОВОЕ ===
     LootUp = safeLoad("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base/lootup.lua"),
 }
-_G.MaybeMenuIdentifier = "Infinity_MegaHack_Official_2026"
+
 -- ══════════════════════════════════════
 --  COLOUR THEME
 -- ══════════════════════════════════════
