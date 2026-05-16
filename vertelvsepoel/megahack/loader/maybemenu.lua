@@ -46,6 +46,25 @@ local categoryMap = baseConfig.categories or {}
 -- Кэш загруженных данных категорий
 local HubData = {}
 
+-- ====== ПРЕДЗАГРУЗКА ВСЕХ КАТЕГОРИЙ ДЛЯ КОРРЕКТНОГО ПОДСЧЁТА ======
+for categoryName, fileName in pairs(categoryMap) do
+    local data = safeLoad(baseUrl .. "/" .. fileName)
+    if type(data) == "table" and #data > 0 then
+        HubData[categoryName] = data
+    end
+end
+
+-- ══════════════════════════════════════
+--  COUNT SCRIPTS
+-- ══════════════════════════════════════
+local function countScripts()
+    local count = 0
+    for _, category in pairs(HubData) do
+        if type(category) == "table" then count = count + #category end
+    end
+    return count
+end
+
 -- ══════════════════════════════════════
 --  COLOUR THEME
 -- ══════════════════════════════════════
@@ -167,17 +186,6 @@ local function createNotification(title, subtitle, duration, iconId)
 
     fadeIn()
     task.delay(duration, fadeOut)
-end
-
--- ══════════════════════════════════════
---  COUNT SCRIPTS
--- ══════════════════════════════════════
-local function countScripts()
-    local count = 0
-    for _, category in pairs(HubData) do
-        if type(category) == "table" then count = count + #category end
-    end
-    return count
 end
 
 -- ══════════════════════════════════════
@@ -321,9 +329,10 @@ versionText.ZIndex = 7
 versionText.Parent = versionBadge
 versionText:SetAttribute("TextRole", "main")
 
+-- Теперь создаём label, но текст поставим позже (после предзагрузки)
 local scriptCountLabel = Instance.new("TextLabel")
 scriptCountLabel.BackgroundTransparency = 1
-scriptCountLabel.Text = countScripts() .. " scripts"
+scriptCountLabel.Text = "..." -- временная заглушка
 scriptCountLabel.Font = Enum.Font.Gotham
 scriptCountLabel.TextSize = 11
 scriptCountLabel.TextColor3 = T.TextSub
@@ -332,6 +341,9 @@ scriptCountLabel.Size = UDim2.new(0, 120, 0, 20)
 scriptCountLabel.Position = UDim2.new(1, -160, 0.5, -10)
 scriptCountLabel.ZIndex = 6
 scriptCountLabel.Parent = headerFrame
+
+-- Обновляем счётчик после предзагрузки
+scriptCountLabel.Text = countScripts() .. " scripts"
 
 local gameNameHeader = Instance.new("TextLabel")
 gameNameHeader.BackgroundTransparency = 1
