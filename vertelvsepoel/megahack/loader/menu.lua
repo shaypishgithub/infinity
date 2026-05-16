@@ -1,6 +1,6 @@
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/yourname/megahack-ui/main/library.lua"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/library.lua"))()
 
-local Core = loadstring(game:HttpGet("https://raw.githubusercontent.com/yourname/megahack-ui/main/core.lua"))()
+local Core = loadstring(game:HttpGet("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/loader/core.lua"))()
 
 local Window = Library:CreateWindow({
     Title = "MEGA X",
