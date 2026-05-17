@@ -1,8 +1,5 @@
--- Вставляй сюда свой грязный текст
-local source_code = [[
-return {
+local data = {
     baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base",
-
 
     categories = {
         Brookhaven       = "brookhaven.lua",
@@ -29,52 +26,25 @@ return {
         Rivals           = "rivals.lua",
         FORSAKEN         = "forsaken.lua",
         LootUp           = "lootup.lua",
-   
     }
 }
-]]
 
--- Функция для выравнивания и сортировки
-local function sortAndAlignLua(text)
-    -- Изолируем то, что находится внутри categories = { ... }
-    local pattern = "(categories%s*=%s*{)(.-)(})"
-    local header, body, footer = text:match(pattern)
-    
-    if not body then return "Ошибка: Блок categories не найден." end
-    
-    local lines = {}
-    local max_key_len = 0
-    
-    -- Парсим строки, вытаскиваем ключ и значение
-    for line in body:gmatch("[^\r\n]+") do
-        local key, val = line:match("^%s*([%w_]+)%s*=%s*(.-),?%s*$")
-        if key and val then
-            table.insert(lines, {key = key, val = val})
-            if #key > max_key_len then
-                max_key_len = #key
-            end
+-- ФУНКЦИЯ ДЛЯ АВТОМАТИЧЕСКОЙ СОРТИРОВКИ И ПЕРЕБОРA (A-Z)
+local function pairsByKeys(t)
+    local a = {}
+    for n in pairs(t) do table.insert(a, n) end
+    table.sort(a, function(x, y) return x:lower() < y:lower() end) -- Сортировка без учета регистра
+    local i = 0
+    local iter = function ()
+        i = i + 1
+        if a[i] == nil then return nil
+        else return a[i], t[a[i]]
         end
     end
-    
-    -- Сортируем по алфавиту
-    table.sort(lines, function(a, b)
-        return a.key:lower() < b.key:lower()
-    end)
-    
-    -- Собираем выровненные строки обратно
-    local formatted_lines = {}
-    for _, item in ipairs(lines) do
-        -- Дописываем пробелы к ключу для выравнивания
-        local padding = string.rep(" ", max_key_len - #item.key)
-        table.insert(formatted_lines, string.format("        %s%s = %s,", item.key, padding, item.val))
-    end
-    
-    -- Соединяем всё в кучу
-    local new_body = "\n" .. table.concat(formatted_lines, "\n") .. "\n    "
-    local result = text:gsub(pattern, header .. new_body .. footer)
-    
-    return result
+    return iter
 end
 
--- Выводим готовый результат в консоль
-print(sortAndAlignLua(source_code))
+-- Применяем автовыравниватель к категориям
+data.sortedCategories = pairsByKeys
+
+return data
