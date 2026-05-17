@@ -343,7 +343,7 @@ return function(deps)
         card.ZIndex                 = 4
         card.Parent                 = scrollingFrame
         mkCorner(card, 8)
-        -- no stroke (glass style)
+        mkStroke(card, 1, T.Stroke, 0.5)
 
         local ok2, thumbnail = pcall(function()
             return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size180x180)
@@ -357,7 +357,7 @@ return function(deps)
         avatarImg.ZIndex                 = 5
         avatarImg.Parent                 = card
         mkCorner(avatarImg, 32)
-        -- accent border via background
+        mkStroke(avatarImg, 2, T.Accent, 0.4)
 
         local nameLabel = Instance.new("TextLabel")
         nameLabel.Text           = player.Name
@@ -416,7 +416,7 @@ return function(deps)
         fpsCard.ZIndex                 = 4
         fpsCard.Parent                 = scrollingFrame
         mkCorner(fpsCard, 7)
-        -- no stroke on fpsCard (glass style)
+        mkStroke(fpsCard, 1, T.Stroke, 0.5)
 
         local fpsLabel = Instance.new("TextLabel")
         fpsLabel.Text           = "FPS: Calculating..."
