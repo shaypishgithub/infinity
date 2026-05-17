@@ -72,7 +72,6 @@ return function(deps)
         local acc = settings.colors.accentColor
         local bg  = settings.colors.bgColor
         local tx  = settings.colors.textColor
-        local str = settings.colors.strokeColor
 
         T.Accent     = acc
         T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
@@ -83,7 +82,6 @@ return function(deps)
         T.BgBtn      = Color3.new(math.min(bg.R+0.067,1), math.min(bg.G+0.067,1), math.min(bg.B+0.090,1))
         T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
         T.TextMain   = tx
-        T.Stroke     = str
 
         for _, entry in ipairs(deps.accentRegistry or {}) do
             if entry.obj and entry.obj.Parent then
@@ -99,22 +97,6 @@ return function(deps)
         sidebarPatch.BackgroundColor3    = T.BgSide
         sidebarBLCorner.BackgroundColor3 = T.BgSide
 
-        -- обновляем closeBtn (он вне mainFrame)
-        if settings.rgbStroke then
-            local strokeObj = closeBtn:FindFirstChildOfClass("UIStroke")
-            if strokeObj then
-                local conn
-                conn = RunService.Heartbeat:Connect(function()
-                    if not closeBtn:IsDescendantOf(mainFrame.Parent) then conn:Disconnect() return end
-                    strokeObj.Color = Color3.fromHSV((tick()%5)/5, 1, 1)
-                end)
-                table.insert(rgbConnections, conn)
-            end
-        else
-            local strokeObj = closeBtn:FindFirstChildOfClass("UIStroke")
-            if strokeObj then strokeObj.Color = str end
-        end
-
         for _, obj in pairs(mainFrame:GetDescendants()) do
             if obj:IsA("UIStroke") then
                 if settings.rgbStroke then
@@ -125,7 +107,7 @@ return function(deps)
                     end)
                     table.insert(rgbConnections, conn)
                 else
-                    obj.Color = str
+                    obj.Color = settings.colors.strokeColor
                 end
             end
             if obj:IsA("TextLabel") or obj:IsA("TextButton") then
