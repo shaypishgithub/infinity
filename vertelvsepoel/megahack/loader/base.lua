@@ -29,22 +29,35 @@ local data = {
     }
 }
 
--- ФУНКЦИЯ ДЛЯ АВТОМАТИЧЕСКОЙ СОРТИРОВКИ И ПЕРЕБОРA (A-Z)
-local function pairsByKeys(t)
-    local a = {}
-    for n in pairs(t) do table.insert(a, n) end
-    table.sort(a, function(x, y) return x:lower() < y:lower() end) -- Сортировка без учета регистра
-    local i = 0
-    local iter = function ()
-        i = i + 1
-        if a[i] == nil then return nil
-        else return a[i], t[a[i]]
-        end
+-- Функция автоматического выравнивания и сортировки
+local function exportSortedTable(tbl)
+    local keys = {}
+    local maxKeyLen = 0
+    
+    -- Собираем ключи и ищем самый длинный для выравнивания
+    for k in pairs(tbl.categories) do
+        table.insert(keys, k)
+        if #k > maxKeyLen then maxKeyLen = #k end
     end
-    return iter
+    
+    -- Сортируем ключи по алфавиту (A-Z)
+    table.sort(keys)
+    
+    -- Собираем финальную строку
+    local result = "return {\n"
+    result = result .. string.format('    baseUrl = "%s",\n\n', tbl.baseUrl)
+    result = result .. "    categories = {\n"
+    
+    for _, key in ipairs(keys) do
+        local value = tbl.categories[key]
+        -- Считаем сколько пробелов нужно для ровного столбца знаков "="
+        local padding = string.rep(" ", maxKeyLen - #key) 
+        result = result .. string.format('        %s%s = "%s",\n', key, padding, value)
+    end
+    
+    result = result .. "    }\n}"
+    return result
 end
 
--- Применяем автовыравниватель к категориям
-data.sortedCategories = pairsByKeys
-
-return data
+-- Выводим идеально выровненный и отсортированный результат в консоль
+print(exportSortedTable(data))
