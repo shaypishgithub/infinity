@@ -18,36 +18,41 @@ local platformName= isMobile and "Mobile" or "PC"
 --  SAFE LOAD с кэш-бастером и логами
 -- ══════════════════════════════════════
 local function safeLoad(url)
-    local fullUrl = url .. "?t=" .. tick()  -- сбрасываем кэш
+    local fullUrl = url .. "?t=" .. tostring(math.floor(tick()))
     local ok, res = pcall(function()
         return loadstring(game:HttpGet(fullUrl, true))()
     end)
-    if ok and res then 
-        return res 
+    if ok and res then
+        return res
     end
     warn("[MH] failed to load: " .. tostring(url) .. " | error: " .. tostring(res))
     return nil
 end
 
 -- ══════════════════════════════════════
---  BASE CONFIG – ИСПРАВЛЕН ПУТЬ (убрал /loader)
+--  BASE ROOT — единый корень для ВСЕХ файлов
 -- ══════════════════════════════════════
 local BASE_ROOT = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack"
 
-local baseConfig = safeLoad(BASE_ROOT .. "/base.lua") or {}
-if not baseConfig or not baseConfig.categories then
+-- ══════════════════════════════════════
+--  BASE CONFIG
+-- ══════════════════════════════════════
+local baseConfig = safeLoad(BASE_ROOT .. "/base.lua")
+if type(baseConfig) ~= "table" or not baseConfig.categories then
     warn("[MH] base.lua не загрузилась или повреждена!")
-    -- Вместо return можно показать нотификацию, но без категорий смысла нет
     return
 end
 
 local baseUrl     = baseConfig.baseUrl or (BASE_ROOT .. "/base")
 local categoryMap = baseConfig.categories or {}
 
-print("[MH] base.lua loaded, categories:", table.concat(table.keys(categoryMap), ", "))
+-- ИСПРАВЛЕНО: table.keys не существует в Roblox Lua
+local catNames = {}
+for k in pairs(categoryMap) do table.insert(catNames, k) end
+print("[MH] base.lua loaded, categories: " .. table.concat(catNames, ", "))
 
 -- ══════════════════════════════════════
---  SCRIPT CACHE  (предзагрузка для счётчика)
+--  SCRIPT CACHE (предзагрузка)
 -- ══════════════════════════════════════
 local HubData = {}
 for categoryName, fileName in pairs(categoryMap) do
@@ -68,15 +73,20 @@ local function regA(obj, prop)
 end
 
 -- ══════════════════════════════════════
---  THEME
+--  NOTIFICATION (объявляем до theme/gui)
 -- ══════════════════════════════════════
-local themeFactory = safeLoad(BASE_ROOT .. "/loader/theme.lua")
+local createNotification  -- forward-declared
+
+-- ══════════════════════════════════════
+--  THEME
+--  ИСПРАВЛЕНО: путь был BASE_ROOT .. "/loader/theme.lua"
+--  Правильный путь: BASE_ROOT .. "/theme.lua"
+-- ══════════════════════════════════════
+local themeFactory = safeLoad(BASE_ROOT .. "/theme.lua")
 if type(themeFactory) ~= "function" then
     warn("[MH] theme.lua failed or wrong format")
     return
 end
-
-local createNotification  -- forward-declared
 
 local theme = themeFactory({
     TweenService       = TweenService,
@@ -84,6 +94,7 @@ local theme = themeFactory({
     HttpService        = HttpService,
     playerGui          = playerGui,
     accentRegistry     = accentRegistry,
+    -- mainFrame передаётся ПОСЛЕ создания gui (theme использует его только в updateGuiColors)
     createNotification = function(...) return createNotification(...) end,
 })
 
@@ -91,8 +102,9 @@ local T = theme.T
 
 -- ══════════════════════════════════════
 --  GUI
+--  ИСПРАВЛЕНО: путь был BASE_ROOT .. "/loader/gui.lua"
 -- ══════════════════════════════════════
-local guiFactory = safeLoad(BASE_ROOT .. "/loader/gui.lua")
+local guiFactory = safeLoad(BASE_ROOT .. "/gui.lua")
 if type(guiFactory) ~= "function" then
     warn("[MH] gui.lua failed or wrong format")
     return
@@ -115,14 +127,25 @@ local gui = guiFactory({
     createNotification = function(...) return createNotification(...) end,
 })
 
+-- ИСПРАВЛЕНО: теперь когда gui создан — патчим mainFrame в theme
+-- (theme.updateGuiColors нужен mainFrame)
+theme.mainFrame = gui.mainFrame
+
 -- ══════════════════════════════════════
---  NOTIFICATION
+--  NOTIFICATION IMPLEMENTATION
 -- ══════════════════════════════════════
 createNotification = function(title, subtitle, duration, iconId)
     local notificationGui = Instance.new("ScreenGui")
     notificationGui.Name = "MH_Notification"
-    notificationGui.Parent = playerGui
     notificationGui.ResetOnSpawn = false
+
+    -- Защита GUI
+    local ok = pcall(function()
+        if get_hidden_gui then notificationGui.Parent = get_hidden_gui()
+        elseif gethui then notificationGui.Parent = gethui()
+        else notificationGui.Parent = playerGui end
+    end)
+    if not ok then notificationGui.Parent = playerGui end
 
     local notifW = 240
     local mainF = Instance.new("Frame")
@@ -160,7 +183,7 @@ createNotification = function(title, subtitle, duration, iconId)
     icon.Parent = bg
 
     local mainText = Instance.new("TextLabel")
-    mainText.Text = title
+    mainText.Text = tostring(title)
     mainText.Font = Enum.Font.GothamBold
     mainText.TextColor3 = T.TextMain
     mainText.TextSize = 13
@@ -172,7 +195,7 @@ createNotification = function(title, subtitle, duration, iconId)
     mainText.Parent = bg
 
     local subText = Instance.new("TextLabel")
-    subText.Text = subtitle
+    subText.Text = tostring(subtitle or "")
     subText.Font = Enum.Font.Gotham
     subText.TextColor3 = T.TextSub
     subText.TextSize = 11
@@ -192,6 +215,7 @@ createNotification = function(title, subtitle, duration, iconId)
         TweenService:Create(subText,  ti, {TextTransparency = 0.1}):Play()
         TweenService:Create(icon,     ti, {ImageTransparency = 0}):Play()
     end
+
     local function fadeOut()
         local ti = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
         TweenService:Create(bg,       ti, {BackgroundTransparency = 1}):Play()
@@ -200,21 +224,25 @@ createNotification = function(title, subtitle, duration, iconId)
         TweenService:Create(mainText, ti, {TextTransparency = 1}):Play()
         TweenService:Create(subText,  ti, {TextTransparency = 1}):Play()
         TweenService:Create(icon,     ti, {ImageTransparency = 1}):Play()
-        task.delay(0.35, function() notificationGui:Destroy() end)
+        task.delay(0.35, function()
+            if notificationGui and notificationGui.Parent then
+                notificationGui:Destroy()
+            end
+        end)
     end
 
     fadeIn()
-    task.delay(duration, fadeOut)
+    task.delay(duration or 3, fadeOut)
 end
 
--- передаём реальную функцию в тему и gui
-theme.createNotification = createNotification
+-- Передаём реальную функцию в gui
 gui.setNotification(createNotification)
 
 -- ══════════════════════════════════════
 --  LOGIC
+--  ИСПРАВЛЕНО: путь был BASE_ROOT .. "/loader/logic.lua"
 -- ══════════════════════════════════════
-local logicFactory = safeLoad(BASE_ROOT .. "/loader/logic.lua")
+local logicFactory = safeLoad(BASE_ROOT .. "/logic.lua")
 if type(logicFactory) ~= "function" then
     warn("[MH] logic.lua failed or wrong format")
     return
@@ -238,6 +266,7 @@ local logic = logicFactory({
     categoryMap        = categoryMap,
     createNotification = createNotification,
     safeLoad           = safeLoad,
+    accentRegistry     = accentRegistry,
 })
 
 -- ══════════════════════════════════════
