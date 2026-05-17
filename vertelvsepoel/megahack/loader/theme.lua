@@ -1,4 +1,4 @@
--- theme.lua · Glass Minimalism — Переработанная и исправленная цветовая система
+-- theme.lua  ·  Glass Minimalism — Переработанная и исправленная цветовая система
 -- Полное динамическое обновление всех элементов UI без пропусков.
 return function(deps)
     local TweenService      = deps.TweenService
@@ -45,8 +45,6 @@ return function(deps)
         local acc = settings.colors.accentColor
         local bg  = settings.colors.bgColor
         local tx  = settings.colors.textColor
-        local strokeCol = settings.colors.strokeColor   -- цвет обводки из настроек
-        
         -- Математически точный пересчёт палитры на лету
         T.Accent     = acc
         T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
@@ -57,7 +55,6 @@ return function(deps)
         T.BgBtn      = Color3.new(math.min(bg.R+0.067,1), math.min(bg.G+0.067,1), math.min(bg.B+0.090,1))
         T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
         T.TextMain   = tx
-        
         -- 1. Принудительное обновление зарегистрированных акцентов
         for _, entry in ipairs(accentRegistry) do
             if entry.obj and entry.obj.Parent and entry.obj.Name ~= "CloseButton" then
@@ -66,14 +63,12 @@ return function(deps)
                 end)
             end
         end
-        
         -- 2. Обновление основы интерфейса
         mainFrame.BackgroundColor3 = bg
         mainFrame.BackgroundTransparency = settings.transparency
-        
         -- 3. Глубокий рекурсивный проход по всему интерфейсу
         for _, obj in pairs(mainFrame:GetDescendants()) do
-            -- Игнорируем кнопку закрытия (крестик) и её внутренние элементы
+            -- Игнорируем кнопку закрытия (крестик) и её внутренние элементы во избежание изменения цвета
             if obj.Name == "CloseButton" or obj:IsDescendantOf(mainFrame:FindFirstChild("CloseButton", true)) then
                 continue
             end
@@ -88,10 +83,11 @@ return function(deps)
                     end)
                     table.insert(rgbConnections, conn)
                 else
-                    -- Применяем сохранённый цвет обводки (strokeColor)
-                    obj.Color = strokeCol
+                    -- Если это рамка кнопки или главного фрейма — подстраиваем под новый цвет
+                    if obj.Color ~= T.Accent then
+                        obj.Color = Color3.new(math.min(bg.R+0.3, 1), math.min(bg.G+0.3, 1), math.min(bg.B+0.3, 1))
+                    end
                 end
-                
             -- Обработка всех видов текста
             elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
                 if settings.rgbAccent then
@@ -102,20 +98,16 @@ return function(deps)
                     end)
                     table.insert(rgbConnections, conn)
                 else
-                    -- Проверяем роль текста через атрибут или имя
+                    -- Проверяем роль текста
                     local role = obj:GetAttribute("TextRole")
                     if role == "main" then
                         obj.TextColor3 = tx
-                    elseif obj.Name == "SectionHeader" then
-                        obj.TextColor3 = acc    -- заголовки секций всегда в цвет акцента
+                    elseif obj.Name == "SectionHeader" or (obj:IsA("TextLabel") and obj.TextColor3 == T.Accent) then
+                        obj.TextColor3 = acc -- Заголовки секций всегда в цвет акцента
                     elseif obj:IsA("TextButton") and obj:GetAttribute("Active") then
-                        obj.TextColor3 = acc    -- активные вкладки сайдбара
-                    else
-                        -- ★ ЛЮБЫЕ ДРУГИЕ текстовые элементы получают основной цвет текста
-                        obj.TextColor3 = tx
+                        obj.TextColor3 = acc -- Активные вкладки сайдбара
                     end
                 end
-                
             -- Автоматическая адаптация фонов внутренних карточек и панелей
             elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
                 if obj.Name == "SidebarFrame" then
@@ -126,7 +118,6 @@ return function(deps)
             end
         end
     end
-    
     -- ═══════════ СОХРАНЕНИЕ / ЗАГРУЗКА ═══════════
     local function saveColorSettings(settings)
         pcall(function()
@@ -144,7 +135,6 @@ return function(deps)
             writefile("MegaHack/colorSettings.json", HttpService:JSONEncode(data))
         end)
     end
-    
     local function loadColorSettings(settings)
         pcall(function()
             if isfile("MegaHack/colorSettings.json") then
@@ -159,15 +149,14 @@ return function(deps)
             end
         end)
     end
-    
-    -- ═══════════ COLOR PICKER (без изменений) ═══════════
+    -- ═══════════ COLOR PICKER ═══════════
     local function createColorPicker(parent, settings)
         local selType       = "bgColor"
         local curH, curS, curV = Color3.toHSV(settings.colors.bgColor)
         local curR = math.floor(settings.colors.bgColor.R * 255 + 0.5)
         local curG = math.floor(settings.colors.bgColor.G * 255 + 0.5)
         local curB = math.floor(settings.colors.bgColor.B * 255 + 0.5)
-        
+        -- Заранее объявляем функцию обновления интерфейса, чтобы её видели кнопки типов
         local updatePickerUI 
         local function syncFromType()
             local col  = settings.colors[selType]
@@ -176,13 +165,11 @@ return function(deps)
             curG = math.floor(col.G * 255 + 0.5)
             curB = math.floor(col.B * 255 + 0.5)
         end
-        
         local container = Instance.new("Frame")
         container.BackgroundTransparency = 1
         container.Size   = UDim2.new(1, 0, 0, 340)
         container.ZIndex = 4
         container.Parent = parent
-        
         local innerLayout = Instance.new("UIListLayout")
         innerLayout.Padding   = UDim.new(0, 6)
         innerLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -190,7 +177,6 @@ return function(deps)
         innerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             container.Size = UDim2.new(1, 0, 0, innerLayout.AbsoluteContentSize.Y + 4)
         end)
-        
         -- Row выбора типа цвета
         local typeRow = Instance.new("Frame")
         typeRow.BackgroundTransparency = 1
@@ -198,13 +184,11 @@ return function(deps)
         typeRow.LayoutOrder            = 1
         typeRow.ZIndex                 = 4
         typeRow.Parent                 = container
-        
         local typeLayout = Instance.new("UIListLayout")
         typeLayout.FillDirection = Enum.FillDirection.Horizontal
         typeLayout.Padding       = UDim.new(0, 4)
         typeLayout.SortOrder     = Enum.SortOrder.LayoutOrder
         typeLayout.Parent        = typeRow
-        
         local colorTypes = {
             { key = "bgColor",     label = "BG"     },
             { key = "textColor",   label = "TEXT"   },
@@ -215,7 +199,7 @@ return function(deps)
             local tb = Instance.new("TextButton")
             tb.Size                   = UDim2.new(0, 68, 0, 26)
             tb.BackgroundColor3       = (i == 1) and T.Accent or T.BgBtn
-            tb.BackgroundTransparency = (i == 1) and 0.3      or 0.4
+            tb.BackgroundTransparency = (i == 1) and 0.3     or 0.4
             tb.BorderSizePixel        = 0
             tb.Text                   = ct.label
             tb.TextColor3             = T.TextMain
@@ -238,7 +222,6 @@ return function(deps)
                 if updatePickerUI then updatePickerUI() end
             end)
         end
-        
         -- SV Панель насыщенности/яркости
         local svBase = Instance.new("Frame")
         svBase.Size             = UDim2.new(1, 0, 0, 110)
@@ -271,15 +254,14 @@ return function(deps)
         svCursor.ZIndex           = 6
         svCursor.Parent           = svBase
         Instance.new("UICorner", svCursor).CornerRadius = UDim.new(1, 0)
-        
         -- Слайдер оттенка (Hue)
         local hueTrack = Instance.new("Frame")
         hueTrack.Size            = UDim2.new(1, 0, 0, 16)
         hueTrack.BorderSizePixel = 0
         hueTrack.BackgroundColor3= Color3.new(1,1,1)
         hueTrack.LayoutOrder      = 3
-        hueTrack.ZIndex           = 4
-        hueTrack.Parent           = container
+        hueTrack.ZIndex          = 4
+        hueTrack.Parent          = container
         Instance.new("UICorner", hueTrack).CornerRadius = UDim.new(0, 5)
         local hg = Instance.new("UIGradient", hueTrack)
         hg.Color = ColorSequence.new({
@@ -299,7 +281,6 @@ return function(deps)
         hueCursor.ZIndex           = 6
         hueCursor.Parent           = hueTrack
         Instance.new("UICorner", hueCursor).CornerRadius = UDim.new(0, 4)
-        
         -- Превью и HEX
         local previewRow = Instance.new("Frame")
         previewRow.BackgroundTransparency = 1
@@ -333,7 +314,7 @@ return function(deps)
         for i = 1, 3 do
             local rl = Instance.new("TextLabel")
             rl.BackgroundTransparency = 1
-            rl.Text      = readoutLabels[i] .. ": 0"
+            rl.Text       = readoutLabels[i] .. ": 0"
             rl.TextColor3 = T.TextSub
             rl.TextSize   = 11
             rl.Font       = Enum.Font.Gotham
@@ -343,7 +324,6 @@ return function(deps)
             rl.Parent     = previewRow
             rgbReadouts[i] = rl
         end
-        
         -- RGB Слайдеры
         local rgbPureCol = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255)}
         local sliderLabels = {"R", "G", "B"}
@@ -401,7 +381,6 @@ return function(deps)
             rgbCursors[i] = cur
             rgbValLbls[i] = valLbl
         end
-        
         -- Кнопка Apply
         local applyBtn = Instance.new("TextButton")
         applyBtn.Size                   = UDim2.new(1, 0, 0, 30)
@@ -424,7 +403,6 @@ return function(deps)
         applyBtn.MouseLeave:Connect(function()
             TweenService:Create(applyBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
         end)
-        
         updatePickerUI = function()
             local col = Color3.fromHSV(curH, curS, curV)
             svBase.BackgroundColor3  = Color3.fromHSV(curH, 1, 1)
@@ -446,7 +424,6 @@ return function(deps)
             end
         end
         updatePickerUI()
-        
         applyBtn.MouseButton1Click:Connect(function()
             settings.colors[selType] = Color3.fromHSV(curH, curS, curV)
             updateGuiColors(settings)
@@ -457,7 +434,6 @@ return function(deps)
                 TweenService:Create(applyBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2}):Play()
             end)
         end)
-        
         -- Логика перетаскивания (Drag)
         local draggingSV, draggingHue, draggingRGB = false, false, 0
         svBase.InputBegan:Connect(function(inp)
@@ -520,10 +496,8 @@ return function(deps)
                 end
             end
         end)
-        
         return container
     end
-    
     -- ═══════════ PUBLIC API ═══════════
     return {
         T                   = T,
