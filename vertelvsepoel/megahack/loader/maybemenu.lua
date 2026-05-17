@@ -1,17 +1,20 @@
-local TweenService    = game:GetService("TweenService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Players         = game:GetService("Players")
-local CoreGui         = game:GetService("CoreGui")
-local RunService      = game:GetService("RunService")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local RunService = game:GetService("RunService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TeleportService = game:GetService("TeleportService")
-local HttpService     = game:GetService("HttpService")
+local HttpService = game:GetService("HttpService")
 
-local player    = Players.LocalPlayer
+local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui", 5)
-if not playerGui then warn("[MH] PlayerGui not found!") return end
+if not playerGui then
+    warn("[MH] PlayerGui not found!")
+    return
+end
 
-local isMobile    = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
+local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 local platformName = isMobile and "Mobile" or "PC"
 
 -- ══════════════════════════════════════
@@ -21,9 +24,84 @@ local function safeLoad(url)
     local ok, res = pcall(function()
         return loadstring(game:HttpGet(url, true))()
     end)
-    if ok and res then return res end
+    if ok and res then
+        return res
+    end
     warn("[MH] failed to load: " .. tostring(url))
     return nil
+end
+
+-- ══════════════════════════════════════
+--  HELPER: SORT SCRIPTS WITHIN A CATEGORY
+-- ══════════════════════════════════════
+local function sortScriptsArray(scripts)
+    if type(scripts) ~= "table" then
+        return scripts
+    end
+    -- If it's an array of strings
+    if #scripts > 0 and type(scripts[1]) == "string" then
+        table.sort(scripts)
+        return scripts
+    end
+    -- If it's an array of tables with a 'name' field
+    if #scripts > 0 and type(scripts[1]) == "table" and scripts[1].name then
+        table.sort(scripts, function(a, b)
+            return a.name:lower() < b.name:lower()
+        end)
+        return scripts
+    end
+    -- Fallback: sort by first string-like field
+    table.sort(scripts, function(a, b)
+        local aStr = tostring(a)
+        local bStr = tostring(b)
+        return aStr:lower() < bStr:lower()
+    end)
+    return scripts
+end
+
+-- ══════════════════════════════════════
+--  CREATE ORDERED WRAPPER FOR ALPHABETICAL CATEGORIES
+--  (makes pairs() iterate keys in alphabetical order)
+-- ══════════════════════════════════════
+local function makeOrderedCategoryTable(rawData)
+    local sortedKeys = {}
+    for key in pairs(rawData) do
+        table.insert(sortedKeys, key)
+    end
+    table.sort(sortedKeys, function(a, b)
+        return a:lower() < b:lower()
+    end)
+
+    local proxy = {}
+    local mt = {
+        __index = function(_, k)
+            return rawData[k]
+        end,
+        __newindex = function(_, k, v)
+            rawData[k] = v
+            -- rebuild sorted keys when new key added
+            sortedKeys = {}
+            for key in pairs(rawData) do
+                table.insert(sortedKeys, key)
+            end
+            table.sort(sortedKeys, function(a, b)
+                return a:lower() < b:lower()
+            end)
+        end,
+        __pairs = function()
+            local i = 0
+            return function()
+                i = i + 1
+                local key = sortedKeys[i]
+                if key then
+                    return key, rawData[key]
+                end
+                return nil
+            end
+        end
+    }
+    setmetatable(proxy, mt)
+    return proxy
 end
 
 -- ══════════════════════════════════════
@@ -31,36 +109,29 @@ end
 -- ══════════════════════════════════════
 local BASE_ROOT = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack"
 
-local baseConfig  = safeLoad(BASE_ROOT .. "/loader/base.lua") or {}
-local baseUrl     = baseConfig.baseUrl or (BASE_ROOT .. "/base")
-local categoryMap = baseConfig.categories or {}
+local baseConfig = safeLoad(BASE_ROOT .. "/loader/base.lua") or {}
+local baseUrl = baseConfig.baseUrl or (BASE_ROOT .. "/base")
+local rawCategoryMap = baseConfig.categories or {}
 
 -- ══════════════════════════════════════
---  ALPHABETICAL ORDERING (выравнивание по алфавиту)
+--  SCRIPT CACHE (предзагрузка + сортировка)
 -- ══════════════════════════════════════
-local sortedCategoryNames = {}
-if type(categoryMap) == "table" then
-    for name in pairs(categoryMap) do
-        table.insert(sortedCategoryNames, name)
-    end
-    table.sort(sortedCategoryNames)  -- сортируем названия категорий по алфавиту
-end
-
--- ══════════════════════════════════════
---  SCRIPT CACHE (предзагрузка для счётчика)
---  используется отсортированный порядок, но сами данные остаются словарём
--- ══════════════════════════════════════
-local HubData = {}
-for _, categoryName in ipairs(sortedCategoryNames) do
-    local fileName = categoryMap[categoryName]
+local RawHubData = {}
+for categoryName, fileName in pairs(rawCategoryMap) do
     local data = safeLoad(baseUrl .. "/" .. fileName)
     if type(data) == "table" and #data > 0 then
-        HubData[categoryName] = data
+        -- Сортируем скрипты внутри категории по имени (алфавитный порядок)
+        RawHubData[categoryName] = sortScriptsArray(data)
+    else
+        RawHubData[categoryName] = {}
     end
 end
 
+-- Создаём обёртку, которая при переборе даёт категории в алфавитном порядке
+local HubData = makeOrderedCategoryTable(RawHubData)
+
 -- ══════════════════════════════════════
---  ACCENT REGISTRY (shared между gui и logic)
+--  ACCENT REGISTRY
 -- ══════════════════════════════════════
 local accentRegistry = {}
 local function regA(obj, prop)
@@ -76,21 +147,23 @@ if type(themeFactory) ~= "function" then
     return
 end
 
-local createNotification  -- forward-declared, нужна теме
+local createNotification -- forward declaration
 
 local theme = themeFactory({
-    TweenService       = TweenService,
-    RunService         = RunService,
-    HttpService        = HttpService,
-    playerGui          = playerGui,
-    accentRegistry     = accentRegistry,
-    createNotification = function(...) return createNotification(...) end,
+    TweenService = TweenService,
+    RunService = RunService,
+    HttpService = HttpService,
+    playerGui = playerGui,
+    accentRegistry = accentRegistry,
+    createNotification = function(...)
+        return createNotification(...)
+    end,
 })
 
 local T = theme.T
 
 -- ══════════════════════════════════════
---  GUI (визуал — меняй только этот файл для нового стиля)
+--  GUI
 -- ══════════════════════════════════════
 local guiFactory = safeLoad(BASE_ROOT .. "/loader/gui.lua")
 if type(guiFactory) ~= "function" then
@@ -99,25 +172,26 @@ if type(guiFactory) ~= "function" then
 end
 
 local gui = guiFactory({
-    TweenService       = TweenService,
-    UserInputService   = UserInputService,
-    Players            = Players,
-    CoreGui            = CoreGui,
-    RunService         = RunService,
+    TweenService = TweenService,
+    UserInputService = UserInputService,
+    Players = Players,
+    CoreGui = CoreGui,
+    RunService = RunService,
     MarketplaceService = MarketplaceService,
-    HttpService        = HttpService,
-    playerGui          = playerGui,
-    platformName       = platformName,
-    T                  = T,
-    regA               = regA,
-    accentRegistry     = accentRegistry,
-    HubData            = HubData,
-    CategoryOrder      = sortedCategoryNames,  -- передаём отсортированный список
-    createNotification = function(...) return createNotification(...) end,
+    HttpService = HttpService,
+    playerGui = playerGui,
+    platformName = platformName,
+    T = T,
+    regA = regA,
+    accentRegistry = accentRegistry,
+    HubData = HubData,
+    createNotification = function(...)
+        return createNotification(...)
+    end,
 })
 
 -- ══════════════════════════════════════
---  NOTIFICATION (определяем после gui, чтобы использовать T)
+--  NOTIFICATION
 -- ══════════════════════════════════════
 createNotification = function(title, subtitle, duration, iconId)
     local notificationGui = Instance.new("ScreenGui")
@@ -140,7 +214,9 @@ createNotification = function(title, subtitle, duration, iconId)
     Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
 
     local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 1; stroke.Color = T.Stroke; stroke.Transparency = 1
+    stroke.Thickness = 1
+    stroke.Color = T.Stroke
+    stroke.Transparency = 1
     stroke.Parent = bg
 
     local bar = Instance.new("Frame")
@@ -186,22 +262,25 @@ createNotification = function(title, subtitle, duration, iconId)
 
     local function fadeIn()
         local ti = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        TweenService:Create(bg,       ti, {BackgroundTransparency = 0}):Play()
-        TweenService:Create(stroke,   ti, {Transparency = 0.4}):Play()
-        TweenService:Create(bar,      ti, {BackgroundTransparency = 0}):Play()
-        TweenService:Create(mainText, ti, {TextTransparency = 0}):Play()
-        TweenService:Create(subText,  ti, {TextTransparency = 0.1}):Play()
-        TweenService:Create(icon,     ti, {ImageTransparency = 0}):Play()
+        TweenService:Create(bg, ti, { BackgroundTransparency = 0 }):Play()
+        TweenService:Create(stroke, ti, { Transparency = 0.4 }):Play()
+        TweenService:Create(bar, ti, { BackgroundTransparency = 0 }):Play()
+        TweenService:Create(mainText, ti, { TextTransparency = 0 }):Play()
+        TweenService:Create(subText, ti, { TextTransparency = 0.1 }):Play()
+        TweenService:Create(icon, ti, { ImageTransparency = 0 }):Play()
     end
+
     local function fadeOut()
         local ti = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
-        TweenService:Create(bg,       ti, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(stroke,   ti, {Transparency = 1}):Play()
-        TweenService:Create(bar,      ti, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(mainText, ti, {TextTransparency = 1}):Play()
-        TweenService:Create(subText,  ti, {TextTransparency = 1}):Play()
-        TweenService:Create(icon,     ti, {ImageTransparency = 1}):Play()
-        task.delay(0.35, function() notificationGui:Destroy() end)
+        TweenService:Create(bg, ti, { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(stroke, ti, { Transparency = 1 }):Play()
+        TweenService:Create(bar, ti, { BackgroundTransparency = 1 }):Play()
+        TweenService:Create(mainText, ti, { TextTransparency = 1 }):Play()
+        TweenService:Create(subText, ti, { TextTransparency = 1 }):Play()
+        TweenService:Create(icon, ti, { ImageTransparency = 1 }):Play()
+        task.delay(0.35, function()
+            notificationGui:Destroy()
+        end)
     end
 
     fadeIn()
@@ -213,7 +292,7 @@ theme.createNotification = createNotification
 gui.setNotification(createNotification)
 
 -- ══════════════════════════════════════
---  LOGIC (Home, Settings, поиск, загрузка категорий)
+--  LOGIC (получает уже отсортированный HubData)
 -- ══════════════════════════════════════
 local logicFactory = safeLoad(BASE_ROOT .. "/loader/logic.lua")
 if type(logicFactory) ~= "function" then
@@ -222,24 +301,23 @@ if type(logicFactory) ~= "function" then
 end
 
 local logic = logicFactory({
-    TweenService       = TweenService,
-    UserInputService   = UserInputService,
-    Players            = Players,
-    RunService         = RunService,
-    TeleportService    = TeleportService,
-    HttpService        = HttpService,
+    TweenService = TweenService,
+    UserInputService = UserInputService,
+    Players = Players,
+    RunService = RunService,
+    TeleportService = TeleportService,
+    HttpService = HttpService,
     MarketplaceService = MarketplaceService,
-    player             = player,
-    playerGui          = playerGui,
-    platformName       = platformName,
-    T                  = T,
-    gui                = gui,
-    HubData            = HubData,
-    CategoryOrder      = sortedCategoryNames,  -- передаём отсортированный список
-    baseUrl            = baseUrl,
-    categoryMap        = categoryMap,
+    player = player,
+    playerGui = playerGui,
+    platformName = platformName,
+    T = T,
+    gui = gui,
+    HubData = HubData,
+    baseUrl = baseUrl,
+    categoryMap = rawCategoryMap,
     createNotification = createNotification,
-    safeLoad           = safeLoad,
+    safeLoad = safeLoad,
 })
 
 -- ══════════════════════════════════════
