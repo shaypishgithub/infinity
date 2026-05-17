@@ -1,17 +1,18 @@
--- theme.lua  ·  Glass Minimalism — Переработанная и исправленная цветовая система
--- Полное динамическое обновление всех элементов UI без пропусков.
+-- theme.lua · Glass Minimalism — Переработанная и исправленная цветовая система
+-- ИСПРАВЛЕНО: mainFrame теперь хранится как ссылка, устанавливается после создания gui
 return function(deps)
     local TweenService      = deps.TweenService
     local RunService        = deps.RunService
     local HttpService       = deps.HttpService
     local playerGui         = deps.playerGui
-    local mainFrame         = deps.mainFrame
-    local scrollingFrame    = deps.scrollingFrame
     local accentRegistry    = deps.accentRegistry
     local createNotification = deps.createNotification
-    
-    -- Получаем UserInputService (исправлен критический пропуск)
+
     local UserInputService  = game:GetService("UserInputService")
+
+    -- ИСПРАВЛЕНО: mainFrame не передаётся при создании theme (gui ещё не создан)
+    -- Используем изменяемую ссылку, которую maybemenu.lua установит после создания gui
+    local _mainFrame = nil  -- будет установлен через theme.mainFrame = gui.mainFrame
 
     -- ═══════════ ЦВЕТОВАЯ ТЕМА ═══════════
     local T = {
@@ -46,12 +47,15 @@ return function(deps)
 
     -- ═══════════ ОБНОВЛЕНИЕ ЦВЕТОВ ═══════════
     local function updateGuiColors(settings)
+        -- ИСПРАВЛЕНО: безопасная проверка mainFrame
+        local mainFrame = _mainFrame
+        if not mainFrame then return end
+
         clearRgbConnections()
         local acc = settings.colors.accentColor
         local bg  = settings.colors.bgColor
         local tx  = settings.colors.textColor
 
-        -- Математически точный пересчёт палитры на лету
         T.Accent     = acc
         T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
         T.AccentGlow = Color3.new(math.min(acc.R*1.38,1), math.min(acc.G*1.38,1), math.min(acc.B*1.38,1))
@@ -62,7 +66,7 @@ return function(deps)
         T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
         T.TextMain   = tx
 
-        -- 1. Принудительное обновление зарегистрированных акцентов
+        -- 1. Обновление зарегистрированных акцентов
         for _, entry in ipairs(accentRegistry) do
             if entry.obj and entry.obj.Parent and entry.obj.Name ~= "CloseButton" then
                 pcall(function()
@@ -72,17 +76,15 @@ return function(deps)
         end
 
         -- 2. Обновление основы интерфейса
-        mainFrame.BackgroundColor3 = bg
-        mainFrame.BackgroundTransparency = settings.transparency
+        pcall(function()
+            mainFrame.BackgroundColor3 = bg
+            mainFrame.BackgroundTransparency = settings.transparency
+        end)
 
         -- 3. Глубокий рекурсивный проход по всему интерфейсу
         for _, obj in pairs(mainFrame:GetDescendants()) do
-            -- Игнорируем кнопку закрытия (крестик) и её внутренние элементы во избежание изменения цвета
-            if obj.Name == "CloseButton" or obj:IsDescendantOf(mainFrame:FindFirstChild("CloseButton", true)) then
-                continue
-            end
-            
-            -- Обработка UIStroke (Обводки/Стеклянные контуры)
+            if obj.Name == "CloseButton" then continue end
+
             if obj:IsA("UIStroke") then
                 if settings.rgbStroke then
                     local conn
@@ -92,13 +94,11 @@ return function(deps)
                     end)
                     table.insert(rgbConnections, conn)
                 else
-                    -- Если это рамка кнопки или главного фрейма — подстраиваем под новый цвет
                     if obj.Color ~= T.Accent then
                         obj.Color = Color3.new(math.min(bg.R+0.3, 1), math.min(bg.G+0.3, 1), math.min(bg.B+0.3, 1))
                     end
                 end
 
-            -- Обработка всех видов текста
             elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
                 if settings.rgbAccent then
                     local conn
@@ -108,18 +108,16 @@ return function(deps)
                     end)
                     table.insert(rgbConnections, conn)
                 else
-                    -- Проверяем роль текста
                     local role = obj:GetAttribute("TextRole")
                     if role == "main" then
                         obj.TextColor3 = tx
                     elseif obj.Name == "SectionHeader" or (obj:IsA("TextLabel") and obj.TextColor3 == T.Accent) then
-                        obj.TextColor3 = acc -- Заголовки секций всегда в цвет акцента
+                        obj.TextColor3 = acc
                     elseif obj:IsA("TextButton") and obj:GetAttribute("Active") then
-                        obj.TextColor3 = acc -- Активные вкладки сайдбара
+                        obj.TextColor3 = acc
                     end
                 end
 
-            -- Автоматическая адаптация фонов внутренних карточек и панелей
             elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
                 if obj.Name == "SidebarFrame" then
                     obj.BackgroundColor3 = T.BgSide
@@ -171,8 +169,7 @@ return function(deps)
         local curG = math.floor(settings.colors.bgColor.G * 255 + 0.5)
         local curB = math.floor(settings.colors.bgColor.B * 255 + 0.5)
 
-        -- Заранее объявляем функцию обновления интерфейса, чтобы её видели кнопки типов
-        local updatePickerUI 
+        local updatePickerUI
 
         local function syncFromType()
             local col  = settings.colors[selType]
@@ -247,7 +244,7 @@ return function(deps)
             end)
         end
 
-        -- SV Панель насыщенности/яркости
+        -- SV панель
         local svBase = Instance.new("Frame")
         svBase.Size             = UDim2.new(1, 0, 0, 110)
         svBase.BorderSizePixel  = 0
@@ -283,7 +280,7 @@ return function(deps)
         svCursor.Parent           = svBase
         Instance.new("UICorner", svCursor).CornerRadius = UDim.new(1, 0)
 
-        -- Слайдер оттенка (Hue)
+        -- Hue слайдер
         local hueTrack = Instance.new("Frame")
         hueTrack.Size            = UDim2.new(1, 0, 0, 16)
         hueTrack.BorderSizePixel = 0
@@ -294,13 +291,13 @@ return function(deps)
         Instance.new("UICorner", hueTrack).CornerRadius = UDim.new(0, 5)
         local hg = Instance.new("UIGradient", hueTrack)
         hg.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0,    Color3.fromHSV(0,   1,1)),
+            ColorSequenceKeypoint.new(0,    Color3.fromHSV(0,    1,1)),
             ColorSequenceKeypoint.new(0.167,Color3.fromHSV(0.167,1,1)),
             ColorSequenceKeypoint.new(0.333,Color3.fromHSV(0.333,1,1)),
-            ColorSequenceKeypoint.new(0.5,  Color3.fromHSV(0.5, 1,1)),
+            ColorSequenceKeypoint.new(0.5,  Color3.fromHSV(0.5,  1,1)),
             ColorSequenceKeypoint.new(0.667,Color3.fromHSV(0.667,1,1)),
             ColorSequenceKeypoint.new(0.833,Color3.fromHSV(0.833,1,1)),
-            ColorSequenceKeypoint.new(1,    Color3.fromHSV(1,   1,1)),
+            ColorSequenceKeypoint.new(1,    Color3.fromHSV(1,    1,1)),
         })
 
         local hueCursor = Instance.new("Frame")
@@ -359,12 +356,12 @@ return function(deps)
             rgbReadouts[i] = rl
         end
 
-        -- RGB Слайдеры
+        -- RGB слайдеры
         local rgbPureCol = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255)}
         local sliderLabels = {"R", "G", "B"}
         local rgbTracks   = {}
-        local rgbCursors = {}
-        local rgbValLbls = {}
+        local rgbCursors  = {}
+        local rgbValLbls  = {}
 
         for i = 1, 3 do
             local slot = Instance.new("Frame")
@@ -475,14 +472,16 @@ return function(deps)
             settings.colors[selType] = Color3.fromHSV(curH, curS, curV)
             updateGuiColors(settings)
             saveColorSettings(settings)
-            createNotification("COLOR PICKER", "Color applied & saved!", 2, 74283928898866)
+            if createNotification then
+                createNotification("COLOR PICKER", "Color applied & saved!", 2, 74283928898866)
+            end
             TweenService:Create(applyBtn, TweenInfo.new(0.07), {BackgroundTransparency = 0}):Play()
             task.delay(0.15, function()
                 TweenService:Create(applyBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2}):Play()
             end)
         end)
 
-        -- Логика перетаскивания (Drag)
+        -- Drag логика
         local draggingSV, draggingHue, draggingRGB = false, false, 0
 
         svBase.InputBegan:Connect(function(inp)
@@ -553,7 +552,7 @@ return function(deps)
     end
 
     -- ═══════════ PUBLIC API ═══════════
-    return {
+    local api = {
         T                   = T,
         regA                = regA,
         updateGuiColors     = updateGuiColors,
@@ -562,4 +561,18 @@ return function(deps)
         loadColorSettings   = loadColorSettings,
         clearRgbConnections = clearRgbConnections,
     }
+
+    -- ИСПРАВЛЕНО: mainFrame устанавливается через сеттер после создания gui
+    -- maybemenu.lua делает: theme.mainFrame = gui.mainFrame
+    local apiMeta = {}
+    apiMeta.__newindex = function(t, k, v)
+        if k == "mainFrame" then
+            _mainFrame = v
+        else
+            rawset(t, k, v)
+        end
+    end
+    setmetatable(api, apiMeta)
+
+    return api
 end
