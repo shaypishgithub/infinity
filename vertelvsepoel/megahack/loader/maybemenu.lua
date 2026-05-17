@@ -15,65 +15,52 @@ local isMobile    = UserInputService.TouchEnabled and not UserInputService.Keybo
 local platformName= isMobile and "Mobile" or "PC"
 
 -- ══════════════════════════════════════
---  SAFE LOAD (ИСПРАВЛЕННЫЙ)
+--  SAFE LOAD с кэш-бастером и логами
 -- ══════════════════════════════════════
 local function safeLoad(url)
+    local fullUrl = url .. "?t=" .. tick()  -- сбрасываем кэш
     local ok, res = pcall(function()
-        -- Изменено: убран конфликтующий аргумент 'true' из HttpGet
-        local code = game:HttpGet(url)
-        
-        if not code or code == "" then
-            error("Получен пустой ответ от GitHub/сервера")
-        end
-        
-        local func, err = loadstring(code)
-        if not func then
-            error("Ошибка компиляции loadstring: " .. tostring(err))
-        end
-        
-        return func()
+        return loadstring(game:HttpGet(fullUrl, true))()
     end)
-    
-    if ok then
-        return res
-    else
-        -- Теперь вы точно увидите причину в консоли (F9)
-        warn("[MH] Failed to load URL: " .. tostring(url))
-        warn("[MH] Error details: " .. tostring(res))
-        return nil
+    if ok and res then 
+        return res 
     end
+    warn("[MH] failed to load: " .. tostring(url) .. " | error: " .. tostring(res))
+    return nil
 end
 
 -- ══════════════════════════════════════
---  BASE CONFIG
+--  BASE CONFIG – ИСПРАВЛЕН ПУТЬ (убрал /loader)
 -- ══════════════════════════════════════
 local BASE_ROOT = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack"
 
--- Добавляем случайный параметр (Cache Buster), чтобы обойти жесткое кэширование GitHub
-local cacheBuster = "?nocache=" .. tostring(math.random(1, 100000))
-
-local baseConfig  = safeLoad(BASE_ROOT .. "/loader/base.lua" .. cacheBuster)
-if not baseConfig then
-    warn("[MH] Critical: baseConfig returned nil. Using empty defaults.")
-    baseConfig = {}
+local baseConfig = safeLoad(BASE_ROOT .. "/base.lua") or {}
+if not baseConfig or not baseConfig.categories then
+    warn("[MH] base.lua не загрузилась или повреждена!")
+    -- Вместо return можно показать нотификацию, но без категорий смысла нет
+    return
 end
 
 local baseUrl     = baseConfig.baseUrl or (BASE_ROOT .. "/base")
 local categoryMap = baseConfig.categories or {}
+
+print("[MH] base.lua loaded, categories:", table.concat(table.keys(categoryMap), ", "))
 
 -- ══════════════════════════════════════
 --  SCRIPT CACHE  (предзагрузка для счётчика)
 -- ══════════════════════════════════════
 local HubData = {}
 for categoryName, fileName in pairs(categoryMap) do
-    local data = safeLoad(baseUrl .. "/" .. fileName .. cacheBuster)
+    local data = safeLoad(baseUrl .. "/" .. fileName)
     if type(data) == "table" and #data > 0 then
         HubData[categoryName] = data
+    else
+        warn("[MH] Failed to load category: " .. categoryName .. " from " .. fileName)
     end
 end
 
 -- ══════════════════════════════════════
---  ACCENT REGISTRY  (shared между gui и logic)
+--  ACCENT REGISTRY (shared)
 -- ══════════════════════════════════════
 local accentRegistry = {}
 local function regA(obj, prop)
@@ -83,13 +70,13 @@ end
 -- ══════════════════════════════════════
 --  THEME
 -- ══════════════════════════════════════
-local themeFactory = safeLoad(BASE_ROOT .. "/loader/theme.lua" .. cacheBuster)
+local themeFactory = safeLoad(BASE_ROOT .. "/loader/theme.lua")
 if type(themeFactory) ~= "function" then
     warn("[MH] theme.lua failed or wrong format")
     return
 end
 
-local createNotification  -- forward-declared, нужна теме
+local createNotification  -- forward-declared
 
 local theme = themeFactory({
     TweenService       = TweenService,
@@ -105,7 +92,7 @@ local T = theme.T
 -- ══════════════════════════════════════
 --  GUI
 -- ══════════════════════════════════════
-local guiFactory = safeLoad(BASE_ROOT .. "/loader/gui.lua" .. cacheBuster)
+local guiFactory = safeLoad(BASE_ROOT .. "/loader/gui.lua")
 if type(guiFactory) ~= "function" then
     warn("[MH] gui.lua failed or wrong format")
     return
@@ -220,16 +207,14 @@ createNotification = function(title, subtitle, duration, iconId)
     task.delay(duration, fadeOut)
 end
 
--- Передаём реальную функцию в тему и gui
+-- передаём реальную функцию в тему и gui
 theme.createNotification = createNotification
-if gui and type(gui.setNotification) == "function" then
-    gui.setNotification(createNotification)
-end
+gui.setNotification(createNotification)
 
 -- ══════════════════════════════════════
 --  LOGIC
 -- ══════════════════════════════════════
-local logicFactory = safeLoad(BASE_ROOT .. "/loader/logic.lua" .. cacheBuster)
+local logicFactory = safeLoad(BASE_ROOT .. "/loader/logic.lua")
 if type(logicFactory) ~= "function" then
     warn("[MH] logic.lua failed or wrong format")
     return
@@ -258,8 +243,4 @@ local logic = logicFactory({
 -- ══════════════════════════════════════
 --  ЗАПУСК
 -- ══════════════════════════════════════
-if logic and type(logic.init) == "function" then
-    logic.init()
-else
-    warn("[MH] Failed to initialize logic module!")
-end
+logic.init()
