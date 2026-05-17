@@ -12,6 +12,7 @@ return function(deps)
     
     -- Получаем UserInputService (исправлен критический пропуск)
     local UserInputService  = game:GetService("UserInputService")
+
     -- ═══════════ ЦВЕТОВАЯ ТЕМА ═══════════
     local T = {
         BgBase    = Color3.fromRGB(11, 11, 15),
@@ -29,22 +30,27 @@ return function(deps)
         StrokeBrt = Color3.fromRGB(60, 60, 76),
         Separator = Color3.fromRGB(32, 32, 44),
     }
+
     local rgbConnections = {}
+
     local function regA(obj, prop)
         table.insert(accentRegistry, { obj = obj, prop = prop or "BackgroundColor3" })
     end
+
     local function clearRgbConnections()
         for _, c in pairs(rgbConnections) do
             pcall(function() c:Disconnect() end)
         end
         rgbConnections = {}
     end
+
     -- ═══════════ ОБНОВЛЕНИЕ ЦВЕТОВ ═══════════
     local function updateGuiColors(settings)
         clearRgbConnections()
         local acc = settings.colors.accentColor
         local bg  = settings.colors.bgColor
         local tx  = settings.colors.textColor
+
         -- Математически точный пересчёт палитры на лету
         T.Accent     = acc
         T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
@@ -55,6 +61,7 @@ return function(deps)
         T.BgBtn      = Color3.new(math.min(bg.R+0.067,1), math.min(bg.G+0.067,1), math.min(bg.B+0.090,1))
         T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
         T.TextMain   = tx
+
         -- 1. Принудительное обновление зарегистрированных акцентов
         for _, entry in ipairs(accentRegistry) do
             if entry.obj and entry.obj.Parent and entry.obj.Name ~= "CloseButton" then
@@ -63,9 +70,11 @@ return function(deps)
                 end)
             end
         end
+
         -- 2. Обновление основы интерфейса
         mainFrame.BackgroundColor3 = bg
         mainFrame.BackgroundTransparency = settings.transparency
+
         -- 3. Глубокий рекурсивный проход по всему интерфейсу
         for _, obj in pairs(mainFrame:GetDescendants()) do
             -- Игнорируем кнопку закрытия (крестик) и её внутренние элементы во избежание изменения цвета
@@ -88,6 +97,7 @@ return function(deps)
                         obj.Color = Color3.new(math.min(bg.R+0.3, 1), math.min(bg.G+0.3, 1), math.min(bg.B+0.3, 1))
                     end
                 end
+
             -- Обработка всех видов текста
             elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
                 if settings.rgbAccent then
@@ -108,6 +118,7 @@ return function(deps)
                         obj.TextColor3 = acc -- Активные вкладки сайдбара
                     end
                 end
+
             -- Автоматическая адаптация фонов внутренних карточек и панелей
             elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
                 if obj.Name == "SidebarFrame" then
@@ -118,6 +129,7 @@ return function(deps)
             end
         end
     end
+
     -- ═══════════ СОХРАНЕНИЕ / ЗАГРУЗКА ═══════════
     local function saveColorSettings(settings)
         pcall(function()
@@ -135,6 +147,7 @@ return function(deps)
             writefile("MegaHack/colorSettings.json", HttpService:JSONEncode(data))
         end)
     end
+
     local function loadColorSettings(settings)
         pcall(function()
             if isfile("MegaHack/colorSettings.json") then
@@ -149,6 +162,7 @@ return function(deps)
             end
         end)
     end
+
     -- ═══════════ COLOR PICKER ═══════════
     local function createColorPicker(parent, settings)
         local selType       = "bgColor"
@@ -156,8 +170,10 @@ return function(deps)
         local curR = math.floor(settings.colors.bgColor.R * 255 + 0.5)
         local curG = math.floor(settings.colors.bgColor.G * 255 + 0.5)
         local curB = math.floor(settings.colors.bgColor.B * 255 + 0.5)
+
         -- Заранее объявляем функцию обновления интерфейса, чтобы её видели кнопки типов
         local updatePickerUI 
+
         local function syncFromType()
             local col  = settings.colors[selType]
             curH, curS, curV = Color3.toHSV(col)
@@ -165,18 +181,22 @@ return function(deps)
             curG = math.floor(col.G * 255 + 0.5)
             curB = math.floor(col.B * 255 + 0.5)
         end
+
         local container = Instance.new("Frame")
         container.BackgroundTransparency = 1
         container.Size   = UDim2.new(1, 0, 0, 340)
         container.ZIndex = 4
         container.Parent = parent
+
         local innerLayout = Instance.new("UIListLayout")
         innerLayout.Padding   = UDim.new(0, 6)
         innerLayout.SortOrder = Enum.SortOrder.LayoutOrder
         innerLayout.Parent    = container
+
         innerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             container.Size = UDim2.new(1, 0, 0, innerLayout.AbsoluteContentSize.Y + 4)
         end)
+
         -- Row выбора типа цвета
         local typeRow = Instance.new("Frame")
         typeRow.BackgroundTransparency = 1
@@ -184,17 +204,20 @@ return function(deps)
         typeRow.LayoutOrder            = 1
         typeRow.ZIndex                 = 4
         typeRow.Parent                 = container
+
         local typeLayout = Instance.new("UIListLayout")
         typeLayout.FillDirection = Enum.FillDirection.Horizontal
         typeLayout.Padding       = UDim.new(0, 4)
         typeLayout.SortOrder     = Enum.SortOrder.LayoutOrder
         typeLayout.Parent        = typeRow
+
         local colorTypes = {
             { key = "bgColor",     label = "BG"     },
             { key = "textColor",   label = "TEXT"   },
             { key = "accentColor", label = "ACCENT" },
         }
         local typeBtns = {}
+
         for i, ct in ipairs(colorTypes) do
             local tb = Instance.new("TextButton")
             tb.Size                   = UDim2.new(0, 68, 0, 26)
@@ -209,6 +232,7 @@ return function(deps)
             tb.Parent                 = typeRow
             tb:SetAttribute("TextRole", "main")
             Instance.new("UICorner", tb).CornerRadius = UDim.new(0, 6)
+
             typeBtns[i] = tb
             tb.MouseButton1Click:Connect(function()
                 selType = ct.key
@@ -222,6 +246,7 @@ return function(deps)
                 if updatePickerUI then updatePickerUI() end
             end)
         end
+
         -- SV Панель насыщенности/яркости
         local svBase = Instance.new("Frame")
         svBase.Size             = UDim2.new(1, 0, 0, 110)
@@ -231,9 +256,11 @@ return function(deps)
         svBase.ZIndex           = 4
         svBase.Parent           = container
         Instance.new("UICorner", svBase).CornerRadius = UDim.new(0, 8)
+
         local svGradW = Instance.new("UIGradient", svBase)
         svGradW.Color = ColorSequence.new(Color3.new(1,1,1), Color3.new(1,1,1))
         svGradW.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,1) })
+
         local svGradB = Instance.new("Frame")
         svGradB.Size             = UDim2.new(1,0,1,0)
         svGradB.BackgroundColor3 = Color3.new(0,0,0)
@@ -246,6 +273,7 @@ return function(deps)
         svGradBg.Color = ColorSequence.new(Color3.new(0,0,0), Color3.new(0,0,0))
         svGradBg.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0) })
         svGradBg.Rotation = 90
+
         local svCursor = Instance.new("Frame")
         svCursor.Size             = UDim2.new(0, 10, 0, 10)
         svCursor.AnchorPoint      = Vector2.new(0.5, 0.5)
@@ -254,6 +282,7 @@ return function(deps)
         svCursor.ZIndex           = 6
         svCursor.Parent           = svBase
         Instance.new("UICorner", svCursor).CornerRadius = UDim.new(1, 0)
+
         -- Слайдер оттенка (Hue)
         local hueTrack = Instance.new("Frame")
         hueTrack.Size            = UDim2.new(1, 0, 0, 16)
@@ -273,6 +302,7 @@ return function(deps)
             ColorSequenceKeypoint.new(0.833,Color3.fromHSV(0.833,1,1)),
             ColorSequenceKeypoint.new(1,    Color3.fromHSV(1,   1,1)),
         })
+
         local hueCursor = Instance.new("Frame")
         hueCursor.Size             = UDim2.new(0, 8, 1, 4)
         hueCursor.AnchorPoint      = Vector2.new(0.5, 0.5)
@@ -281,6 +311,7 @@ return function(deps)
         hueCursor.ZIndex           = 6
         hueCursor.Parent           = hueTrack
         Instance.new("UICorner", hueCursor).CornerRadius = UDim.new(0, 4)
+
         -- Превью и HEX
         local previewRow = Instance.new("Frame")
         previewRow.BackgroundTransparency = 1
@@ -288,6 +319,7 @@ return function(deps)
         previewRow.LayoutOrder            = 4
         previewRow.ZIndex                 = 4
         previewRow.Parent                 = container
+
         local previewSwatch = Instance.new("Frame")
         previewSwatch.Size             = UDim2.new(0, 28, 0, 28)
         previewSwatch.BackgroundColor3 = Color3.fromHSV(curH, curS, curV)
@@ -295,6 +327,7 @@ return function(deps)
         previewSwatch.ZIndex           = 5
         previewSwatch.Parent           = previewRow
         Instance.new("UICorner", previewSwatch).CornerRadius = UDim.new(0, 6)
+
         local hexBox = Instance.new("TextBox")
         hexBox.Size                   = UDim2.new(0, 90, 0, 26)
         hexBox.Position               = UDim2.new(0, 36, 0.5, -13)
@@ -309,6 +342,7 @@ return function(deps)
         hexBox.Parent                 = previewRow
         hexBox:SetAttribute("TextRole", "main")
         Instance.new("UICorner", hexBox).CornerRadius = UDim.new(0, 6)
+
         local rgbReadouts = {}
         local readoutLabels = {"R", "G", "B"}
         for i = 1, 3 do
@@ -324,12 +358,14 @@ return function(deps)
             rl.Parent     = previewRow
             rgbReadouts[i] = rl
         end
+
         -- RGB Слайдеры
         local rgbPureCol = {Color3.fromRGB(255,0,0), Color3.fromRGB(0,255,0), Color3.fromRGB(0,0,255)}
         local sliderLabels = {"R", "G", "B"}
         local rgbTracks   = {}
         local rgbCursors = {}
         local rgbValLbls = {}
+
         for i = 1, 3 do
             local slot = Instance.new("Frame")
             slot.BackgroundTransparency = 1
@@ -337,6 +373,7 @@ return function(deps)
             slot.LayoutOrder            = 4 + i
             slot.ZIndex                 = 4
             slot.Parent                 = container
+
             local slotLbl = Instance.new("TextLabel")
             slotLbl.BackgroundTransparency = 1
             slotLbl.Text      = sliderLabels[i]
@@ -346,6 +383,7 @@ return function(deps)
             slotLbl.Size      = UDim2.new(0, 14, 1, 0)
             slotLbl.ZIndex    = 5
             slotLbl.Parent    = slot
+
             local track = Instance.new("Frame")
             track.Size             = UDim2.new(1, -50, 0, 10)
             track.Position         = UDim2.new(0, 18, 0.5, -5)
@@ -354,8 +392,10 @@ return function(deps)
             track.ZIndex           = 5
             track.Parent           = slot
             Instance.new("UICorner", track).CornerRadius = UDim.new(0, 5)
+
             local tg = Instance.new("UIGradient", track)
             tg.Color = ColorSequence.new(Color3.new(0,0,0), rgbPureCol[i])
+
             local cur = Instance.new("Frame")
             cur.Size             = UDim2.new(0, 8, 1, 4)
             cur.AnchorPoint      = Vector2.new(0.5, 0.5)
@@ -365,6 +405,7 @@ return function(deps)
             cur.ZIndex           = 6
             cur.Parent           = track
             Instance.new("UICorner", cur).CornerRadius = UDim.new(0, 4)
+
             local valLbl = Instance.new("TextLabel")
             valLbl.Size                   = UDim2.new(0, 28, 1, 0)
             valLbl.Position               = UDim2.new(1, -28, 0, 0)
@@ -377,10 +418,12 @@ return function(deps)
             valLbl.ZIndex                 = 5
             valLbl.Parent                 = slot
             valLbl:SetAttribute("TextRole", "main")
+
             rgbTracks[i]  = track
             rgbCursors[i] = cur
             rgbValLbls[i] = valLbl
         end
+
         -- Кнопка Apply
         local applyBtn = Instance.new("TextButton")
         applyBtn.Size                   = UDim2.new(1, 0, 0, 30)
@@ -397,12 +440,14 @@ return function(deps)
         applyBtn:SetAttribute("TextRole", "main")
         Instance.new("UICorner", applyBtn).CornerRadius = UDim.new(0, 7)
         regA(applyBtn)
+
         applyBtn.MouseEnter:Connect(function()
             TweenService:Create(applyBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0}):Play()
         end)
         applyBtn.MouseLeave:Connect(function()
             TweenService:Create(applyBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
         end)
+
         updatePickerUI = function()
             local col = Color3.fromHSV(curH, curS, curV)
             svBase.BackgroundColor3  = Color3.fromHSV(curH, 1, 1)
@@ -423,7 +468,9 @@ return function(deps)
                 rgbValLbls[i].Text     = tostring(nums[i])
             end
         end
+
         updatePickerUI()
+
         applyBtn.MouseButton1Click:Connect(function()
             settings.colors[selType] = Color3.fromHSV(curH, curS, curV)
             updateGuiColors(settings)
@@ -434,8 +481,10 @@ return function(deps)
                 TweenService:Create(applyBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0.2}):Play()
             end)
         end)
+
         -- Логика перетаскивания (Drag)
         local draggingSV, draggingHue, draggingRGB = false, false, 0
+
         svBase.InputBegan:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
                 draggingSV = true
@@ -453,6 +502,7 @@ return function(deps)
                 end
             end)
         end
+
         UserInputService.InputChanged:Connect(function(inp)
             if inp.UserInputType ~= Enum.UserInputType.MouseMovement and inp.UserInputType ~= Enum.UserInputType.Touch then return end
             if draggingSV then
@@ -476,11 +526,13 @@ return function(deps)
                 updatePickerUI()
             end
         end)
+
         UserInputService.InputEnded:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
                 draggingSV, draggingHue, draggingRGB = false, false, 0
             end
         end)
+
         hexBox.FocusLost:Connect(function(enterPressed)
             if enterPressed then
                 local hex = hexBox.Text:gsub("[^%x]", ""):upper()
@@ -496,8 +548,10 @@ return function(deps)
                 end
             end
         end)
+
         return container
     end
+
     -- ═══════════ PUBLIC API ═══════════
     return {
         T                   = T,
