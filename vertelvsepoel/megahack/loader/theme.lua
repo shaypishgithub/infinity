@@ -9,6 +9,9 @@ return function(deps)
     local scrollingFrame    = deps.scrollingFrame
     local accentRegistry    = deps.accentRegistry
     local createNotification = deps.createNotification
+    
+    -- Получаем UserInputService (исправлен критический пропуск)
+    local UserInputService  = game:GetService("UserInputService")
 
     -- ═══════════ ЦВЕТОВАЯ ТЕМА ═══════════
     local T = {
@@ -61,7 +64,7 @@ return function(deps)
 
         -- 1. Принудительное обновление зарегистрированных акцентов
         for _, entry in ipairs(accentRegistry) do
-            if entry.obj and entry.obj.Parent then
+            if entry.obj and entry.obj.Parent and entry.obj.Name ~= "CloseButton" then
                 pcall(function()
                     entry.obj[entry.prop] = acc
                 end)
@@ -74,6 +77,10 @@ return function(deps)
 
         -- 3. Глубокий рекурсивный проход по всему интерфейсу
         for _, obj in pairs(mainFrame:GetDescendants()) do
+            -- Игнорируем кнопку закрытия (крестик) и её внутренние элементы во избежание изменения цвета
+            if obj.Name == "CloseButton" or obj:IsDescendantOf(mainFrame:FindFirstChild("CloseButton", true)) then
+                continue
+            end
             
             -- Обработка UIStroke (Обводки/Стеклянные контуры)
             if obj:IsA("UIStroke") then
@@ -163,6 +170,9 @@ return function(deps)
         local curR = math.floor(settings.colors.bgColor.R * 255 + 0.5)
         local curG = math.floor(settings.colors.bgColor.G * 255 + 0.5)
         local curB = math.floor(settings.colors.bgColor.B * 255 + 0.5)
+
+        -- Заранее объявляем функцию обновления интерфейса, чтобы её видели кнопки типов
+        local updatePickerUI 
 
         local function syncFromType()
             local col  = settings.colors[selType]
@@ -438,7 +448,6 @@ return function(deps)
             TweenService:Create(applyBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.2}):Play()
         end)
 
-        local updatePickerUI
         updatePickerUI = function()
             local col = Color3.fromHSV(curH, curS, curV)
             svBase.BackgroundColor3  = Color3.fromHSV(curH, 1, 1)
