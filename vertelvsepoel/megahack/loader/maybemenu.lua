@@ -1,5 +1,5 @@
 local TweenService    = game:GetService("TweenService")
-local UserInputService= game:GetService("UserInputService")
+local UserInputService = game:GetService("UserInputService")
 local Players         = game:GetService("Players")
 local CoreGui         = game:GetService("CoreGui")
 local RunService      = game:GetService("RunService")
@@ -12,7 +12,7 @@ local playerGui = player:WaitForChild("PlayerGui", 5)
 if not playerGui then warn("[MH] PlayerGui not found!") return end
 
 local isMobile    = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local platformName= isMobile and "Mobile" or "PC"
+local platformName = isMobile and "Mobile" or "PC"
 
 -- ══════════════════════════════════════
 --  SAFE LOAD
@@ -36,10 +36,23 @@ local baseUrl     = baseConfig.baseUrl or (BASE_ROOT .. "/base")
 local categoryMap = baseConfig.categories or {}
 
 -- ══════════════════════════════════════
---  SCRIPT CACHE  (предзагрузка для счётчика)
+--  ALPHABETICAL ORDERING (выравнивание по алфавиту)
+-- ══════════════════════════════════════
+local sortedCategoryNames = {}
+if type(categoryMap) == "table" then
+    for name in pairs(categoryMap) do
+        table.insert(sortedCategoryNames, name)
+    end
+    table.sort(sortedCategoryNames)  -- сортируем названия категорий по алфавиту
+end
+
+-- ══════════════════════════════════════
+--  SCRIPT CACHE (предзагрузка для счётчика)
+--  используется отсортированный порядок, но сами данные остаются словарём
 -- ══════════════════════════════════════
 local HubData = {}
-for categoryName, fileName in pairs(categoryMap) do
+for _, categoryName in ipairs(sortedCategoryNames) do
+    local fileName = categoryMap[categoryName]
     local data = safeLoad(baseUrl .. "/" .. fileName)
     if type(data) == "table" and #data > 0 then
         HubData[categoryName] = data
@@ -47,7 +60,7 @@ for categoryName, fileName in pairs(categoryMap) do
 end
 
 -- ══════════════════════════════════════
---  ACCENT REGISTRY  (shared между gui и logic)
+--  ACCENT REGISTRY (shared между gui и logic)
 -- ══════════════════════════════════════
 local accentRegistry = {}
 local function regA(obj, prop)
@@ -77,7 +90,7 @@ local theme = themeFactory({
 local T = theme.T
 
 -- ══════════════════════════════════════
---  GUI  (визуал — меняй только этот файл для нового стиля)
+--  GUI (визуал — меняй только этот файл для нового стиля)
 -- ══════════════════════════════════════
 local guiFactory = safeLoad(BASE_ROOT .. "/loader/gui.lua")
 if type(guiFactory) ~= "function" then
@@ -99,11 +112,12 @@ local gui = guiFactory({
     regA               = regA,
     accentRegistry     = accentRegistry,
     HubData            = HubData,
+    CategoryOrder      = sortedCategoryNames,  -- передаём отсортированный список
     createNotification = function(...) return createNotification(...) end,
 })
 
 -- ══════════════════════════════════════
---  NOTIFICATION  (определяем после gui, чтобы использовать T)
+--  NOTIFICATION (определяем после gui, чтобы использовать T)
 -- ══════════════════════════════════════
 createNotification = function(title, subtitle, duration, iconId)
     local notificationGui = Instance.new("ScreenGui")
@@ -199,7 +213,7 @@ theme.createNotification = createNotification
 gui.setNotification(createNotification)
 
 -- ══════════════════════════════════════
---  LOGIC  (Home, Settings, поиск, загрузка категорий)
+--  LOGIC (Home, Settings, поиск, загрузка категорий)
 -- ══════════════════════════════════════
 local logicFactory = safeLoad(BASE_ROOT .. "/loader/logic.lua")
 if type(logicFactory) ~= "function" then
@@ -221,6 +235,7 @@ local logic = logicFactory({
     T                  = T,
     gui                = gui,
     HubData            = HubData,
+    CategoryOrder      = sortedCategoryNames,  -- передаём отсортированный список
     baseUrl            = baseUrl,
     categoryMap        = categoryMap,
     createNotification = createNotification,
