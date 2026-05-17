@@ -1,211 +1,262 @@
--- ══════════════════════════════════════════════════════════════════
---  Megahack Loader by vertelvsepoel (ОТДЕЛЬНЫЙ ЛОУДЕР)
--- ══════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════════════════════
+--  MegaHack Loader by vertelvsepoel
+--  Красивый загрузчик для основного меню
+--  Стилистика: тёмная тема с акцентным градиентом, плавные анимации
+-- ═══════════════════════════════════════════════════════════════════════
 
-local TweenService     = game:GetService("TweenService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Players          = game:GetService("Players")
-local Lighting         = game:GetService("Lighting")
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-local player    = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui", 5)
-if not playerGui then warn("[MH Loader] PlayerGui not found!") return end
-
-local BASE_ROOT = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack"
-
--- Функция безопасной загрузки для предзагрузки темы
-local function safeLoad(url)
-    local fullUrl = url .. "?t=" .. math.floor(tick())
-    local ok, res = pcall(function()
-        return loadstring(game:HttpGet(fullUrl, true))()
-    end)
-    if ok and res then return res end
-    return nil
-end
-
--- ══════════════════════════════════════
---  ПОЛУЧЕНИЕ ЦВЕТОВОЙ ПАЛИТРЫ ИГРОКА
--- ══════════════════════════════════════
-local themeFactory = safeLoad(BASE_ROOT .. "/theme.lua")
-local T = {
-    BgSide     = Color3.fromRGB(20, 20, 25),      -- дефолтные бэкап цвета
-    AccentGlow = Color3.fromRGB(0, 255, 140),
-    TextMain   = Color3.fromRGB(255, 255, 255),
-    TextSub    = Color3.fromRGB(160, 160, 170),
-    Stroke     = Color3.fromRGB(45, 45, 55)
+-- ═══════════════════════════════════════════════════════════════════════
+--  Параметры дизайна
+-- ═══════════════════════════════════════════════════════════════════════
+local DESIGN = {
+    BgColor = Color3.fromRGB(12, 12, 15),
+    CardColor = Color3.fromRGB(22, 22, 28),
+    AccentGradient = {Color3.fromRGB(100, 80, 255), Color3.fromRGB(200, 60, 255)},
+    TextMain = Color3.fromRGB(240, 240, 245),
+    TextSub = Color3.fromRGB(160, 160, 170),
+    StrokeColor = Color3.fromRGB(45, 45, 55),
+    ErrorColor = Color3.fromRGB(255, 70, 80)
 }
 
-if type(themeFactory) == "function" then
-    local accentRegistry = {}
-    local theme = themeFactory({
-        TweenService     = TweenService,
-        RunService       = game:GetService("RunService"),
-        HttpService      = game:GetService("HttpService"),
-        UserInputService = UserInputService,
-        playerGui        = playerGui,
-        accentRegistry   = accentRegistry,
-        createNotification = function() end, -- заглушка
-    })
-    if theme and theme.T then
-        T = theme.T -- Подставляем реальные цвета из темы игрока!
-    end
-end
-
--- ══════════════════════════════════════
---  СОЗДАНИЕ КРАСИВОГО ИНТЕРФЕЙСА (UI)
--- ══════════════════════════════════════
+-- ═══════════════════════════════════════════════════════════════════════
+--  Создание GUI
+-- ═══════════════════════════════════════════════════════════════════════
 local loaderGui = Instance.new("ScreenGui")
-loaderGui.Name = "MH_BeautifulLauncher"
-loaderGui.Parent = playerGui
+loaderGui.Name = "MegaHackLoader"
 loaderGui.ResetOnSpawn = false
-loaderGui.DisplayOrder = 99999
+loaderGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+loaderGui.Parent = playerGui
 
--- Эффект размытия заднего плана
-local blur = Instance.new("BlurEffect")
-blur.Size = 0
-blur.Parent = Lighting
-TweenService:Create(blur, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {Size = 12}):Play()
+-- Затемняющий фон (можно убрать, если мешает)
+local overlay = Instance.new("Frame")
+overlay.Size = UDim2.new(1, 0, 1, 0)
+overlay.BackgroundColor3 = DESIGN.BgColor
+overlay.BackgroundTransparency = 0.4
+overlay.BorderSizePixel = 0
+overlay.Parent = loaderGui
 
--- Полупрозрачный задний фон
-local fullBg = Instance.new("Frame")
-fullBg.Size = UDim2.new(1, 0, 1, 0)
-fullBg.BackgroundColor3 = Color3.fromRGB(8, 8, 10)
-fullBg.BackgroundTransparency = 1
-fullBg.Parent = loaderGui
-TweenService:Create(fullBg, TweenInfo.new(0.4, Enum.EasingStyle.Quint), {BackgroundTransparency = 0.35}):Play()
+-- Центральная карточка
+local card = Instance.new("Frame")
+card.Size = UDim2.new(0, 380, 0, 260)
+card.Position = UDim2.new(0.5, -190, 0.5, -130)
+card.BackgroundColor3 = DESIGN.CardColor
+card.BackgroundTransparency = 0.1
+card.BorderSizePixel = 0
+card.Parent = loaderGui
 
--- Главная карточка лоадера
-local mainCard = Instance.new("Frame")
-mainCard.Size = UDim2.new(0, 340, 0, 150)
-mainCard.Position = UDim2.new(0.5, -170, 0.5, -75)
-mainCard.BackgroundColor3 = T.BgSide
-mainCard.BackgroundTransparency = 1
-mainCard.Parent = fullBg
+-- Скругление углов
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 20)
+corner.Parent = card
 
-local cardCorner = Instance.new("UICorner", mainCard)
-cardCorner.CornerRadius = UDim.new(0, 12)
+-- Обводка
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 1.5
+stroke.Color = DESIGN.StrokeColor
+stroke.Transparency = 0.6
+stroke.Parent = card
 
-local cardStroke = Instance.new("UIStroke", mainCard)
-cardStroke.Thickness = 1
-cardStroke.Color = T.Stroke
-cardStroke.Transparency = 1
+-- Градиентный акцент (верхняя полоса)
+local accentBar = Instance.new("Frame")
+accentBar.Size = UDim2.new(1, 0, 0, 4)
+accentBar.Position = UDim2.new(0, 0, 0, 0)
+accentBar.BackgroundColor3 = DESIGN.AccentGradient[1]
+accentBar.BorderSizePixel = 0
+accentBar.Parent = card
+local accentCorner = Instance.new("UICorner")
+accentCorner.CornerRadius = UDim.new(0, 20)
+accentCorner.Parent = accentBar
 
--- Название
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Text = "Megahack Loader"
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextColor3 = T.TextMain
-titleLabel.TextSize = 22
-titleLabel.Size = UDim2.new(1, 0, 0, 30)
-titleLabel.Position = UDim2.new(0, 0, 0, 24)
-titleLabel.BackgroundTransparency = 1
-titleLabel.TextTransparency = 1
-titleLabel.Parent = mainCard
+-- Градиент для полосы (динамический)
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, DESIGN.AccentGradient[1]),
+    ColorSequenceKeypoint.new(1, DESIGN.AccentGradient[2])
+}
+gradient.Rotation = 90
+gradient.Parent = accentBar
 
--- Копирайт автора
-local authorLabel = Instance.new("TextLabel")
-authorLabel.Text = "by vertelvsepoel"
-authorLabel.Font = Enum.Font.GothamItalic
-authorLabel.TextColor3 = T.AccentGlow
-authorLabel.TextSize = 12
-authorLabel.Size = UDim2.new(1, 0, 0, 18)
-authorLabel.Position = UDim2.new(0, 0, 0, 50)
-authorLabel.BackgroundTransparency = 1
-authorLabel.TextTransparency = 1
-authorLabel.Parent = mainCard
+-- Заголовок "MEGAHACK LOADER"
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -40, 0, 40)
+title.Position = UDim2.new(0, 20, 0, 24)
+title.BackgroundTransparency = 1
+title.Text = "MEGAHACK LOADER"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 24
+title.TextColor3 = DESIGN.TextMain
+title.TextXAlignment = Enum.TextXAlignment.Center
+title.Parent = card
 
--- Статус бар текст
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Text = "Connecting to core..."
-statusLabel.Font = Enum.Font.Gotham
-statusLabel.TextColor3 = T.TextSub
-statusLabel.TextSize = 11
-statusLabel.Size = UDim2.new(1, -40, 0, 18)
-statusLabel.Position = UDim2.new(0, 20, 1, -52)
-statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-statusLabel.BackgroundTransparency = 1
-statusLabel.TextTransparency = 1
-statusLabel.Parent = mainCard
+-- Подзаголовок "by vertelvsepoel"
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.new(1, -40, 0, 20)
+subtitle.Position = UDim2.new(0, 20, 0, 68)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "by vertelvsepoel"
+subtitle.Font = Enum.Font.Gotham
+subtitle.TextSize = 13
+subtitle.TextColor3 = DESIGN.TextSub
+subtitle.TextXAlignment = Enum.TextXAlignment.Center
+subtitle.Parent = card
 
--- Полоска прогресса (Трэк)
-local progressTrack = Instance.new("Frame")
-progressTrack.Size = UDim2.new(1, -40, 0, 5)
-progressTrack.Position = UDim2.new(0, 20, 1, -28)
-progressTrack.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
-progressTrack.BackgroundTransparency = 1
-progressTrack.Parent = mainCard
-Instance.new("UICorner", progressTrack).CornerRadius = UDim.new(0, 3)
+-- Спиннер (анимированная иконка)
+local spinnerContainer = Instance.new("Frame")
+spinnerContainer.Size = UDim2.new(0, 48, 0, 48)
+spinnerContainer.Position = UDim2.new(0.5, -24, 0.5, -40)
+spinnerContainer.BackgroundTransparency = 1
+spinnerContainer.Parent = card
 
--- Полоска прогресса (Заполнение)
-local progressBar = Instance.new("Frame")
-progressBar.Size = UDim2.new(0, 0, 1, 0)
-progressBar.BackgroundColor3 = T.AccentGlow
-progressBar.BorderSizePixel = 0
-progressBar.Parent = progressTrack
-Instance.new("UICorner", progressBar).CornerRadius = UDim.new(0, 3)
+local spinner = Instance.new("ImageLabel")
+spinner.Size = UDim2.new(1, 0, 1, 0)
+spinner.BackgroundTransparency = 1
+spinner.Image = "rbxassetid://6023426926"  -- круглая загрузка
+spinner.ImageColor3 = DESIGN.AccentGradient[1]
+spinner.Parent = spinnerContainer
 
-local barGlow = Instance.new("UIStroke", progressBar)
-barGlow.Color = T.AccentGlow
-barGlow.Thickness = 1.5
-barGlow.Transparency = 0.5
+local spinTween = TweenService:Create(spinner, TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, true), {Rotation = 360})
 
--- Анимация плавного появления лоадера
-local tiIn = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-TweenService:Create(mainCard, tiIn, {BackgroundTransparency = 0}):Play()
-TweenService:Create(cardStroke, tiIn, {Transparency = 0}):Play()
-TweenService:Create(titleLabel, tiIn, {TextTransparency = 0}):Play()
-TweenService:Create(authorLabel, tiIn, {TextTransparency = 0}):Play()
-TweenService:Create(statusLabel, tiIn, {TextTransparency = 0}):Play()
-TweenService:Create(progressTrack, tiIn, {BackgroundTransparency = 0}):Play()
-task.wait(0.4)
+-- Текст состояния
+local statusText = Instance.new("TextLabel")
+statusText.Size = UDim2.new(1, -40, 0, 24)
+statusText.Position = UDim2.new(0, 20, 0, 160)
+statusText.BackgroundTransparency = 1
+statusText.Text = "Загрузка основного меню..."
+statusText.Font = Enum.Font.Gotham
+statusText.TextSize = 14
+statusText.TextColor3 = DESIGN.TextSub
+statusText.TextXAlignment = Enum.TextXAlignment.Center
+statusText.Parent = card
 
--- Функция управления заполнением полосы
-local function setProgress(percent, text)
-    statusLabel.Text = text
-    TweenService:Create(progressBar, TweenInfo.new(0.4, Enum.EasingStyle.OutQuad), {Size = UDim2.new(percent, 0, 1, 0)}):Play()
+-- Кнопка повтора (изначально скрыта)
+local retryBtn = Instance.new("TextButton")
+retryBtn.Size = UDim2.new(0, 140, 0, 36)
+retryBtn.Position = UDim2.new(0.5, -70, 0, 200)
+retryBtn.BackgroundColor3 = DESIGN.AccentGradient[1]
+retryBtn.BackgroundTransparency = 1
+retryBtn.Text = "ПОВТОРИТЬ"
+retryBtn.Font = Enum.Font.GothamBold
+retryBtn.TextSize = 14
+retryBtn.TextColor3 = DESIGN.TextMain
+retryBtn.Visible = false
+retryBtn.Parent = card
+local btnCorner = Instance.new("UICorner")
+btnCorner.CornerRadius = UDim.new(0, 10)
+btnCorner.Parent = retryBtn
+local btnStroke = Instance.new("UIStroke")
+btnStroke.Thickness = 1.5
+btnStroke.Color = DESIGN.AccentGradient[1]
+btnStroke.Transparency = 0.5
+btnStroke.Parent = retryBtn
+
+-- Кнопка закрытия (крестик)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 32, 0, 32)
+closeBtn.Position = UDim2.new(1, -40, 0, 12)
+closeBtn.BackgroundTransparency = 1
+closeBtn.Text = "✕"
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.TextSize = 18
+closeBtn.TextColor3 = DESIGN.TextSub
+closeBtn.TextScaled = false
+closeBtn.Parent = card
+
+-- ═══════════════════════════════════════════════════════════════════════
+--  Анимации появления
+-- ═══════════════════════════════════════════════════════════════════════
+card.BackgroundTransparency = 1
+card.Position = UDim2.new(0.5, -190, 0.5, -130)
+TweenService:Create(card, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    BackgroundTransparency = 0.1
+}):Play()
+spinTween:Play()
+
+-- ═══════════════════════════════════════════════════════════════════════
+--  Функция плавного закрытия лоудера
+-- ═══════════════════════════════════════════════════════════════════════
+local function destroyLoader()
+    spinTween:Cancel()
+    TweenService:Create(card, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        BackgroundTransparency = 1
+    }):Play()
+    TweenService:Create(overlay, TweenInfo.new(0.3), {
+        BackgroundTransparency = 1
+    }):Play()
+    task.wait(0.35)
+    loaderGui:Destroy()
 end
 
--- ══════════════════════════════════════
---  ИМИТАЦИЯ ПРОГРЕССА И ИНЖЕКТ МЕНЮ
--- ══════════════════════════════════════
-task.wait(0.2)
-setProgress(0.25, "Checking repository structures...")
-task.wait(0.4)
+-- ═══════════════════════════════════════════════════════════════════════
+--  Обработка ошибок загрузки
+-- ═══════════════════════════════════════════════════════════════════════
+local function showError(message)
+    spinTween:Pause()
+    spinner.ImageColor3 = DESIGN.ErrorColor
+    statusText.Text = "❌ " .. message
+    statusText.TextColor3 = DESIGN.ErrorColor
+    retryBtn.Visible = true
+    TweenService:Create(retryBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+end
 
-setProgress(0.55, "Fetching source codes...")
-task.wait(0.5)
+-- ═══════════════════════════════════════════════════════════════════════
+--  Основная загрузка меню
+-- ═══════════════════════════════════════════════════════════════════════
+local function loadMainMenu()
+    statusText.Text = "Подключение к репозиторию..."
+    statusText.TextColor3 = DESIGN.TextSub
+    spinner.ImageColor3 = DESIGN.AccentGradient[1]
+    spinTween:Play()
+    retryBtn.Visible = false
 
-setProgress(0.85, "Decrypting assets and modules...")
-task.wait(0.3)
+    local url = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/maybemenu.lua"
+    local success, result = pcall(function()
+        local code = game:HttpGet(url, true)
+        local func = loadstring(code)
+        if type(func) == "function" then
+            func()
+            return true
+        else
+            error("Не удалось скомпилировать скрипт")
+        end
+    end)
 
-setProgress(1.0, "Done! Executing maybemenu.lua...")
-task.wait(0.4)
+    if success and result == true then
+        statusText.Text = "✓ Успешно! Запуск меню..."
+        spinTween:Cancel()
+        TweenService:Create(spinner, TweenInfo.new(0.2), {ImageTransparency = 1}):Play()
+        task.wait(0.6)
+        destroyLoader()
+    else
+        local errMsg = tostring(result):sub(1, 60)
+        showError("Ошибка: " .. errMsg)
+    end
+end
 
--- Анимация плавного исчезновения лоадера
-local tiOut = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In)
-TweenService:Create(blur, tiOut, {Size = 0}):Play()
-TweenService:Create(fullBg, tiOut, {BackgroundTransparency = 1}):Play()
-TweenService:Create(mainCard, tiOut, {BackgroundTransparency = 1}):Play()
-TweenService:Create(cardStroke, tiOut, {Transparency = 1}):Play()
-TweenService:Create(titleLabel, tiOut, {TextTransparency = 1}):Play()
-TweenService:Create(authorLabel, tiOut, {TextTransparency = 1}):Play()
-TweenService:Create(statusLabel, tiOut, {TextTransparency = 1}):Play()
-TweenService:Create(progressBar, tiOut, {BackgroundTransparency = 1}):Play()
-TweenService:Create(progressTrack, tiOut, {BackgroundTransparency = 1}):Play()
-
-task.delay(0.35, function()
-    loaderGui:Destroy()
-    blur:Destroy()
+-- ═══════════════════════════════════════════════════════════════════════
+--  Обработчики кнопок
+-- ═══════════════════════════════════════════════════════════════════════
+retryBtn.MouseButton1Click:Connect(function()
+    TweenService:Create(retryBtn, TweenInfo.new(0.15), {BackgroundTransparency = 1}):Play()
+    task.wait(0.1)
+    loadMainMenu()
 end)
 
--- ══════════════════════════════════════
---  ГЛАВНЫЙ ЗАПУСК ОСНОВНОГО МЕНЮ
--- ══════════════════════════════════════
-local mainScriptUrl = BASE_ROOT .. "/maybemenu.lua?t=" .. math.floor(tick())
-local ok, err = pcall(function()
-    loadstring(game:HttpGet(mainScriptUrl, true))()
+closeBtn.MouseButton1Click:Connect(function()
+    destroyLoader()
 end)
 
-if not ok then
-    warn("[MH Loader] Критическая ошибка при запуске maybemenu: " .. tostring(err))
+-- Запуск загрузки
+loadMainMenu()
+
+-- Защита от повторного открытия (если скрипт запущен дважды)
+if _G.__MEGAHACK_LOADER_ACTIVE then
+    destroyLoader()
+else
+    _G.__MEGAHACK_LOADER_ACTIVE = true
 end
