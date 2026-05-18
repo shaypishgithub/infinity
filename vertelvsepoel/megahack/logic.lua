@@ -68,7 +68,7 @@ return function(deps)
         lastDayPlayed = 0,    -- os.time() день
     }
 
-    local sessionTimerConn = nil  -- RunService соединение для текущей сессии
+    local sessionTimerConn = nil
 
     local function ensureFolder()
         if not isfolder("MegaHack") then makefolder("MegaHack") end
@@ -96,23 +96,19 @@ return function(deps)
         end)
     end
 
-    -- Записать клик по вкладке
     local function recordTabClick(name)
         if not statsData.tabClicks[name] then statsData.tabClicks[name] = 0 end
         statsData.tabClicks[name] = statsData.tabClicks[name] + 1
         saveStats()
     end
 
-    -- Обновить стрик и дни
     local function updateDayStats(secsThisSession)
-        local dow = tonumber(os.date("%w")) or 0  -- 0=воскр
-        local dayIdx = dow == 0 and 7 or dow       -- 1=пн..7=воскр
+        local dow = tonumber(os.date("%w")) or 0
+        local dayIdx = dow == 0 and 7 or dow
         if not statsData.daySeconds[tostring(dayIdx)] then
             statsData.daySeconds[tostring(dayIdx)] = 0
         end
         statsData.daySeconds[tostring(dayIdx)] = statsData.daySeconds[tostring(dayIdx)] + secsThisSession
-
-        -- стрик (сравниваем день)
         local todayNum = math.floor(os.time() / 86400)
         if statsData.lastDayPlayed == todayNum - 1 then
             statsData.streak = statsData.streak + 1
@@ -123,7 +119,6 @@ return function(deps)
         saveStats()
     end
 
-    -- Завершить сессию (вызывается при закрытии или вручную)
     local function finishCurrentSession()
         if sessionTimerConn then
             pcall(function() sessionTimerConn:Disconnect() end)
@@ -139,10 +134,8 @@ return function(deps)
         saveStats()
     end
 
-    -- Запустить таймер сессии
     local function startSessionTimer()
         statsData.sessionStart = tick()
-        -- Авто-сохранение каждые 60 сек
         if sessionTimerConn then pcall(function() sessionTimerConn:Disconnect() end) end
         local acc = 0
         sessionTimerConn = RunService.Heartbeat:Connect(function(dt)
@@ -739,7 +732,7 @@ return function(deps)
             timeLbl.Parent                 = heatCard
         end
 
-        -- ── 4. Donut chart: most used tabs ───────────────────────────────
+        -- ── 4. Stacked bar chart: most used tabs (FIXED — без артефактов) ─
         createSectionHeader("Most used tabs", scrollingFrame)
 
         local tabList = {}
@@ -748,12 +741,18 @@ return function(deps)
         end
         table.sort(tabList, function(a,b) return a.cnt > b.cnt end)
 
-        local donutCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,120), nil, T.BgPanel, 0.1, 4)
-        mkCorner(donutCard, 8)
-        mkStroke(donutCard, 1, T.Stroke, 0.3)
+        -- Высота карточки: 14px заголовок + 28px бар + 8px gap + строки легенды по 20px + отступы
+        local top5 = {}
+        for i = 1, math.min(5, #tabList) do top5[i] = tabList[i] end
+        local legendHeight = #top5 * 20
+        local cardH = 14 + 28 + 10 + legendHeight + 14   -- ≈ 130 при 5 элементах
+
+        local tabCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,cardH), nil, T.BgPanel, 0.1, 4)
+        mkCorner(tabCard, 8)
+        mkStroke(tabCard, 1, T.Stroke, 0.3)
 
         if #tabList == 0 then
-            mkLabel(donutCard, "No data yet — open some tabs!",
+            mkLabel(tabCard, "No data yet — open some tabs!",
                 UDim2.new(1,0,1,0), UDim2.new(0,0,0,0),
                 T.TextMuted, Enum.TextXAlignment.Center, Enum.Font.Gotham, 11, 5)
         else
@@ -769,74 +768,104 @@ return function(deps)
             for _, t in ipairs(tabList) do total = total + t.cnt end
             if total == 0 then total = 1 end
 
-            local topPct = tabList[1] and math.floor(tabList[1].cnt / total * 100) or 0
-            local ringW, ringH = 90, 90
+            -- ── Заголовок бара ──
+            local barPadX  = 10
+            local barY     = 10
+            local barH_px  = 28
+            -- Ширина бара = вся карточка минус padding с двух сторон (абсолютное значение нам не нужно — используем Scale)
 
-            local ringOuter = mkFrame(donutCard,
-                UDim2.new(0, ringW, 0, ringH),
-                UDim2.new(0, 8, 0.5, -ringH/2),
-                T.Accent, 0.75, 5)
-            mkCorner(ringOuter, ringW/2)
+            -- Контейнер для stacked bar (ClipsDescendants чтобы сегменты не вылазили)
+            local barBg = Instance.new("Frame")
+            barBg.Size                   = UDim2.new(1, -barPadX*2, 0, barH_px)
+            barBg.Position               = UDim2.new(0, barPadX, 0, barY)
+            barBg.BackgroundColor3       = T.BgBtn
+            barBg.BackgroundTransparency = 0.05
+            barBg.BorderSizePixel        = 0
+            barBg.ClipsDescendants       = true   -- ← ключевое: обрезает всё что выходит за рамки
+            barBg.ZIndex                 = 5
+            barBg.Parent                 = tabCard
+            mkCorner(barBg, 6)
+            mkStroke(barBg, 1, T.Stroke, 0.3)
 
-            local segContainer = mkFrame(donutCard,
-                UDim2.new(0, ringW, 0, ringH),
-                UDim2.new(0, 8, 0.5, -ringH/2),
-                Color3.new(0,0,0), 1, 5)
+            -- Сегменты stacked bar через Scale внутри barBg
+            local top5total = 0
+            for _, t in ipairs(top5) do top5total = top5total + t.cnt end
+            if top5total == 0 then top5total = 1 end
 
-            local top5 = {}
-            for i=1, math.min(5,#tabList) do top5[i]=tabList[i] end
-
-            local angle = 0
+            local offsetScale = 0
             for idx, t in ipairs(top5) do
-                local sweep = (t.cnt / total) * 360
+                local frac = t.cnt / total
                 local seg = Instance.new("Frame")
-                seg.Size                   = UDim2.new(1,0,1,0)
+                seg.Size                   = UDim2.new(frac, 0, 1, 0)
+                seg.Position               = UDim2.new(offsetScale, 0, 0, 0)
                 seg.BackgroundColor3       = palette[idx] or T.Accent
-                seg.BackgroundTransparency = 0.3
+                seg.BackgroundTransparency = 0.15
                 seg.BorderSizePixel        = 0
-                seg.ZIndex                 = 5 + idx
-                seg.ClipsDescendants       = true
-                seg.Parent                 = segContainer
-                local rotFrame = Instance.new("Frame")
-                rotFrame.Size                   = UDim2.new(0.5,0,1,0)
-                rotFrame.Position               = UDim2.new(0.5,0,0,0)
-                rotFrame.BackgroundColor3       = palette[idx] or T.Accent
-                rotFrame.BackgroundTransparency = 0
-                rotFrame.BorderSizePixel        = 0
-                rotFrame.Rotation               = angle
-                rotFrame.ZIndex                 = 5 + idx
-                rotFrame.Parent                 = segContainer
-                angle = angle + sweep
+                seg.ZIndex                 = 6
+                seg.Parent                 = barBg
+                -- Скругление только краёв: первый — слева, последний — справа
+                -- Используем UICorner на всех, ClipsDescendants на barBg сам обрежет лишнее
+                mkCorner(seg, 4)
+                offsetScale = offsetScale + frac
             end
 
-            local cutout = mkFrame(donutCard,
-                UDim2.new(0, ringW-28, 0, ringH-28),
-                UDim2.new(0, 8+14, 0.5, -(ringH-28)/2),
-                T.BgPanel, 0.08, 9)
-            mkCorner(cutout, (ringW-28)/2)
+            -- Оставшаяся часть (прочие вкладки за top5)
+            if offsetScale < 0.999 then
+                local restSeg = Instance.new("Frame")
+                restSeg.Size                   = UDim2.new(1 - offsetScale, 0, 1, 0)
+                restSeg.Position               = UDim2.new(offsetScale, 0, 0, 0)
+                restSeg.BackgroundColor3       = T.BgBtn
+                restSeg.BackgroundTransparency = 0.0
+                restSeg.BorderSizePixel        = 0
+                restSeg.ZIndex                 = 6
+                restSeg.Parent                 = barBg
+            end
 
-            mkLabel(cutout, topPct .. "%",
-                UDim2.new(1,0,0,20), UDim2.new(0,0,0.5,-20),
-                T.Accent, Enum.TextXAlignment.Center, Enum.Font.GothamBold, 14, 10)
-            mkLabel(cutout, "top",
-                UDim2.new(1,0,0,14), UDim2.new(0,0,0.5,2),
-                T.TextMuted, Enum.TextXAlignment.Center, Enum.Font.Gotham, 9, 10)
-
-            local legendX = ringW + 24
+            -- ── Легенда под баром ──
+            local legendY = barY + barH_px + 10
             for idx, t in ipairs(top5) do
                 local pct = math.floor(t.cnt / total * 100)
-                local dot = mkFrame(donutCard,
-                    UDim2.new(0,8,0,8),
-                    UDim2.new(0, legendX, 0, 10 + (idx-1)*20),
-                    palette[idx] or T.Accent, 0, 6)
+
+                -- Цветная точка
+                local dot = Instance.new("Frame")
+                dot.Size                   = UDim2.new(0, 8, 0, 8)
+                dot.Position               = UDim2.new(0, barPadX, 0, legendY + (idx-1)*20 + 3)
+                dot.BackgroundColor3       = palette[idx] or T.Accent
+                dot.BackgroundTransparency = 0
+                dot.BorderSizePixel        = 0
+                dot.ZIndex                 = 6
+                dot.Parent                 = tabCard
                 mkCorner(dot, 2)
+
+                -- Название вкладки
                 local nm = t.name
-                if #nm > 14 then nm = nm:sub(1,13) .. "…" end
-                mkLabel(donutCard,
-                    nm .. "  " .. pct .. "%",
-                    UDim2.new(1, -(legendX+16), 0, 14),
-                    UDim2.new(0, legendX+14, 0, 8 + (idx-1)*20),
-                    T.TextMain, Enum.TextXAlignment.Left, Enum.Font.Gotham, 11, 6)
+                if #nm > 18 then nm = nm:sub(1,17) .. "…" end
+
+                local nameLbl = Instance.new("TextLabel")
+                nameLbl.Text                   = nm
+                nameLbl.Size                   = UDim2.new(0.6, 0, 0, 16)
+                nameLbl.Position               = UDim2.new(0, barPadX + 13, 0, legendY + (idx-1)*20)
+                nameLbl.BackgroundTransparency = 1
+                nameLbl.TextColor3             = T.TextMain
+                nameLbl.TextXAlignment         = Enum.TextXAlignment.Left
+                nameLbl.Font                   = Enum.Font.Gotham
+                nameLbl.TextSize               = 11
+                nameLbl.ZIndex                 = 6
+                nameLbl.Parent                 = tabCard
+                nameLbl:SetAttribute("TextRole","main")
+
+                -- Процент справа
+                local pctLbl = Instance.new("TextLabel")
+                pctLbl.Text                   = pct .. "%  (" .. t.cnt .. ")"
+                pctLbl.Size                   = UDim2.new(0.38, -barPadX, 0, 16)
+                pctLbl.Position               = UDim2.new(0.62, 0, 0, legendY + (idx-1)*20)
+                pctLbl.BackgroundTransparency = 1
+                pctLbl.TextColor3             = T.TextSub
+                pctLbl.TextXAlignment         = Enum.TextXAlignment.Right
+                pctLbl.Font                   = Enum.Font.GothamBold
+                pctLbl.TextSize               = 11
+                pctLbl.ZIndex                 = 6
+                pctLbl.Parent                 = tabCard
             end
         end
 
