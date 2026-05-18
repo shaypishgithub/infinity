@@ -1,8 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
---  logic.lua  —  Вся логика: Home, Settings, поиск, категории
---  ИСПРАВЛЕНО: убраны прямые .BackgroundColor3 на headerPatch/
---              sidebarPatch/sidebarBLCorner — они dummy-объекты
---  ИСПРАВЛЕНО: createColorPicker полностью самодостаточен здесь
+--  logic.lua  —  Вся логика: Home, Settings, Stats, поиск, категории
 -- ══════════════════════════════════════════════════════════════════
 return function(deps)
     local TweenService       = deps.TweenService
@@ -22,19 +19,18 @@ return function(deps)
     local createNotification = deps.createNotification
     local safeLoad           = deps.safeLoad
 
-    -- удобные алиасы из gui
-    local mainFrame         = gui.mainFrame
-    local headerFrame       = gui.headerFrame
-    local sidebarFrame      = gui.sidebarFrame
-    local catScroll         = gui.catScroll
-    local scrollingFrame    = gui.scrollingFrame
-    local closeBtn          = gui.closeBtn
-    local reopenButton      = gui.reopenButton
-    local createButton      = gui.createButton
-    local createLabel       = gui.createLabel
+    local mainFrame           = gui.mainFrame
+    local headerFrame         = gui.headerFrame
+    local sidebarFrame        = gui.sidebarFrame
+    local catScroll           = gui.catScroll
+    local scrollingFrame      = gui.scrollingFrame
+    local closeBtn            = gui.closeBtn
+    local reopenButton        = gui.reopenButton
+    local createButton        = gui.createButton
+    local createLabel         = gui.createLabel
     local createSectionHeader = gui.createSectionHeader
-    local mkCorner          = gui.mkCorner
-    local mkStroke          = gui.mkStroke
+    local mkCorner            = gui.mkCorner
+    local mkStroke            = gui.mkStroke
 
     -- ══════════════════════════════════════
     --  SETTINGS STATE
@@ -42,9 +38,9 @@ return function(deps)
     local rgbConnections         = {}
     local colorPickerConnections = {}
     local settings = {
-        locked      = false,
-        rgbAccent   = false,
-        rgbStroke   = false,
+        locked       = false,
+        rgbAccent    = false,
+        rgbStroke    = false,
         transparency = 0.04,
         colors = {
             bgColor     = T.BgBase,
@@ -57,6 +53,108 @@ return function(deps)
     local function clearRgbConnections()
         for _, c in pairs(rgbConnections) do pcall(function() c:Disconnect() end) end
         rgbConnections = {}
+    end
+
+    -- ══════════════════════════════════════
+    --  STATS STATE
+    -- ══════════════════════════════════════
+    local statsData = {
+        totalSeconds  = 0,
+        totalSessions = 0,
+        sessionStart  = tick(),
+        tabClicks     = {},   -- {tabName = count}
+        daySeconds    = {},   -- {[1..7] = seconds}  1=Пн
+        streak        = 0,
+        lastDayPlayed = 0,    -- os.time() день
+    }
+
+    local sessionTimerConn = nil  -- RunService соединение для текущей сессии
+
+    local function ensureFolder()
+        if not isfolder("MegaHack") then makefolder("MegaHack") end
+    end
+
+    local function saveStats()
+        pcall(function()
+            ensureFolder()
+            writefile("MegaHack/stats.json", HttpService:JSONEncode(statsData))
+        end)
+    end
+
+    local function loadStats()
+        pcall(function()
+            if isfile("MegaHack/stats.json") then
+                local raw  = readfile("MegaHack/stats.json")
+                local data = HttpService:JSONDecode(raw)
+                if data.totalSeconds  then statsData.totalSeconds  = data.totalSeconds  end
+                if data.totalSessions then statsData.totalSessions = data.totalSessions end
+                if data.tabClicks     then statsData.tabClicks     = data.tabClicks     end
+                if data.daySeconds    then statsData.daySeconds    = data.daySeconds    end
+                if data.streak        then statsData.streak        = data.streak        end
+                if data.lastDayPlayed then statsData.lastDayPlayed = data.lastDayPlayed end
+            end
+        end)
+    end
+
+    -- Записать клик по вкладке
+    local function recordTabClick(name)
+        if not statsData.tabClicks[name] then statsData.tabClicks[name] = 0 end
+        statsData.tabClicks[name] = statsData.tabClicks[name] + 1
+        saveStats()
+    end
+
+    -- Обновить стрик и дни
+    local function updateDayStats(secsThisSession)
+        local dow = tonumber(os.date("%w")) or 0  -- 0=воскр
+        local dayIdx = dow == 0 and 7 or dow       -- 1=пн..7=воскр
+        if not statsData.daySeconds[tostring(dayIdx)] then
+            statsData.daySeconds[tostring(dayIdx)] = 0
+        end
+        statsData.daySeconds[tostring(dayIdx)] = statsData.daySeconds[tostring(dayIdx)] + secsThisSession
+
+        -- стрик (сравниваем день)
+        local todayNum = math.floor(os.time() / 86400)
+        if statsData.lastDayPlayed == todayNum - 1 then
+            statsData.streak = statsData.streak + 1
+        elseif statsData.lastDayPlayed ~= todayNum then
+            statsData.streak = 1
+        end
+        statsData.lastDayPlayed = todayNum
+        saveStats()
+    end
+
+    -- Завершить сессию (вызывается при закрытии или вручную)
+    local function finishCurrentSession()
+        if sessionTimerConn then
+            pcall(function() sessionTimerConn:Disconnect() end)
+            sessionTimerConn = nil
+        end
+        local elapsed = math.floor(tick() - statsData.sessionStart)
+        if elapsed > 5 then
+            statsData.totalSeconds  = statsData.totalSeconds + elapsed
+            statsData.totalSessions = statsData.totalSessions + 1
+            updateDayStats(elapsed)
+        end
+        statsData.sessionStart = tick()
+        saveStats()
+    end
+
+    -- Запустить таймер сессии
+    local function startSessionTimer()
+        statsData.sessionStart = tick()
+        -- Авто-сохранение каждые 60 сек
+        if sessionTimerConn then pcall(function() sessionTimerConn:Disconnect() end) end
+        local acc = 0
+        sessionTimerConn = RunService.Heartbeat:Connect(function(dt)
+            acc = acc + dt
+            if acc >= 60 then
+                acc = 0
+                local elapsed = math.floor(tick() - statsData.sessionStart)
+                statsData.totalSeconds = statsData.totalSeconds + elapsed
+                statsData.sessionStart = tick()
+                saveStats()
+            end
+        end)
     end
 
     -- ══════════════════════════════════════
@@ -80,7 +178,6 @@ return function(deps)
         T.TextMain   = tx
         T.Stroke     = str
 
-        -- Обновляем все зарегистрированные accent-объекты
         for _, entry in ipairs(deps.accentRegistry or {}) do
             if entry.obj and entry.obj.Parent then
                 pcall(function() entry.obj[entry.prop] = acc end)
@@ -89,9 +186,7 @@ return function(deps)
 
         mainFrame.BackgroundColor3       = bg
         mainFrame.BackgroundTransparency = settings.transparency
-        -- headerFrame и sidebarFrame прозрачные (BackgroundTransparency=1), не трогаем
 
-        -- Обновляем closeBtn stroke
         local closeBtnStroke = closeBtn:FindFirstChildOfClass("UIStroke")
         if closeBtnStroke then
             if settings.rgbStroke then
@@ -106,7 +201,6 @@ return function(deps)
             end
         end
 
-        -- Глубокий проход по всем потомкам mainFrame
         for _, obj in pairs(mainFrame:GetDescendants()) do
             if obj:IsA("UIStroke") then
                 if settings.rgbStroke then
@@ -142,7 +236,7 @@ return function(deps)
     -- ══════════════════════════════════════
     local function saveColorSettings()
         pcall(function()
-            if not isfolder("MegaHack") then makefolder("MegaHack") end
+            ensureFolder()
             local col  = settings.colors
             local data = {
                 bgColor      = {col.bgColor.R,     col.bgColor.G,     col.bgColor.B},
@@ -191,6 +285,56 @@ return function(deps)
                 child:Destroy()
             end
         end
+    end
+
+    -- ══════════════════════════════════════
+    --  HELPERS
+    -- ══════════════════════════════════════
+    local function fmtTime(secs)
+        secs = math.floor(secs)
+        local h = math.floor(secs / 3600)
+        local m = math.floor((secs % 3600) / 60)
+        local s = secs % 60
+        if h > 0 then
+            return string.format("%dч %02dм", h, m)
+        else
+            return string.format("%02dм %02dс", m, s)
+        end
+    end
+
+    local function fmtTimerLive(secs)
+        secs = math.floor(secs)
+        local h = math.floor(secs / 3600)
+        local m = math.floor((secs % 3600) / 60)
+        local s = secs % 60
+        return string.format("%02d:%02d:%02d", h, m, s)
+    end
+
+    local function mkFrame(parent, size, pos, bg, bgt, zidx)
+        local f = Instance.new("Frame")
+        f.Size                   = size or UDim2.new(1,0,0,40)
+        f.Position               = pos  or UDim2.new(0,0,0,0)
+        f.BackgroundColor3       = bg   or T.BgPanel
+        f.BackgroundTransparency = bgt  ~= nil and bgt or 0.15
+        f.BorderSizePixel        = 0
+        f.ZIndex                 = zidx or 4
+        f.Parent                 = parent
+        return f
+    end
+
+    local function mkLabel(parent, text, size, pos, color, align, font, textSize, zidx)
+        local l = Instance.new("TextLabel")
+        l.Text                   = text or ""
+        l.Size                   = size or UDim2.new(1,0,1,0)
+        l.Position               = pos  or UDim2.new(0,0,0,0)
+        l.TextColor3             = color or T.TextMain
+        l.TextXAlignment         = align or Enum.TextXAlignment.Left
+        l.Font                   = font  or Enum.Font.Gotham
+        l.TextSize               = textSize or 12
+        l.BackgroundTransparency = 1
+        l.ZIndex                 = zidx or 5
+        l.Parent                 = parent
+        return l
     end
 
     -- ══════════════════════════════════════
@@ -443,6 +587,371 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
+    --  SHOW STATS
+    -- ══════════════════════════════════════
+    local function showStats()
+        clearContent()
+
+        -- ── 1. Заголовок + живой таймер сессии ──────────────────────────
+        createSectionHeader("Stats", scrollingFrame)
+
+        local sessionCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,72), nil, T.BgPanel, 0.1, 4)
+        mkCorner(sessionCard, 8)
+        mkStroke(sessionCard, 1, T.Stroke, 0.3)
+
+        -- иконка огонька + сессии
+        local sessIconLbl = mkLabel(sessionCard,
+            "🔥 " .. tostring(statsData.totalSessions) .. " сессий",
+            UDim2.new(0,120,0,18), UDim2.new(0,8,0,6),
+            T.Accent, Enum.TextXAlignment.Left, Enum.Font.GothamBold, 11, 5)
+
+        -- живой таймер
+        local timerLbl = mkLabel(sessionCard,
+            "Сессия: " .. fmtTimerLive(tick() - statsData.sessionStart),
+            UDim2.new(1,-140,0,22), UDim2.new(0,8,0,26),
+            T.TextMain, Enum.TextXAlignment.Left, Enum.Font.GothamBold, 14, 5)
+        timerLbl:SetAttribute("TextRole","main")
+
+        -- всего часов
+        local totalLbl = mkLabel(sessionCard,
+            "Всего: " .. fmtTime(statsData.totalSeconds),
+            UDim2.new(0,140,0,16), UDim2.new(0,8,0,50),
+            T.TextSub, Enum.TextXAlignment.Left, Enum.Font.Gotham, 11, 5)
+
+        -- стрик справа
+        local streakLbl = mkLabel(sessionCard,
+            "🔥 Стрик: " .. tostring(statsData.streak) .. " дн.",
+            UDim2.new(0,100,0,16), UDim2.new(1,-108,0,50),
+            T.AccentGlow, Enum.TextXAlignment.Right, Enum.Font.GothamBold, 11, 5)
+
+        -- кнопка "Завершить сессию"
+        local finBtn = Instance.new("TextButton")
+        finBtn.Size                   = UDim2.new(0,110,0,22)
+        finBtn.Position               = UDim2.new(1,-118,0,4)
+        finBtn.BackgroundColor3       = T.Accent
+        finBtn.BackgroundTransparency = 0.35
+        finBtn.BorderSizePixel        = 0
+        finBtn.Text                   = "Завершить"
+        finBtn.TextColor3             = T.TextMain
+        finBtn.TextSize               = 11
+        finBtn.Font                   = Enum.Font.GothamBold
+        finBtn.ZIndex                 = 5
+        finBtn.Parent                 = sessionCard
+        finBtn:SetAttribute("TextRole","main")
+        mkCorner(finBtn, 5)
+        mkStroke(finBtn, 1, T.Accent, 0.4)
+        finBtn.MouseButton1Click:Connect(function()
+            finishCurrentSession()
+            startSessionTimer()
+            createNotification("STATS","Сессия записана!",3,7733960981)
+            -- обновляем отображение
+            sessIconLbl.Text = "🔥 " .. tostring(statsData.totalSessions) .. " сессий"
+            totalLbl.Text    = "Всего: " .. fmtTime(statsData.totalSeconds)
+            streakLbl.Text   = "🔥 Стрик: " .. tostring(statsData.streak) .. " дн."
+        end)
+
+        -- живой апдейт таймера
+        local timerRunning = true
+        local timerThread  = task.spawn(function()
+            while timerRunning do
+                task.wait(1)
+                if not sessionCard.Parent then timerRunning = false; break end
+                timerLbl.Text = "Сессия: " .. fmtTimerLive(tick() - statsData.sessionStart)
+            end
+        end)
+        sessionCard.AncestryChanged:Connect(function()
+            if not sessionCard.Parent then timerRunning = false end
+        end)
+
+        -- ── 2. Три мини-карточки ────────────────────────────────────────
+        createSectionHeader("Обзор", scrollingFrame)
+
+        local miniRow = mkFrame(scrollingFrame, UDim2.new(1,0,0,54), nil, Color3.new(0,0,0), 1, 4)
+        local miniLayout = Instance.new("UIListLayout")
+        miniLayout.FillDirection = Enum.FillDirection.Horizontal
+        miniLayout.Padding       = UDim.new(0,6)
+        miniLayout.SortOrder     = Enum.SortOrder.LayoutOrder
+        miniLayout.Parent        = miniRow
+
+        local miniData = {
+            {"⏱ Часов", string.format("%.1f", statsData.totalSeconds / 3600)},
+            {"🎮 Сессий", tostring(statsData.totalSessions)},
+            {"⌀ Сессия", (statsData.totalSessions > 0)
+                and fmtTime(statsData.totalSeconds / statsData.totalSessions)
+                or "—"},
+        }
+        for i, md in ipairs(miniData) do
+            local mc = mkFrame(miniRow, UDim2.new(1/3,-4,1,0), nil, T.BgPanel, 0.1, 5)
+            mc.LayoutOrder = i
+            mkCorner(mc, 7)
+            mkStroke(mc, 1, T.Stroke, 0.35)
+            mkLabel(mc, md[1], UDim2.new(1,0,0,14), UDim2.new(0,0,0,6),
+                T.TextMuted, Enum.TextXAlignment.Center, Enum.Font.Gotham, 10, 6)
+            local vl = mkLabel(mc, md[2], UDim2.new(1,0,0,22), UDim2.new(0,0,0,22),
+                T.TextMain, Enum.TextXAlignment.Center, Enum.Font.GothamBold, 14, 6)
+            vl:SetAttribute("TextRole","main")
+        end
+
+        -- ── 3. Тепловая карта дней ──────────────────────────────────────
+        createSectionHeader("Активность по дням недели", scrollingFrame)
+
+        local heatCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,68), nil, T.BgPanel, 0.1, 4)
+        mkCorner(heatCard, 8)
+        mkStroke(heatCard, 1, T.Stroke, 0.3)
+
+        local dayNames = {"Пн","Вт","Ср","Чт","Пт","Сб","Вс"}
+
+        -- найдём максимум для нормализации
+        local maxDay = 1
+        for i = 1, 7 do
+            local v = statsData.daySeconds[tostring(i)] or 0
+            if v > maxDay then maxDay = v end
+        end
+
+        local dayW = math.floor((1 / 7) * 100)  -- примерно
+
+        for i = 1, 7 do
+            local secs    = statsData.daySeconds[tostring(i)] or 0
+            local ratio   = math.clamp(secs / maxDay, 0, 1)
+            local xOff    = (i-1) * (math.floor(scrollingFrame.AbsoluteSize.X - 24) / 7 + 6)
+
+            -- название дня
+            local dayNameLbl = Instance.new("TextLabel")
+            dayNameLbl.Text                   = dayNames[i]
+            dayNameLbl.Size                   = UDim2.new(0, 28, 0, 14)
+            dayNameLbl.Position               = UDim2.new(0, 8 + (i-1)*34, 0, 4)
+            dayNameLbl.BackgroundTransparency = 1
+            dayNameLbl.TextColor3             = T.TextMuted
+            dayNameLbl.TextSize               = 10
+            dayNameLbl.Font                   = Enum.Font.Gotham
+            dayNameLbl.TextXAlignment         = Enum.TextXAlignment.Center
+            dayNameLbl.ZIndex                 = 5
+            dayNameLbl.Parent                 = heatCard
+
+            -- ячейка-прямоугольник (высота зависит от активности)
+            local cellH = math.floor(6 + ratio * 30)
+            local cellF = mkFrame(heatCard,
+                UDim2.new(0, 28, 0, cellH),
+                UDim2.new(0, 8 + (i-1)*34, 0, 46 - cellH + 4),
+                T.Accent, (1 - 0.3 - ratio * 0.55), 5)
+            mkCorner(cellF, 4)
+
+            -- подсказка: время наведения
+            local timeLbl = Instance.new("TextLabel")
+            timeLbl.Text                   = (secs > 0) and fmtTime(secs) or "0м"
+            timeLbl.Size                   = UDim2.new(0,42,0,12)
+            timeLbl.Position               = UDim2.new(0, 8 + (i-1)*34 - 7, 0, 52)
+            timeLbl.BackgroundTransparency = 1
+            timeLbl.TextColor3             = T.TextSub
+            timeLbl.TextSize               = 9
+            timeLbl.Font                   = Enum.Font.Gotham
+            timeLbl.TextXAlignment         = Enum.TextXAlignment.Center
+            timeLbl.ZIndex                 = 5
+            timeLbl.Parent                 = heatCard
+        end
+
+        -- ── 4. Кольцевая графа: популярные вкладки ──────────────────────
+        createSectionHeader("Популярные вкладки", scrollingFrame)
+
+        -- собираем топ-5
+        local tabList = {}
+        for name, cnt in pairs(statsData.tabClicks) do
+            table.insert(tabList, {name=name, cnt=cnt})
+        end
+        table.sort(tabList, function(a,b) return a.cnt > b.cnt end)
+
+        local donutCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,120), nil, T.BgPanel, 0.1, 4)
+        mkCorner(donutCard, 8)
+        mkStroke(donutCard, 1, T.Stroke, 0.3)
+
+        if #tabList == 0 then
+            mkLabel(donutCard, "Нет данных — открывай вкладки!",
+                UDim2.new(1,0,1,0), UDim2.new(0,0,0,0),
+                T.TextMuted, Enum.TextXAlignment.Center, Enum.Font.Gotham, 11, 5)
+        else
+            -- палитра акцентных оттенков (делаем вручную без Drawing)
+            local palette = {
+                T.Accent,
+                T.AccentHov,
+                T.AccentGlow,
+                Color3.new(math.min(T.Accent.R*0.6,1), math.min(T.Accent.G*0.6,1), math.min(T.Accent.B*0.6,1)),
+                Color3.new(math.min(T.Accent.R*0.4,1), math.min(T.Accent.G*0.4,1), math.min(T.Accent.B*0.4,1)),
+            }
+
+            local total = 0
+            for _, t in ipairs(tabList) do total = total + t.cnt end
+            if total == 0 then total = 1 end
+
+            -- рисуем «кольцо» через набор тонких Frame-ов (сегменты по ширине)
+            -- это упрощённая горизонтальная полоса-индикатор, стилизованная под кольцо
+            -- (Drawing API недоступен в GUI, поэтому делаем через SegmentBar)
+
+            -- Центральный текст
+            local topName = tabList[1] and tabList[1].name or "—"
+            local topPct  = tabList[1] and math.floor(tabList[1].cnt / total * 100) or 0
+
+            local ringW = 90
+            local ringH = 90
+
+            -- Внешнее кольцо — Frame круглый большой
+            local ringOuter = mkFrame(donutCard,
+                UDim2.new(0, ringW, 0, ringH),
+                UDim2.new(0, 8, 0.5, -ringH/2),
+                T.Accent, 0.75, 5)
+            mkCorner(ringOuter, ringW/2)
+
+            -- Внутренний вырез
+            local ringInner = mkFrame(donutCard,
+                UDim2.new(0, ringW-26, 0, ringH-26),
+                UDim2.new(0, 8+13, 0.5, -(ringH-26)/2),
+                T.BgPanel, 0.05, 6)
+            mkCorner(ringInner, (ringW-26)/2)
+
+            -- Сегменты: рисуем несколько вложенных дуг через Rotation ImageLabel
+            -- (без Drawing — используем partial-frame трюк через UICorner + Clip)
+            -- Для каждого сегмента делаем Frame с закруглением и цветом
+            local segContainer = mkFrame(donutCard,
+                UDim2.new(0, ringW, 0, ringH),
+                UDim2.new(0, 8, 0.5, -ringH/2),
+                Color3.new(0,0,0), 1, 5)
+
+            local top5 = {}
+            for i=1,math.min(5,#tabList) do top5[i]=tabList[i] end
+            -- Рисуем сегменты через несколько Frame в segContainer (дуги через rotation)
+            -- Т.к. нет Drawing API в UI, показываем пропорциональные дуги через ClipsDescendants + полукруговые Frame
+            local angle = 0
+            for idx, t in ipairs(top5) do
+                local sweep = (t.cnt / total) * 360
+                -- каждый сегмент — Frame с вращением и UICorner
+                -- Делаем через две половинки Frame
+                local seg = Instance.new("Frame")
+                seg.Size             = UDim2.new(1,0,1,0)
+                seg.BackgroundColor3 = palette[idx] or T.Accent
+                seg.BackgroundTransparency = 0.3
+                seg.BorderSizePixel  = 0
+                seg.ZIndex           = 5 + idx
+                seg.ClipsDescendants = true
+                seg.Parent           = segContainer
+                -- вращаем через ImageLabel trick: используем Rotation property
+                local rotFrame = Instance.new("Frame")
+                rotFrame.Size             = UDim2.new(0.5,0,1,0)
+                rotFrame.Position         = UDim2.new(0.5,0,0,0)
+                rotFrame.BackgroundColor3 = palette[idx] or T.Accent
+                rotFrame.BackgroundTransparency = 0
+                rotFrame.BorderSizePixel  = 0
+                rotFrame.Rotation         = angle
+                rotFrame.ZIndex           = 5 + idx
+                rotFrame.Parent           = segContainer
+                angle = angle + sweep
+            end
+
+            -- Поверх — внутренний круг (вырез для donut-эффекта)
+            local cutout = mkFrame(donutCard,
+                UDim2.new(0, ringW-28, 0, ringH-28),
+                UDim2.new(0, 8+14, 0.5, -(ringH-28)/2),
+                T.BgPanel, 0.08, 9)
+            mkCorner(cutout, (ringW-28)/2)
+
+            -- Текст внутри кольца
+            mkLabel(cutout,
+                topPct .. "%",
+                UDim2.new(1,0,0,20), UDim2.new(0,0,0.5,-20),
+                T.Accent, Enum.TextXAlignment.Center, Enum.Font.GothamBold, 14, 10)
+            mkLabel(cutout,
+                "топ", UDim2.new(1,0,0,14), UDim2.new(0,0,0.5,2),
+                T.TextMuted, Enum.TextXAlignment.Center, Enum.Font.Gotham, 9, 10)
+
+            -- Легенда справа
+            local legendX = ringW + 24
+            for idx, t in ipairs(top5) do
+                local pct = math.floor(t.cnt / total * 100)
+                -- цветной квадрат
+                local dot = mkFrame(donutCard,
+                    UDim2.new(0,8,0,8),
+                    UDim2.new(0, legendX, 0, 10 + (idx-1)*20),
+                    palette[idx] or T.Accent, 0, 6)
+                mkCorner(dot, 2)
+                -- название
+                local nm = t.name
+                if #nm > 14 then nm = nm:sub(1,13) .. "…" end
+                mkLabel(donutCard,
+                    nm .. "  " .. pct .. "%",
+                    UDim2.new(1, -(legendX+16), 0, 14),
+                    UDim2.new(0, legendX+14, 0, 8 + (idx-1)*20),
+                    T.TextMain, Enum.TextXAlignment.Left, Enum.Font.Gotham, 11, 6)
+            end
+        end
+
+        -- ── 5. Топ вкладок в виде баров ─────────────────────────────────
+        createSectionHeader("Топ вкладок", scrollingFrame)
+
+        if #tabList == 0 then
+            createLabel("Открывай вкладки — здесь появится статистика", scrollingFrame)
+        else
+            local total2 = 0
+            for _, t in ipairs(tabList) do total2 = total2 + t.cnt end
+            if total2 == 0 then total2 = 1 end
+
+            for i=1, math.min(8, #tabList) do
+                local t   = tabList[i]
+                local pct = t.cnt / total2
+
+                local barCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,30), nil, T.BgPanel, 0.15, 4)
+                mkCorner(barCard, 6)
+
+                -- название
+                local nm = t.name
+                if #nm > 18 then nm = nm:sub(1,17) .. "…" end
+                mkLabel(barCard, nm,
+                    UDim2.new(0,100,1,0), UDim2.new(0,8,0,0),
+                    T.TextMain, Enum.TextXAlignment.Left, Enum.Font.Gotham, 11, 5)
+                barCard:FindFirstChildOfClass("TextLabel"):SetAttribute("TextRole","main")
+
+                -- трек
+                local track = mkFrame(barCard,
+                    UDim2.new(1,-145,0,8),
+                    UDim2.new(0,112,0.5,-4),
+                    T.BgBtn, 0.1, 5)
+                mkCorner(track, 4)
+
+                -- заливка
+                local fill = mkFrame(track,
+                    UDim2.new(pct,0,1,0),
+                    UDim2.new(0,0,0,0),
+                    T.Accent, 0.2, 6)
+                mkCorner(fill, 4)
+
+                -- анимация появления
+                fill.Size = UDim2.new(0,0,1,0)
+                TweenService:Create(fill, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+                    Size = UDim2.new(pct,0,1,0)
+                }):Play()
+
+                -- значение
+                mkLabel(barCard,
+                    tostring(t.cnt) .. " кл.",
+                    UDim2.new(0,36,1,0), UDim2.new(1,-38,0,0),
+                    T.TextSub, Enum.TextXAlignment.Right, Enum.Font.Gotham, 10, 5)
+            end
+        end
+
+        -- ── 6. Сброс статистики ──────────────────────────────────────────
+        createSectionHeader("Управление", scrollingFrame)
+        createButton("Сбросить всю статистику", scrollingFrame, function()
+            statsData.totalSeconds  = 0
+            statsData.totalSessions = 0
+            statsData.tabClicks     = {}
+            statsData.daySeconds    = {}
+            statsData.streak        = 0
+            statsData.lastDayPlayed = 0
+            statsData.sessionStart  = tick()
+            saveStats()
+            createNotification("STATS","Статистика сброшена",3,7733968497)
+            clearContent(); showStats(); updateGuiColors()
+        end)
+    end
+
+    -- ══════════════════════════════════════
     --  UTILITIES
     -- ══════════════════════════════════════
     local function checkFunctions()
@@ -510,7 +1019,7 @@ return function(deps)
         if rootPart then
             local pos = rootPart.Position
             local txt = string.format("X: %.2f, Y: %.2f, Z: %.2f", pos.X, pos.Y, pos.Z)
-            if not isfolder("MegaHack") then makefolder("MegaHack") end
+            ensureFolder()
             writefile("MegaHack/coordinates.txt", txt)
             createNotification("SAVED", txt, 4, 7733960981)
         else
@@ -541,7 +1050,7 @@ return function(deps)
     --  COLOR PICKER
     -- ══════════════════════════════════════
     local function createColorPicker(parent)
-        local selType       = "bgColor"
+        local selType          = "bgColor"
         local curH, curS, curV = Color3.toHSV(settings.colors.bgColor)
         local curR = math.floor(settings.colors.bgColor.R * 255 + 0.5)
         local curG = math.floor(settings.colors.bgColor.G * 255 + 0.5)
@@ -569,7 +1078,6 @@ return function(deps)
             container.Size = UDim2.new(1, 0, 0, innerLayout.AbsoluteContentSize.Y + 4)
         end)
 
-        -- Кнопки выбора типа цвета
         local typeRow = Instance.new("Frame")
         typeRow.BackgroundTransparency = 1
         typeRow.Size        = UDim2.new(1, 0, 0, 28)
@@ -626,7 +1134,7 @@ return function(deps)
         end
         refreshTypeBtns(selType)
 
-        local sqSz = 148
+        local sqSz    = 148
         local mainArea = Instance.new("Frame")
         mainArea.BackgroundTransparency = 1
         mainArea.Size        = UDim2.new(1, 0, 0, sqSz)
@@ -1007,21 +1515,35 @@ return function(deps)
     -- ══════════════════════════════════════
     return {
         init = function()
-            -- Загружаем сохранённые настройки
             loadColorSettings()
+            loadStats()
+            startSessionTimer()
 
-            -- Сайдбар: специальные вкладки
-            local specialOrder = {"Home", "Settings", "All Scripts"}
+            -- ── Сайдбар: специальные вкладки ───────────────────────────
+            local specialOrder = {"Home", "Stats", "Settings", "All Scripts"}
             local specialFuncs = {
-                Home            = function() clearContent(); showHome();       updateGuiColors() end,
-                Settings        = function() clearContent(); showSettings();   updateGuiColors() end,
-                ["All Scripts"] = function() clearContent(); showAllScripts(); updateGuiColors() end,
+                Home            = function()
+                    recordTabClick("Home")
+                    clearContent(); showHome(); updateGuiColors()
+                end,
+                Stats           = function()
+                    recordTabClick("Stats")
+                    clearContent(); showStats(); updateGuiColors()
+                end,
+                Settings        = function()
+                    recordTabClick("Settings")
+                    clearContent(); showSettings(); updateGuiColors()
+                end,
+                ["All Scripts"] = function()
+                    recordTabClick("All Scripts")
+                    clearContent(); showAllScripts(); updateGuiColors()
+                end,
             }
             for _, name in ipairs(specialOrder) do
                 createButton(name, catScroll, specialFuncs[name], true)
             end
 
-            -- Сайдбар: категории из base.lua (сортируем для стабильного порядка)
+            -- ── Сайдбар: категории ─────────────────────────────────────
             local sortedCats = {}
             for categoryName in pairs(categoryMap) do
                 table.insert(sortedCats, categoryName)
@@ -1029,6 +1551,7 @@ return function(deps)
             table.sort(sortedCats)
             for _, categoryName in ipairs(sortedCats) do
                 createButton(categoryName, catScroll, function()
+                    recordTabClick(categoryName)
                     clearContent(); loadHacksFromCategory(categoryName); updateGuiColors()
                 end, true)
             end
@@ -1039,6 +1562,7 @@ return function(deps)
 
             -- Close / Reopen
             closeBtn.MouseButton1Click:Connect(function()
+                finishCurrentSession()
                 TweenService:Create(mainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quint), {
                     Size = UDim2.new(0,580,0,0), BackgroundTransparency = 1
                 }):Play()
@@ -1047,6 +1571,7 @@ return function(deps)
                     mainFrame.Size    = UDim2.new(0,580,0,380)
                     mainFrame.BackgroundTransparency = settings.transparency
                     reopenButton.Visible = true
+                    startSessionTimer()
                 end)
             end)
             reopenButton.MouseButton1Click:Connect(function()
@@ -1066,11 +1591,12 @@ return function(deps)
                 Size = UDim2.new(0,580,0,380), BackgroundTransparency = settings.transparency
             }):Play()
 
-            -- Показываем Home и применяем цвета
+            -- Показываем Home
+            recordTabClick("Home")
             showHome()
             updateGuiColors()
 
-            -- Подсвечиваем первую кнопку сайдбара
+            -- Подсвечиваем первую кнопку
             task.delay(0.1, function()
                 local firstBtn = catScroll:FindFirstChildWhichIsA("TextButton")
                 if firstBtn then
@@ -1079,6 +1605,11 @@ return function(deps)
                         BackgroundColor3 = T.Accent, BackgroundTransparency = 0.35, TextColor3 = T.TextMain
                     }):Play()
                 end
+            end)
+
+            -- Автосохранение сессии при выходе
+            game:BindToClose(function()
+                finishCurrentSession()
             end)
 
             createNotification("MEGAHACK V1", "Loaded  ·  " .. platformName, 3, 74283928898866)
