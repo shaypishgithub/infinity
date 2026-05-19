@@ -1,15 +1,15 @@
 -- ══════════════════════════════════════════════════════════════════
 --  theme.lua  —  Color system, RGB effects, save/load
---  v2: clearRgbConnections is robust, setFrames deferred correctly
+--  FIXED: полностью совместим с logic.lua / gui.lua
 -- ══════════════════════════════════════════════════════════════════
 return function(deps)
-    local TweenService     = deps.TweenService
-    local RunService       = deps.RunService
-    local HttpService      = deps.HttpService
-    local UserInputService = deps.UserInputService
-    local playerGui        = deps.playerGui
-    local accentRegistry   = deps.accentRegistry
-    local createNotification = deps.createNotification
+    local TweenService       = deps.TweenService
+    local RunService         = deps.RunService
+    local HttpService        = deps.HttpService
+    local UserInputService   = deps.UserInputService
+    local playerGui          = deps.playerGui
+    local accentRegistry     = deps.accentRegistry  -- таблица {obj, prop}
+    local createNotification = deps.createNotification or function() end
 
     local mainFrame, scrollingFrame
 
@@ -48,6 +48,7 @@ return function(deps)
         local acc = settings.colors.accentColor
         local bg  = settings.colors.bgColor
         local tx  = settings.colors.textColor
+        local str = settings.colors.strokeColor
 
         T.Accent     = acc
         T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
@@ -58,11 +59,15 @@ return function(deps)
         T.BgBtn      = Color3.new(math.min(bg.R+0.067,1), math.min(bg.G+0.067,1), math.min(bg.B+0.090,1))
         T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
         T.TextMain   = tx
+        T.Stroke     = str
 
         -- Accent registry flush
-        for _, entry in ipairs(accentRegistry) do
-            if entry.obj and entry.obj.Parent and entry.obj.Name ~= "CloseButton" then
-                pcall(function() entry.obj[entry.prop] = acc end)
+        if accentRegistry then
+            for _, entry in ipairs(accentRegistry) do
+                if entry.obj and entry.obj.Parent then
+                    local prop = entry.prop or "BackgroundColor3"
+                    pcall(function() entry.obj[prop] = acc end)
+                end
             end
         end
 
@@ -70,9 +75,9 @@ return function(deps)
         mainFrame.BackgroundTransparency = settings.transparency or 0.04
 
         for _, obj in pairs(mainFrame:GetDescendants()) do
-            -- Skip close button hierarchy
-            if obj.Name == "CloseButton" then continue end
-            local cb = mainFrame:FindFirstChild("CloseButton", true)
+            -- Пропускаем CloseButton и его детей
+            if obj.Name == "CloseBtn" then continue end
+            local cb = mainFrame:FindFirstChild("CloseBtn", true)
             if cb and obj:IsDescendantOf(cb) then continue end
 
             if obj:IsA("UIStroke") then
@@ -83,14 +88,7 @@ return function(deps)
                     end)
                     table.insert(rgbConnections, conn)
                 else
-                    -- Only change non-accent strokes
-                    if obj.Color ~= T.Accent then
-                        obj.Color = Color3.new(
-                            math.min(bg.R+0.28,1),
-                            math.min(bg.G+0.28,1),
-                            math.min(bg.B+0.28,1)
-                        )
-                    end
+                    obj.Color = str
                 end
 
             elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
@@ -104,8 +102,6 @@ return function(deps)
                     local role = obj:GetAttribute("TextRole")
                     if role == "main" then
                         obj.TextColor3 = tx
-                    elseif obj.TextColor3 == T.Accent then
-                        obj.TextColor3 = acc
                     end
                 end
 
@@ -158,6 +154,7 @@ return function(deps)
         loadColorSettings   = loadColorSettings,
         clearRgbConnections = clearRgbConnections,
 
+        -- ОБЯЗАТЕЛЬНО вызвать до updateGuiColors!
         setFrames = function(mf, sf)
             mainFrame      = mf
             scrollingFrame = sf
