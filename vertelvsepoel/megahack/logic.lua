@@ -1,9 +1,6 @@
 -- ══════════════════════════════════════════════════════════════════
---  logic.lua  —  v2  Full Logic Layer
---  Модульная архитектура:
---    games.lua       → Games tab + lazy icon loader
---    colorpicker.lua → Color Picker UI
---  Оба файла загружаются по raw GitHub URL ниже.
+--  logic.lua  —  v2  (Full Logic Layer with separated stats module)
+--  Загружает: games.lua, colorpicker.lua, stats.lua
 -- ══════════════════════════════════════════════════════════════════
 
 local BASE_RAW = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/"
@@ -47,9 +44,9 @@ return function(deps)
 
     -- ══════════════════════════════════════
     --  LOAD SUBMODULES
-    --  games.lua и colorpicker.lua лежат рядом с logic.lua
+    --  games.lua, colorpicker.lua, stats.lua
     -- ══════════════════════════════════════
-    local GamesModule, ColorPickerModule
+    local GamesModule, ColorPickerModule, StatsModule
 
     local function loadSubmodule(name)
         local url = BASE_RAW .. name
@@ -64,7 +61,7 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  STATE
+    --  STATE (не статистика)
     -- ══════════════════════════════════════
     local rgbConnections         = {}
     local colorPickerConnections = {}
@@ -96,23 +93,6 @@ return function(deps)
         end)
     end
 
-    local function fmtTime(secs)
-        secs = math.floor(secs)
-        local h = math.floor(secs / 3600)
-        local m = math.floor((secs % 3600) / 60)
-        local s = secs % 60
-        if h > 0 then return string.format("%dh %02dm", h, m) end
-        return string.format("%02dm %02ds", m, s)
-    end
-
-    local function fmtTimerLive(secs)
-        secs = math.floor(secs)
-        return string.format("%02d:%02d:%02d",
-            math.floor(secs/3600),
-            math.floor((secs%3600)/60),
-            secs%60)
-    end
-
     local function mkFrame(parent, size, pos, bg, bgt, zidx)
         local f = Instance.new("Frame")
         f.Size                   = size or UDim2.new(1,0,0,40)
@@ -138,93 +118,6 @@ return function(deps)
         l.ZIndex                 = zidx or 5
         l.Parent                 = parent
         return l
-    end
-
-    -- ══════════════════════════════════════
-    --  STATS STATE
-    -- ══════════════════════════════════════
-    local statsData = {
-        totalSeconds  = 0,
-        totalSessions = 0,
-        sessionStart  = tick(),
-        tabClicks     = {},
-        daySeconds    = {},
-        streak        = 0,
-        lastDayPlayed = 0,
-    }
-    local sessionTimerConn = nil
-
-    local function saveStats()
-        pcall(function()
-            ensureFolder()
-            writefile("MegaHack/stats.json", HttpService:JSONEncode(statsData))
-        end)
-    end
-
-    local function loadStats()
-        pcall(function()
-            if isfile("MegaHack/stats.json") then
-                local data = HttpService:JSONDecode(readfile("MegaHack/stats.json"))
-                if data.totalSeconds  then statsData.totalSeconds  = data.totalSeconds  end
-                if data.totalSessions then statsData.totalSessions = data.totalSessions end
-                if data.tabClicks     then statsData.tabClicks     = data.tabClicks     end
-                if data.daySeconds    then statsData.daySeconds    = data.daySeconds    end
-                if data.streak        then statsData.streak        = data.streak        end
-                if data.lastDayPlayed then statsData.lastDayPlayed = data.lastDayPlayed end
-            end
-        end)
-    end
-
-    local function recordTabClick(name)
-        if not statsData.tabClicks[name] then statsData.tabClicks[name] = 0 end
-        statsData.tabClicks[name] = statsData.tabClicks[name] + 1
-        saveStats()
-    end
-
-    local function updateDayStats(secsThisSession)
-        local dow    = tonumber(os.date("%w")) or 0
-        local dayIdx = tostring(dow == 0 and 7 or dow)
-        if not statsData.daySeconds[dayIdx] then statsData.daySeconds[dayIdx] = 0 end
-        statsData.daySeconds[dayIdx] = statsData.daySeconds[dayIdx] + secsThisSession
-        local todayNum = math.floor(os.time() / 86400)
-        if statsData.lastDayPlayed == todayNum - 1 then
-            statsData.streak = statsData.streak + 1
-        elseif statsData.lastDayPlayed ~= todayNum then
-            statsData.streak = 1
-        end
-        statsData.lastDayPlayed = todayNum
-        saveStats()
-    end
-
-    local function finishCurrentSession()
-        if sessionTimerConn then
-            pcall(function() sessionTimerConn:Disconnect() end)
-            sessionTimerConn = nil
-        end
-        local elapsed = math.floor(tick() - statsData.sessionStart)
-        if elapsed > 5 then
-            statsData.totalSeconds  = statsData.totalSeconds + elapsed
-            statsData.totalSessions = statsData.totalSessions + 1
-            updateDayStats(elapsed)
-        end
-        statsData.sessionStart = tick()
-        saveStats()
-    end
-
-    local function startSessionTimer()
-        statsData.sessionStart = tick()
-        if sessionTimerConn then pcall(function() sessionTimerConn:Disconnect() end) end
-        local acc = 0
-        sessionTimerConn = RunService.Heartbeat:Connect(function(dt)
-            acc = acc + dt
-            if acc >= 60 then
-                acc = 0
-                local elapsed = math.floor(tick() - statsData.sessionStart)
-                statsData.totalSeconds = statsData.totalSeconds + elapsed
-                statsData.sessionStart = tick()
-                saveStats()
-            end
-        end)
     end
 
     -- ══════════════════════════════════════
@@ -331,7 +224,6 @@ return function(deps)
         end
         colorPickerConnections = {}
 
-        -- Сброс lazy loader в Games модуле
         if GamesModule then
             pcall(function() GamesModule.reset() end)
         end
@@ -416,14 +308,11 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  SHOW GAMES  (делегируем в games.lua)
+    --  SHOW GAMES
     -- ══════════════════════════════════════
     local function showGames()
         clearContent()
-        -- gamesPanel уже скрыт clearContent; модуль сам его покажет
-
         if not GamesModule then
-            -- Ленивая загрузка модуля при первом обращении
             GamesModule = loadSubmodule("games.lua")
             if not GamesModule then
                 showScrollPanel()
@@ -431,7 +320,6 @@ return function(deps)
                 createLabel("⚠  Failed to load games.lua", scrollingFrame)
                 return
             end
-            -- Инициализируем модуль с зависимостями
             GamesModule = GamesModule({
                 TweenService = TweenService,
                 RunService   = RunService,
@@ -445,11 +333,10 @@ return function(deps)
 
         GamesModule.showGames({
             onCategoryClick = function(catName)
-                recordTabClick(catName)
+                StatsModule.recordTabClick(catName)   -- <<< через stats-модуль
                 loadHacksFromCategory(catName)
                 updateGuiColors()
 
-                -- Подсветка кнопки в сайдбаре
                 for _, child in ipairs(catScroll:GetChildren()) do
                     if child:IsA("TextButton") and child.Text == catName then
                         child:SetAttribute("Active", true)
@@ -598,7 +485,7 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  HOME
+    --  HOME  (без статистики)
     -- ══════════════════════════════════════
     local function showHome()
         clearContent()
@@ -683,18 +570,21 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  STATS
+    --  STATS  (использует StatsModule)
     -- ══════════════════════════════════════
     local function showStats()
         clearContent()
         showScrollPanel()
         createSectionHeader("Session", scrollingFrame)
 
+        local data = StatsModule.getData()
+        local sessionStart = data.sessionStart
+
         local sessionCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,76), nil, T.BgPanel, 0.10, 4)
         mkCorner(sessionCard, 10)
         mkStroke(sessionCard, 1, T.Stroke, 0.28)
 
-        mkLabel(sessionCard, "🔥 " .. tostring(statsData.totalSessions) .. " sessions",
+        mkLabel(sessionCard, "🔥 " .. tostring(data.totalSessions) .. " sessions",
             UDim2.new(0,130,0,18), UDim2.new(0,10,0,8),
             T.Accent, nil, Enum.Font.GothamBold, 11, 5)
 
@@ -702,18 +592,18 @@ return function(deps)
             UDim2.new(0,120,0,32), UDim2.new(0,10,0,26),
             T.TextMain, nil, Enum.Font.GothamBold, 26, 5)
 
-        mkLabel(sessionCard, "⚡ streak: " .. tostring(statsData.streak) .. " days",
+        mkLabel(sessionCard, "⚡ streak: " .. tostring(data.streak) .. " days",
             UDim2.new(0,110,0,16), UDim2.new(0,10,0,58),
             T.AccentGlow, nil, Enum.Font.GothamMedium, 10, 5)
 
-        mkLabel(sessionCard, fmtTime(statsData.totalSeconds) .. " total",
+        mkLabel(sessionCard, StatsModule.formatTime(data.totalSeconds) .. " total",
             UDim2.new(0,100,0,18), UDim2.new(1,-106,0,8),
             T.TextSub, Enum.TextXAlignment.Right, Enum.Font.Gotham, 11, 5)
 
         do
             local conn; conn = RunService.Heartbeat:Connect(function()
                 if not timerLbl.Parent then conn:Disconnect(); return end
-                timerLbl.Text = fmtTimerLive(tick() - statsData.sessionStart)
+                timerLbl.Text = StatsModule.formatTimerLive(tick() - sessionStart)
             end)
         end
 
@@ -726,12 +616,12 @@ return function(deps)
         local days = {"Mon","Tue","Wed","Thu","Fri","Sat","Sun"}
         local maxVal = 1
         for i = 1, 7 do
-            local v = statsData.daySeconds[tostring(i)] or 0
+            local v = data.daySeconds[tostring(i)] or 0
             if v > maxVal then maxVal = v end
         end
 
         for i, dayName in ipairs(days) do
-            local val    = statsData.daySeconds[tostring(i)] or 0
+            local val    = data.daySeconds[tostring(i)] or 0
             local frac   = val / maxVal
             local barH   = math.max(4, math.floor(44 * frac))
             local xOff   = (i-1) * (math.floor(200/7)) + 10
@@ -757,7 +647,7 @@ return function(deps)
 
         createSectionHeader("Top Tabs", scrollingFrame)
         local tabList = {}
-        for name, count in pairs(statsData.tabClicks) do
+        for name, count in pairs(data.tabClicks) do
             table.insert(tabList, {name=name, count=count})
         end
         table.sort(tabList, function(a,b) return a.count > b.count end)
@@ -778,7 +668,7 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  SETTINGS  (Color Picker — из colorpicker.lua)
+    --  SETTINGS  (color picker)
     -- ══════════════════════════════════════
     local function saveCoordinates()
         local char = player.Character
@@ -853,7 +743,6 @@ return function(deps)
         clearContent()
         showScrollPanel()
 
-        -- ── Color Picker (загружается из colorpicker.lua) ──────────
         createSectionHeader("Color Picker", scrollingFrame)
 
         if not ColorPickerModule then
@@ -879,7 +768,6 @@ return function(deps)
             createLabel("⚠  Failed to load colorpicker.lua", scrollingFrame)
         end
 
-        -- ── Transparency ───────────────────────────────────────────
         createSectionHeader("Transparency", scrollingFrame)
         for _, t in ipairs({{"0%",0},{"10%",0.1},{"25%",0.25},{"50%",0.5},{"75%",0.75}}) do
             createButton(t[1], scrollingFrame, function()
@@ -887,7 +775,6 @@ return function(deps)
             end)
         end
 
-        -- ── Appearance ─────────────────────────────────────────────
         createSectionHeader("Appearance", scrollingFrame)
         createButton("Lock GUI: " .. (settings.locked and "ON" or "OFF"), scrollingFrame, function()
             settings.locked = not settings.locked; saveColorSettings()
@@ -900,7 +787,6 @@ return function(deps)
             settings.rgbStroke = not settings.rgbStroke; saveColorSettings(); updateGuiColors()
         end)
 
-        -- ── Utilities ──────────────────────────────────────────────
         createSectionHeader("Utilities", scrollingFrame)
         createButton("Copy Username", scrollingFrame, function()
             pcall(function() setclipboard(player.Name) end)
@@ -915,7 +801,6 @@ return function(deps)
             createNotification("COPY","Server ID copied!",2)
         end)
 
-        -- ── Server ─────────────────────────────────────────────────
         createSectionHeader("Server", scrollingFrame)
         createButton("Rejoin", scrollingFrame, function()
             local ok2, e = pcall(function() TeleportService:Teleport(game.PlaceId, player) end)
@@ -939,12 +824,10 @@ return function(deps)
             if not ok2 then createNotification("ERROR","Server hop failed: "..tostring(e),5,7733968497) end
         end)
 
-        -- ── Coordinates ────────────────────────────────────────────
         createSectionHeader("Coordinates", scrollingFrame)
         createButton("Save Current Position",      scrollingFrame, saveCoordinates)
         createButton("Teleport to Saved Position", scrollingFrame, teleportToCoordinates)
 
-        -- ── Security ───────────────────────────────────────────────
         createSectionHeader("Security", scrollingFrame)
         createButton("Enable Anti-Ban / Anti-Kick", scrollingFrame, setupAntiBanKick)
         createButton("Check Executor Functions",    scrollingFrame, function()
@@ -952,7 +835,6 @@ return function(deps)
             createNotification("FUNCTIONS","Available: "..#av.."/"..(#av+#unav),5,7733960981)
         end)
 
-        -- ── Actions ────────────────────────────────────────────────
         createSectionHeader("Actions", scrollingFrame)
         createButton("Save Settings", scrollingFrame, saveSettings)
         createButton("Close GUI",     scrollingFrame, function() gui.screenGui:Destroy() end)
@@ -998,31 +880,46 @@ return function(deps)
     -- ══════════════════════════════════════
     return {
         init = function()
+            -- Загружаем модуль статистики
+            StatsModule = loadSubmodule("stats.lua")
+            if not StatsModule then
+                createNotification("ERROR", "Failed to load stats.lua", 5, 7733968497)
+                return
+            end
+            -- Инициализируем StatsModule с нужными зависимостями
+            StatsModule = StatsModule({
+                RunService         = RunService,
+                HttpService        = HttpService,
+                Players            = Players,
+                player             = player,
+                createNotification = createNotification,
+            })
+            StatsModule.init()
+
+            -- Остальная инициализация
             loadColorSettings()
-            loadStats()
-            startSessionTimer()
 
             -- Сайдбар: специальные вкладки
             local specialOrder = {"Home", "Games", "Stats", "Settings", "All Scripts"}
             local specialFuncs = {
                 Home = function()
-                    recordTabClick("Home")
+                    StatsModule.recordTabClick("Home")
                     showHome(); updateGuiColors()
                 end,
                 Games = function()
-                    recordTabClick("Games")
+                    StatsModule.recordTabClick("Games")
                     showGames(); updateGuiColors()
                 end,
                 Stats = function()
-                    recordTabClick("Stats")
+                    StatsModule.recordTabClick("Stats")
                     showStats(); updateGuiColors()
                 end,
                 Settings = function()
-                    recordTabClick("Settings")
+                    StatsModule.recordTabClick("Settings")
                     showSettings(); updateGuiColors()
                 end,
                 ["All Scripts"] = function()
-                    recordTabClick("All Scripts")
+                    StatsModule.recordTabClick("All Scripts")
                     showAllScripts(); updateGuiColors()
                 end,
             }
@@ -1036,7 +933,7 @@ return function(deps)
             table.sort(sortedCats)
             for _, catName in ipairs(sortedCats) do
                 createButton(catName, catScroll, function()
-                    recordTabClick(catName)
+                    StatsModule.recordTabClick(catName)
                     loadHacksFromCategory(catName)
                     updateGuiColors()
                 end, true)
@@ -1048,7 +945,7 @@ return function(deps)
 
             -- Close / Reopen
             closeBtn.MouseButton1Click:Connect(function()
-                finishCurrentSession()
+                StatsModule.finishCurrentSession()   -- <<< завершаем сессию через модуль
                 TweenService:Create(mainFrame,
                     TweenInfo.new(0.25, Enum.EasingStyle.Quint),
                     {Size=UDim2.new(0,590,0,0), BackgroundTransparency=1}
@@ -1058,7 +955,7 @@ return function(deps)
                     mainFrame.Size    = UDim2.new(0,590,0,400)
                     mainFrame.BackgroundTransparency = settings.transparency
                     reopenButton.Visible = true
-                    startSessionTimer()
+                    StatsModule.startSessionTimer()
                 end)
             end)
 
@@ -1082,7 +979,7 @@ return function(deps)
             ):Play()
 
             -- Default view
-            recordTabClick("Home")
+            StatsModule.recordTabClick("Home")
             showHome()
             updateGuiColors()
 
@@ -1095,10 +992,6 @@ return function(deps)
                         TextColor3 = T.Accent,
                     }):Play()
                 end
-            end)
-
-            game:BindToClose(function()
-                finishCurrentSession()
             end)
 
             createNotification("MEGAHACK V2", "Loaded  ·  " .. platformName, 3, 74283928898866)
