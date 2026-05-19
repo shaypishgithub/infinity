@@ -1,6 +1,6 @@
 -- ══════════════════════════════════════════════════════════════════
 --  games.lua  —  Games Virtual Tab + Lazy Icon Loader
---  Загружается из logic.lua через loadstring(game:HttpGet(...))()
+--  (FIXED: now cards will update colors via updateGuiColors loop)
 -- ══════════════════════════════════════════════════════════════════
 return function(deps)
     local TweenService = deps.TweenService
@@ -18,12 +18,10 @@ return function(deps)
     local mkCorner          = gui.mkCorner
     local mkStroke          = gui.mkStroke
 
-    -- ── STATE ──────────────────────────────────────────────────────
-    local iconQueue      = {}   -- {thumb=ImageLabel, placeId=int, loaded=bool}
+    local iconQueue      = {}
     local lazyLoaderConn = nil
     local gamesPopulated = false
 
-    -- ── LAZY ICON LOADER ───────────────────────────────────────────
     local function enqueueIcon(thumb, placeId)
         if not placeId then return end
         table.insert(iconQueue, {thumb = thumb, placeId = placeId, loaded = false})
@@ -96,17 +94,22 @@ return function(deps)
         end)
     end
 
-    -- ── PUBLIC: reset (вызывается при clearContent) ────────────────
     local function reset()
         if lazyLoaderConn then
             pcall(function() lazyLoaderConn:Disconnect() end)
             lazyLoaderConn = nil
         end
+        gamesPopulated = false
+        -- очищаем панель игр при сбросе
+        for _, child in ipairs(gamesPanel:GetChildren()) do
+            if child:IsA("Frame") and child.Name ~= "UIListLayout" and child.Name ~= "UIPadding" then
+                child:Destroy()
+            end
+        end
+        iconQueue = {}
     end
 
-    -- ── PUBLIC: showGames ──────────────────────────────────────────
     local function showGames(callbacks)
-        -- callbacks.onCategoryClick(catName) — навигация в logic.lua
         scrollingFrame.Visible = false
         gamesPanel.Visible     = true
 
