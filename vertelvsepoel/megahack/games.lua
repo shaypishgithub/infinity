@@ -1,18 +1,17 @@
 -- ══════════════════════════════════════════════════════════════════
 --  games.lua  —  Games Virtual Tab + Lazy Icon Loader
---  (FIXED: now cards will update colors via updateGuiColors loop)
+--  FIXED: совместимость с gui.lua / logic.lua
 -- ══════════════════════════════════════════════════════════════════
 return function(deps)
-    local TweenService = deps.TweenService
-    local RunService   = deps.RunService
-    local Players      = deps.Players
-    local T            = deps.T
-    local gui          = deps.gui
-    local categoryMap  = deps.categoryMap
-    local gameIcons    = deps.gameIcons or {}
+    local TweenService   = deps.TweenService
+    local RunService     = deps.RunService
+    local Players        = deps.Players
+    local T              = deps.T
+    local gui            = deps.gui
+    local categoryMap    = deps.categoryMap
+    local gameIcons      = deps.gameIcons or {}
 
     local gamesPanel        = gui.gamesPanel
-    local catScroll         = gui.catScroll
     local scrollingFrame    = gui.scrollingFrame
     local createGameCard    = gui.createGameCard
     local mkCorner          = gui.mkCorner
@@ -30,6 +29,7 @@ return function(deps)
     local function startLazyLoader()
         if lazyLoaderConn then
             pcall(function() lazyLoaderConn:Disconnect() end)
+            lazyLoaderConn = nil
         end
         local acc            = 0
         local BATCH_INTERVAL = 0.15
@@ -63,17 +63,8 @@ return function(deps)
 
                     task.spawn(function()
                         local ok, url = pcall(function()
-                            return Players:GetUserThumbnailAsync(
-                                pid,
-                                Enum.ThumbnailType.GameIcon,
-                                Enum.ThumbnailSize.Size420x420
-                            )
+                            return "https://assetgame.roblox.com/asset/?id=" .. tostring(pid)
                         end)
-                        if not ok or not url or url == "" then
-                            ok, url = pcall(function()
-                                return "https://assetgame.roblox.com/asset/?id=" .. tostring(pid)
-                            end)
-                        end
                         if ok and url and url ~= "" then
                             if thumb and thumb.Parent then
                                 thumb.Image = url
@@ -100,13 +91,12 @@ return function(deps)
             lazyLoaderConn = nil
         end
         gamesPopulated = false
-        -- очищаем панель игр при сбросе
+        iconQueue = {}
         for _, child in ipairs(gamesPanel:GetChildren()) do
-            if child:IsA("Frame") and child.Name ~= "UIListLayout" and child.Name ~= "UIPadding" then
+            if not child:IsA("UIGridLayout") and not child:IsA("UIPadding") then
                 child:Destroy()
             end
         end
-        iconQueue = {}
     end
 
     local function showGames(callbacks)
@@ -128,14 +118,14 @@ return function(deps)
 
         task.spawn(function()
             for idx, catName in ipairs(sortedCats) do
-                local placeId    = gameIcons[catName]
-                local _, thumb   = createGameCard(catName, placeId, function()
+                local placeId  = gameIcons[catName]
+                local _, thumb = createGameCard(catName, placeId, function()
                     if callbacks and callbacks.onCategoryClick then
                         callbacks.onCategoryClick(catName)
                     end
                 end)
 
-                if placeId then
+                if placeId and thumb then
                     enqueueIcon(thumb, placeId)
                 end
 
@@ -148,8 +138,8 @@ return function(deps)
     end
 
     return {
-        showGames    = showGames,
-        reset        = reset,
-        startLoader  = startLazyLoader,
+        showGames   = showGames,
+        reset       = reset,
+        startLoader = startLazyLoader,
     }
 end
