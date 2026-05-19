@@ -1,11 +1,13 @@
 -- ══════════════════════════════════════════════════════════════════
 --  logic.lua  —  v2  Full Logic Layer
---  NEW: "Games" virtual sidebar tab (doesn't pollute categoryMap)
---       Lazy icon loading with visibility-based culling
---       Incremental category rendering (task.wait every N items)
---       Search is Games-aware (still queries HubData only)
---       Premium Stats UI, Home, Settings all preserved + polished
+--  Модульная архитектура:
+--    games.lua       → Games tab + lazy icon loader
+--    colorpicker.lua → Color Picker UI
+--  Оба файла загружаются по raw GitHub URL ниже.
 -- ══════════════════════════════════════════════════════════════════
+
+local BASE_RAW = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/"
+
 return function(deps)
     local TweenService       = deps.TweenService
     local UserInputService   = deps.UserInputService
@@ -22,7 +24,7 @@ return function(deps)
     local HubData            = deps.HubData
     local baseUrl            = deps.baseUrl
     local categoryMap        = deps.categoryMap
-    local gameIcons          = deps.gameIcons or {}   -- NEW: PlaceId map
+    local gameIcons          = deps.gameIcons or {}
     local createNotification = deps.createNotification
     local safeLoad           = deps.safeLoad
 
@@ -44,12 +46,28 @@ return function(deps)
     local mkStroke            = gui.mkStroke
 
     -- ══════════════════════════════════════
+    --  LOAD SUBMODULES
+    --  games.lua и colorpicker.lua лежат рядом с logic.lua
+    -- ══════════════════════════════════════
+    local GamesModule, ColorPickerModule
+
+    local function loadSubmodule(name)
+        local url = BASE_RAW .. name
+        local ok, result = pcall(function()
+            return loadstring(game:HttpGet(url, true))()
+        end)
+        if not ok then
+            warn("[MegaHack] Failed to load submodule: " .. name .. " | " .. tostring(result))
+            return nil
+        end
+        return result
+    end
+
+    -- ══════════════════════════════════════
     --  STATE
     -- ══════════════════════════════════════
     local rgbConnections         = {}
     local colorPickerConnections = {}
-    local lazyLoaderConn         = nil   -- RunService connection for icon culling
-    local gamesPopulated         = false -- one-time build flag for Games panel
 
     local settings = {
         locked       = false,
@@ -305,29 +323,25 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  CLEAR CONTENT  (only scrollingFrame children)
+    --  CLEAR CONTENT
     -- ══════════════════════════════════════
     local function clearContent()
-        -- Disconnect any colour picker connections
         for _, c in pairs(colorPickerConnections) do
             pcall(function() c:Disconnect() end)
         end
         colorPickerConnections = {}
 
-        -- Stop lazy loader if running
-        if lazyLoaderConn then
-            pcall(function() lazyLoaderConn:Disconnect() end)
-            lazyLoaderConn = nil
+        -- Сброс lazy loader в Games модуле
+        if GamesModule then
+            pcall(function() GamesModule.reset() end)
         end
 
-        -- Clear scrolling frame script list
         for _, child in ipairs(scrollingFrame:GetChildren()) do
             if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
                 child:Destroy()
             end
         end
 
-        -- Hide both panels; caller shows the right one
         scrollingFrame.Visible = false
         gamesPanel.Visible     = false
     end
@@ -337,166 +351,8 @@ return function(deps)
         gamesPanel.Visible     = false
     end
 
-    local function showGamesPanel()
-        scrollingFrame.Visible = false
-        gamesPanel.Visible     = true
-    end
-
-    -- ══════════════════════════════════════
-    --  LAZY ICON LOADER
-    --  Strategy: each GameCard holds a thumb ImageLabel.
-    --  We store a queue of {thumb, placeId} pairs.
-    --  A RunService.Heartbeat connection works through them
-    --  5 at a time per frame-group (every 0.12s), only loading
-    --  cards whose AbsolutePosition is within the panel viewport.
-    --  This prevents hundreds of simultaneous GetProductInfo calls.
-    -- ══════════════════════════════════════
-    local iconQueue = {}   -- {thumb=ImageLabel, placeId=int, loaded=bool}
-
-    local function enqueueIcon(thumb, placeId)
-        if not placeId then return end
-        table.insert(iconQueue, {thumb=thumb, placeId=placeId, loaded=false})
-    end
-
-    local function startLazyLoader()
-        if lazyLoaderConn then
-            pcall(function() lazyLoaderConn:Disconnect() end)
-        end
-        local acc = 0
-        local BATCH_INTERVAL = 0.15  -- seconds between batches
-        local BATCH_SIZE     = 4     -- icons per batch
-
-        lazyLoaderConn = RunService.Heartbeat:Connect(function(dt)
-            acc = acc + dt
-            if acc < BATCH_INTERVAL then return end
-            acc = 0
-
-            local loaded = 0
-            local panelAbsPos  = gamesPanel.AbsolutePosition
-            local panelAbsSize = gamesPanel.AbsoluteSize
-            local scrollY      = gamesPanel.CanvasPosition.Y
-
-            for i = #iconQueue, 1, -1 do
-                local entry = iconQueue[i]
-                if entry.loaded or not entry.thumb or not entry.thumb.Parent then
-                    table.remove(iconQueue, i)
-                    continue
-                end
-
-                -- Visibility cull: only load if card is within ±1 row of viewport
-                local cardAbsY = entry.thumb.AbsolutePosition.Y - panelAbsPos.Y + scrollY
-                local inView   = cardAbsY < (panelAbsSize.Y + 120) and cardAbsY > -120
-
-                if inView and loaded < BATCH_SIZE then
-                    entry.loaded = true
-                    loaded = loaded + 1
-                    local thumb = entry.thumb
-                    local pid   = entry.placeId
-                    task.spawn(function()
-                        -- Use pcall — some PlaceIds may be private / invalid
-                        local ok, url = pcall(function()
-                            return Players:GetUserThumbnailAsync(
-                                pid,
-                                Enum.ThumbnailType.GameIcon,
-                                Enum.ThumbnailSize.Size420x420
-                            )
-                        end)
-                        -- Fallback: try MarketplaceService icon
-                        if not ok or not url or url == "" then
-                            ok, url = pcall(function()
-                                return "https://assetgame.roblox.com/asset/?id=" .. tostring(pid)
-                            end)
-                        end
-                        if ok and url and url ~= "" then
-                            if thumb and thumb.Parent then
-                                thumb.Image = url
-                                TweenService:Create(thumb, TweenInfo.new(0.35, Enum.EasingStyle.Sine), {ImageTransparency=0}):Play()
-                            end
-                        end
-                    end)
-                end
-            end
-
-            -- All loaded → disconnect
-            if #iconQueue == 0 then
-                pcall(function() lazyLoaderConn:Disconnect() end)
-                lazyLoaderConn = nil
-            end
-        end)
-    end
-
-    -- ══════════════════════════════════════
-    --  SHOW GAMES  (virtual tab — doesn't touch categoryMap)
-    -- ══════════════════════════════════════
-    local function showGames()
-        clearContent()
-        showGamesPanel()
-
-        -- Build the grid once; subsequent visits reuse it
-        if gamesPopulated then
-            startLazyLoader()  -- re-activate loader in case user scrolled
-            return
-        end
-        gamesPopulated = true
-        iconQueue = {}   -- fresh queue
-
-        -- Sort categories alphabetically for consistent grid order
-        local sortedCats = {}
-        for catName in pairs(categoryMap) do
-            table.insert(sortedCats, catName)
-        end
-        table.sort(sortedCats)
-
-        -- Incremental build: yield every 8 cards to keep FPS stable
-        task.spawn(function()
-            for idx, catName in ipairs(sortedCats) do
-                local placeId = gameIcons[catName]  -- may be nil
-
-                local _, thumb = createGameCard(catName, placeId, function()
-                    -- Clicking a game card navigates to that category's scripts
-                    recordTabClick(catName)
-                    clearContent()
-                    showScrollPanel()
-                    loadHacksFromCategory(catName)
-                    updateGuiColors()
-
-                    -- Visually activate the matching sidebar button
-                    for _, child in ipairs(catScroll:GetChildren()) do
-                        if child:IsA("TextButton") and child.Text == catName then
-                            child:SetAttribute("Active", true)
-                            TweenService:Create(child, TweenInfo.new(0.18), {
-                                BackgroundTransparency = 0.78,
-                                TextColor3 = T.Accent,
-                            }):Play()
-                        elseif child:IsA("TextButton") then
-                            child:SetAttribute("Active", false)
-                            TweenService:Create(child, TweenInfo.new(0.18), {
-                                BackgroundTransparency = 1,
-                                TextColor3 = T.TextSub,
-                            }):Play()
-                        end
-                    end
-                end)
-
-                -- Enqueue icon for lazy loading
-                if placeId then
-                    enqueueIcon(thumb, placeId)
-                end
-
-                -- Yield every 8 cards to avoid frame spike on 24+ categories
-                if idx % 8 == 0 then
-                    task.wait()
-                end
-            end
-
-            -- Start lazy loader after all cards exist in DOM
-            startLazyLoader()
-        end)
-    end
-
     -- ══════════════════════════════════════
     --  LOAD SCRIPTS FROM CATEGORY
-    --  Incremental: yields every 12 items
     -- ══════════════════════════════════════
     function loadHacksFromCategory(categoryName)
         clearContent()
@@ -509,14 +365,12 @@ return function(deps)
             return
         end
 
-        -- Lazy-load the category data on first access
         if not HubData[categoryName] then
             createLabel("⏳  Loading " .. categoryName .. "...", scrollingFrame)
             task.spawn(function()
                 local data = safeLoad(baseUrl .. "/" .. fileName)
                 if type(data) == "table" and #data > 0 then
                     HubData[categoryName] = data
-                    -- Clear the loading label then render
                     for _, child in ipairs(scrollingFrame:GetChildren()) do
                         if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
                             child:Destroy()
@@ -544,7 +398,6 @@ return function(deps)
             return
         end
 
-        -- Category already cached — incremental render
         createSectionHeader(categoryName, scrollingFrame)
         task.spawn(function()
             local hacks = HubData[categoryName]
@@ -563,8 +416,61 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  SHOW ALL SCRIPTS  (search, Games-safe)
-    --  Search only queries HubData — never touches gamesPanel/gameIcons
+    --  SHOW GAMES  (делегируем в games.lua)
+    -- ══════════════════════════════════════
+    local function showGames()
+        clearContent()
+        -- gamesPanel уже скрыт clearContent; модуль сам его покажет
+
+        if not GamesModule then
+            -- Ленивая загрузка модуля при первом обращении
+            GamesModule = loadSubmodule("games.lua")
+            if not GamesModule then
+                showScrollPanel()
+                createSectionHeader("Error", scrollingFrame)
+                createLabel("⚠  Failed to load games.lua", scrollingFrame)
+                return
+            end
+            -- Инициализируем модуль с зависимостями
+            GamesModule = GamesModule({
+                TweenService = TweenService,
+                RunService   = RunService,
+                Players      = Players,
+                T            = T,
+                gui          = gui,
+                categoryMap  = categoryMap,
+                gameIcons    = gameIcons,
+            })
+        end
+
+        GamesModule.showGames({
+            onCategoryClick = function(catName)
+                recordTabClick(catName)
+                loadHacksFromCategory(catName)
+                updateGuiColors()
+
+                -- Подсветка кнопки в сайдбаре
+                for _, child in ipairs(catScroll:GetChildren()) do
+                    if child:IsA("TextButton") and child.Text == catName then
+                        child:SetAttribute("Active", true)
+                        TweenService:Create(child, TweenInfo.new(0.18), {
+                            BackgroundTransparency = 0.78,
+                            TextColor3 = T.Accent,
+                        }):Play()
+                    elseif child:IsA("TextButton") then
+                        child:SetAttribute("Active", false)
+                        TweenService:Create(child, TweenInfo.new(0.18), {
+                            BackgroundTransparency = 1,
+                            TextColor3 = T.TextSub,
+                        }):Play()
+                    end
+                end
+            end
+        })
+    end
+
+    -- ══════════════════════════════════════
+    --  SEARCH
     -- ══════════════════════════════════════
     local function searchScriptsByMegahack(query)
         local q = string.lower(query)
@@ -633,7 +539,6 @@ return function(deps)
         local debounceThread = nil
 
         local function updateSearchResults(query)
-            -- Remove old result buttons (keep searchBox and resultsLabel)
             for _, child in ipairs(scrollingFrame:GetChildren()) do
                 if child ~= searchBox and child ~= resultsLabel
                    and not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
@@ -644,9 +549,7 @@ return function(deps)
                 resultsLabel.Text = "Type to search all loaded categories..."
                 return
             end
-
             resultsLabel.Text = "Searching..."
-
             task.spawn(function()
                 local mhResults = searchScriptsByMegahack(query)
                 local sbResults = searchScriptsOnScriptBlox(query)
@@ -695,14 +598,13 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  HOME  (polished card layout)
+    --  HOME
     -- ══════════════════════════════════════
     local function showHome()
         clearContent()
         showScrollPanel()
         createSectionHeader("Overview", scrollingFrame)
 
-        -- Player card
         local card = Instance.new("Frame")
         card.Size                   = UDim2.new(1,0,0,92)
         card.BackgroundColor3       = T.BgPanel
@@ -736,7 +638,6 @@ return function(deps)
             UDim2.new(1,-96,0,14), UDim2.new(0,88,0,52),
             T.TextMuted, nil, Enum.Font.Gotham, 10, 6)
 
-        -- Platform badge
         local platBadge = Instance.new("Frame")
         platBadge.BackgroundColor3       = T.Accent
         platBadge.BackgroundTransparency = 0.55
@@ -750,7 +651,6 @@ return function(deps)
             UDim2.new(1,0,1,0), UDim2.new(0,0,0,0),
             T.TextMain, Enum.TextXAlignment.Center, Enum.Font.GothamBold, 9, 7)
 
-        -- FPS card
         local fpsCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,34), nil, T.BgPanel, 0.18, 4)
         mkCorner(fpsCard, 8)
         local fpsLabel = mkLabel(fpsCard, "FPS: Calculating...",
@@ -764,11 +664,11 @@ return function(deps)
                 frames = frames + 1
                 local now = tick()
                 if now - lastTime >= 1 then
-                    local fps = frames
+                    local fps   = frames
                     local color = fps >= 55 and Color3.fromRGB(80,220,100)
                                 or fps >= 30 and Color3.fromRGB(220,180,40)
                                 or Color3.fromRGB(220,80,60)
-                    fpsLabel.Text      = "FPS: " .. fps
+                    fpsLabel.Text       = "FPS: " .. fps
                     fpsLabel.TextColor3 = color
                     frames = 0; lastTime = now
                 end
@@ -806,12 +706,10 @@ return function(deps)
             UDim2.new(0,110,0,16), UDim2.new(0,10,0,58),
             T.AccentGlow, nil, Enum.Font.GothamMedium, 10, 5)
 
-        -- Lifetime total (right side)
         mkLabel(sessionCard, fmtTime(statsData.totalSeconds) .. " total",
             UDim2.new(0,100,0,18), UDim2.new(1,-106,0,8),
             T.TextSub, Enum.TextXAlignment.Right, Enum.Font.Gotham, 11, 5)
 
-        -- Live session timer
         do
             local conn; conn = RunService.Heartbeat:Connect(function()
                 if not timerLbl.Parent then conn:Disconnect(); return end
@@ -836,7 +734,7 @@ return function(deps)
             local val    = statsData.daySeconds[tostring(i)] or 0
             local frac   = val / maxVal
             local barH   = math.max(4, math.floor(44 * frac))
-            local xOff   = (i-1) * (math.floor((200)/7)) + 10
+            local xOff   = (i-1) * (math.floor(200/7)) + 10
             local isToday= (tonumber(os.date("%w")) == (i % 7))
 
             local barFr = Instance.new("Frame")
@@ -880,7 +778,7 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  SETTINGS
+    --  SETTINGS  (Color Picker — из colorpicker.lua)
     -- ══════════════════════════════════════
     local function saveCoordinates()
         local char = player.Character
@@ -912,10 +810,23 @@ return function(deps)
     end
 
     local function setupAntiBanKick()
-        pcall(function()
-            game:GetService("Players").LocalPlayer.OnTeleport:Connect(function() end)
-        end)
-        createNotification("SECURITY","Anti-Kick active",3)
+        local mt = getrawmetatable(game)
+        if mt then
+            local oldNamecall = mt.__namecall
+            setreadonly(mt, false)
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if method == "Kick" or method == "kick" then
+                    createNotification("ANTI-KICK","Kick attempt blocked",3,7733960981); return nil
+                end
+                if method == "Ban" or method == "ban" then
+                    createNotification("ANTI-BAN","Ban attempt blocked",3,7733960981); return nil
+                end
+                return oldNamecall(self, ...)
+            end)
+            setreadonly(mt, true)
+        end
+        createNotification("PROTECTION","Anti-Ban/Anti-Kick enabled",3,7733960981)
     end
 
     local function checkFunctions()
@@ -941,12 +852,46 @@ return function(deps)
     local function showSettings()
         clearContent()
         showScrollPanel()
-        createSectionHeader("Appearance", scrollingFrame)
 
+        -- ── Color Picker (загружается из colorpicker.lua) ──────────
+        createSectionHeader("Color Picker", scrollingFrame)
+
+        if not ColorPickerModule then
+            ColorPickerModule = loadSubmodule("colorpicker.lua")
+            if ColorPickerModule then
+                ColorPickerModule = ColorPickerModule({
+                    TweenService      = TweenService,
+                    UserInputService  = UserInputService,
+                    RunService        = RunService,
+                    T                 = T,
+                    gui               = gui,
+                    settings          = settings,
+                    updateGuiColors   = updateGuiColors,
+                    saveColorSettings = saveColorSettings,
+                    createNotification = createNotification,
+                })
+            end
+        end
+
+        if ColorPickerModule then
+            ColorPickerModule.createColorPicker(scrollingFrame, colorPickerConnections)
+        else
+            createLabel("⚠  Failed to load colorpicker.lua", scrollingFrame)
+        end
+
+        -- ── Transparency ───────────────────────────────────────────
+        createSectionHeader("Transparency", scrollingFrame)
+        for _, t in ipairs({{"0%",0},{"10%",0.1},{"25%",0.25},{"50%",0.5},{"75%",0.75}}) do
+            createButton(t[1], scrollingFrame, function()
+                settings.transparency = t[2]; updateGuiColors(); saveColorSettings()
+            end)
+        end
+
+        -- ── Appearance ─────────────────────────────────────────────
+        createSectionHeader("Appearance", scrollingFrame)
         createButton("Lock GUI: " .. (settings.locked and "ON" or "OFF"), scrollingFrame, function()
-            settings.locked = not settings.locked
-            saveColorSettings()
-            createNotification("GUI", "Lock: " .. (settings.locked and "ON" or "OFF"), 2)
+            settings.locked = not settings.locked; saveColorSettings()
+            createNotification("GUI","Lock: "..(settings.locked and "ON" or "OFF"),2)
         end)
         createButton("RGB Accents: " .. (settings.rgbAccent and "ON" or "OFF"), scrollingFrame, function()
             settings.rgbAccent = not settings.rgbAccent; saveColorSettings(); updateGuiColors()
@@ -955,31 +900,59 @@ return function(deps)
             settings.rgbStroke = not settings.rgbStroke; saveColorSettings(); updateGuiColors()
         end)
 
+        -- ── Utilities ──────────────────────────────────────────────
         createSectionHeader("Utilities", scrollingFrame)
         createButton("Copy Username", scrollingFrame, function()
-            local ok2,_ = pcall(function() setclipboard(player.Name) end)
-            createNotification("COPY", "Username copied!", 2)
+            pcall(function() setclipboard(player.Name) end)
+            createNotification("COPY","Username copied!",2)
         end)
         createButton("Copy User ID", scrollingFrame, function()
             pcall(function() setclipboard(tostring(player.UserId)) end)
-            createNotification("COPY", "UserID copied!", 2)
+            createNotification("COPY","UserID copied!",2)
         end)
         createButton("Copy Server ID", scrollingFrame, function()
             pcall(function() setclipboard(game.JobId) end)
-            createNotification("COPY", "Server ID copied!", 2)
+            createNotification("COPY","Server ID copied!",2)
         end)
 
-        createSectionHeader("Coordinates", scrollingFrame)
-        createButton("Save Current Position",       scrollingFrame, saveCoordinates)
-        createButton("Teleport to Saved Position",  scrollingFrame, teleportToCoordinates)
+        -- ── Server ─────────────────────────────────────────────────
+        createSectionHeader("Server", scrollingFrame)
+        createButton("Rejoin", scrollingFrame, function()
+            local ok2, e = pcall(function() TeleportService:Teleport(game.PlaceId, player) end)
+            if not ok2 then createNotification("ERROR","Rejoin failed: "..tostring(e),5,7733968497) end
+        end)
+        createButton("Server Hop", scrollingFrame, function()
+            local ok2, e = pcall(function()
+                local servers = HttpService:JSONDecode(game:HttpGet(
+                    "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+                ))
+                if servers.data and #servers.data > 0 then
+                    TeleportService:TeleportToPlaceInstance(
+                        game.PlaceId,
+                        servers.data[math.random(1,#servers.data)].id,
+                        player
+                    )
+                else
+                    createNotification("ERROR","No servers found",5,7733968497)
+                end
+            end)
+            if not ok2 then createNotification("ERROR","Server hop failed: "..tostring(e),5,7733968497) end
+        end)
 
+        -- ── Coordinates ────────────────────────────────────────────
+        createSectionHeader("Coordinates", scrollingFrame)
+        createButton("Save Current Position",      scrollingFrame, saveCoordinates)
+        createButton("Teleport to Saved Position", scrollingFrame, teleportToCoordinates)
+
+        -- ── Security ───────────────────────────────────────────────
         createSectionHeader("Security", scrollingFrame)
         createButton("Enable Anti-Ban / Anti-Kick", scrollingFrame, setupAntiBanKick)
         createButton("Check Executor Functions",    scrollingFrame, function()
             local av, unav = checkFunctions()
-            createNotification("FUNCTIONS", "Available: " .. #av .. "/" .. (#av+#unav), 5, 7733960981)
+            createNotification("FUNCTIONS","Available: "..#av.."/"..(#av+#unav),5,7733960981)
         end)
 
+        -- ── Actions ────────────────────────────────────────────────
         createSectionHeader("Actions", scrollingFrame)
         createButton("Save Settings", scrollingFrame, saveSettings)
         createButton("Close GUI",     scrollingFrame, function() gui.screenGui:Destroy() end)
@@ -1029,7 +1002,7 @@ return function(deps)
             loadStats()
             startSessionTimer()
 
-            -- ── Sidebar: special tabs (fixed order) ────────────────────
+            -- Сайдбар: специальные вкладки
             local specialOrder = {"Home", "Games", "Stats", "Settings", "All Scripts"}
             local specialFuncs = {
                 Home = function()
@@ -1057,7 +1030,7 @@ return function(deps)
                 createButton(name, catScroll, specialFuncs[name], true)
             end
 
-            -- ── Sidebar: game categories (sorted) ──────────────────────
+            -- Сайдбар: категории игр
             local sortedCats = {}
             for catName in pairs(categoryMap) do table.insert(sortedCats, catName) end
             table.sort(sortedCats)
@@ -1069,11 +1042,11 @@ return function(deps)
                 end, true)
             end
 
-            -- ── Dragging ───────────────────────────────────────────────
+            -- Dragging
             MakeDraggable(mainFrame, headerFrame)
             MakeDraggable(reopenButton, reopenButton)
 
-            -- ── Close / Reopen ─────────────────────────────────────────
+            -- Close / Reopen
             closeBtn.MouseButton1Click:Connect(function()
                 finishCurrentSession()
                 TweenService:Create(mainFrame,
@@ -1100,7 +1073,7 @@ return function(deps)
                 ):Play()
             end)
 
-            -- ── Intro animation ────────────────────────────────────────
+            -- Intro animation
             mainFrame.Size                   = UDim2.new(0,0,0,0)
             mainFrame.BackgroundTransparency = 1
             TweenService:Create(mainFrame,
@@ -1108,12 +1081,11 @@ return function(deps)
                 {Size=UDim2.new(0,590,0,400), BackgroundTransparency=settings.transparency}
             ):Play()
 
-            -- ── Default view ───────────────────────────────────────────
+            -- Default view
             recordTabClick("Home")
             showHome()
             updateGuiColors()
 
-            -- Highlight "Home" button
             task.delay(0.12, function()
                 local first = catScroll:FindFirstChildWhichIsA("TextButton")
                 if first then
@@ -1125,7 +1097,6 @@ return function(deps)
                 end
             end)
 
-            -- ── Auto-save on close ─────────────────────────────────────
             game:BindToClose(function()
                 finishCurrentSession()
             end)
