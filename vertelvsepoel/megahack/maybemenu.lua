@@ -1,6 +1,7 @@
 -- ══════════════════════════════════════════════════════════════════
---  maybemenu.lua  —  ГЛАВНЫЙ ЗАГРУЗЧИК (исправленный)
---  Порядок: base → HubData → theme → gui → notification → logic
+--  maybemenu.lua  —  Main Loader  v2
+--  Load order: base → HubData prefetch → theme → gui → notify → logic
+--  NEW: gameIcons passed from base.lua → logic.lua (Games virtual tab)
 -- ══════════════════════════════════════════════════════════════════
 
 local TweenService       = game:GetService("TweenService")
@@ -20,56 +21,67 @@ local isMobile    = UserInputService.TouchEnabled and not UserInputService.Keybo
 local platformName = isMobile and "Mobile" or "PC"
 
 -- ══════════════════════════════════════
---  SAFE LOAD с кэш-бастером
+--  SAFE LOAD  (cache-busted)
 -- ══════════════════════════════════════
 local function safeLoad(url)
     local fullUrl = url .. "?t=" .. math.floor(tick())
     local ok, res = pcall(function()
         return loadstring(game:HttpGet(fullUrl, true))()
     end)
-    if ok and res then
-        return res
-    end
-    warn("[MH] failed to load: " .. tostring(url) .. " | error: " .. tostring(res))
+    if ok and res then return res end
+    warn("[MH] failed to load: " .. tostring(url) .. " | " .. tostring(res))
     return nil
 end
 
 -- ══════════════════════════════════════
 --  BASE CONFIG
---  ВСЕ файлы модулей лежат в КОРНЕ репо, НЕ в /loader/
 -- ══════════════════════════════════════
 local BASE_ROOT = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack"
 
 local baseConfig = safeLoad(BASE_ROOT .. "/base.lua")
 if not baseConfig or not baseConfig.categories then
-    warn("[MH] base.lua не загрузилась или повреждена!")
+    warn("[MH] base.lua failed or damaged!")
     return
 end
 
 local baseUrl     = baseConfig.baseUrl or (BASE_ROOT .. "/base")
 local categoryMap = baseConfig.categories or {}
+local gameIcons   = baseConfig.gameIcons  or {}   -- NEW: PlaceId map for Games tab
 
--- ИСПРАВЛЕНО: table.keys() не существует в Lua — используем собственный обход
 local catNames = {}
 for k in pairs(categoryMap) do table.insert(catNames, k) end
-print("[MH] base.lua loaded. Категорий: " .. #catNames .. " → " .. table.concat(catNames, ", "))
+print("[MH] base.lua loaded. Categories: " .. #catNames .. " → " .. table.concat(catNames, ", "))
 
 -- ══════════════════════════════════════
---  SCRIPT CACHE  (предзагрузка)
+--  PREFETCH SCRIPT DATA
+--  Loads all category .lua files in background.
+--  Uses task.spawn so they load in parallel.
+--  Yields a small gap between spawns to avoid
+--  hammering the CDN on mobile.
 -- ══════════════════════════════════════
 local HubData = {}
-for categoryName, fileName in pairs(categoryMap) do
-    local data = safeLoad(baseUrl .. "/" .. fileName)
-    if type(data) == "table" and #data > 0 then
-        HubData[categoryName] = data
-        print("[MH] ✓ Loaded category: " .. categoryName .. " (" .. #data .. " scripts)")
-    else
-        warn("[MH] ✗ Failed/empty category: " .. categoryName)
+
+local function prefetchAll()
+    local threads = {}
+    for categoryName, fileName in pairs(categoryMap) do
+        local t = task.spawn(function()
+            local data = safeLoad(baseUrl .. "/" .. fileName)
+            if type(data) == "table" and #data > 0 then
+                HubData[categoryName] = data
+                print("[MH] ✓ " .. categoryName .. " (" .. #data .. " scripts)")
+            else
+                warn("[MH] ✗ " .. categoryName)
+            end
+        end)
+        table.insert(threads, t)
+        task.wait(0.02)  -- stagger spawns: 20ms gap each → no CDN burst
     end
 end
 
+prefetchAll()   -- non-blocking: runs in background while GUI builds
+
 -- ══════════════════════════════════════
---  ACCENT REGISTRY (shared между модулями)
+--  ACCENT REGISTRY
 -- ══════════════════════════════════════
 local accentRegistry = {}
 local function regA(obj, prop)
@@ -77,20 +89,16 @@ local function regA(obj, prop)
 end
 
 -- ══════════════════════════════════════
---  NOTIFICATION (forward declare)
+--  NOTIFICATION  (forward declared)
 -- ══════════════════════════════════════
-local createNotification  -- объявляем заранее, определим ниже
+local createNotification  -- defined below after T is available
 
 -- ══════════════════════════════════════
 --  THEME
---  ИСПРАВЛЕНО: убрали /loader/ из пути
---  ИСПРАВЛЕНО: mainFrame/scrollingFrame НЕ передаём сюда —
---              они ещё не созданы, theme только создаёт T и пикер
 -- ══════════════════════════════════════
 local themeFactory = safeLoad(BASE_ROOT .. "/theme.lua")
 if type(themeFactory) ~= "function" then
-    warn("[MH] theme.lua не загрузилась или неверный формат")
-    return
+    warn("[MH] theme.lua failed or wrong format"); return
 end
 
 local theme = themeFactory({
@@ -100,20 +108,16 @@ local theme = themeFactory({
     UserInputService   = UserInputService,
     playerGui          = playerGui,
     accentRegistry     = accentRegistry,
-    -- mainFrame и scrollingFrame придут позже через theme.setFrames()
     createNotification = function(...) return createNotification(...) end,
 })
-
 local T = theme.T
 
 -- ══════════════════════════════════════
 --  GUI
---  ИСПРАВЛЕНО: убрали /loader/ из пути
 -- ══════════════════════════════════════
 local guiFactory = safeLoad(BASE_ROOT .. "/gui.lua")
 if type(guiFactory) ~= "function" then
-    warn("[MH] gui.lua не загрузилась или неверный формат")
-    return
+    warn("[MH] gui.lua failed or wrong format"); return
 end
 
 local gui = guiFactory({
@@ -133,115 +137,134 @@ local gui = guiFactory({
     createNotification = function(...) return createNotification(...) end,
 })
 
--- Передаём mainFrame и scrollingFrame в тему ПОСЛЕ создания gui
--- чтобы updateGuiColors мог обращаться к реальным объектам
+-- Wire frames into theme AFTER gui creates them
 theme.setFrames(gui.mainFrame, gui.scrollingFrame)
 
 -- ══════════════════════════════════════
---  NOTIFICATION  (реальная реализация)
+--  NOTIFICATION  (real implementation)
 -- ══════════════════════════════════════
 createNotification = function(title, subtitle, duration, iconId)
-    local notificationGui = Instance.new("ScreenGui")
-    notificationGui.Name        = "MH_Notification"
-    notificationGui.Parent      = playerGui
-    notificationGui.ResetOnSpawn = false
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name         = "MH_Notification"
+    notifGui.ResetOnSpawn = false
 
-    local notifW = 240
-    local mainF  = Instance.new("Frame")
-    mainF.Size     = UDim2.new(0, notifW, 0, 64)
-    mainF.Position = UDim2.new(1, -(notifW + 16), 0, 24)
-    mainF.BackgroundTransparency = 1
-    mainF.Parent   = notificationGui
+    local function placeGui(g)
+        local ok = pcall(function()
+            if get_hidden_gui then g.Parent = get_hidden_gui()
+            elseif gethui then g.Parent = gethui()
+            else g.Parent = CoreGui end
+        end)
+        if not ok then g.Parent = CoreGui end
+    end
+    placeGui(notifGui)
+
+    local W = 248
+    local holder = Instance.new("Frame")
+    holder.Size     = UDim2.new(0, W, 0, 66)
+    holder.Position = UDim2.new(1, -(W+18), 0, 22)
+    holder.BackgroundTransparency = 1
+    holder.Parent   = notifGui
 
     local bg = Instance.new("Frame")
-    bg.Size                   = UDim2.new(1, 0, 1, 0)
+    bg.Size                   = UDim2.new(1,0,1,0)
     bg.BackgroundColor3       = T.BgSide
     bg.BackgroundTransparency = 1
-    bg.Parent                 = mainF
-    Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
+    bg.Parent                 = holder
+    local bgCorner = Instance.new("UICorner", bg)
+    bgCorner.CornerRadius = UDim.new(0,11)
 
-    local stroke = Instance.new("UIStroke")
+    local stroke = Instance.new("UIStroke", bg)
     stroke.Thickness    = 1
     stroke.Color        = T.Stroke
     stroke.Transparency = 1
-    stroke.Parent       = bg
 
-    local bar = Instance.new("Frame")
-    bar.Size                   = UDim2.new(0, 3, 1, -16)
-    bar.Position               = UDim2.new(0, 0, 0, 8)
+    local bar = Instance.new("Frame", bg)
+    bar.Size                   = UDim2.new(0,3,1,-16)
+    bar.Position               = UDim2.new(0,0,0,8)
     bar.BackgroundColor3       = T.AccentGlow
     bar.BackgroundTransparency = 1
     bar.BorderSizePixel        = 0
-    bar.Parent                 = bg
-    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 4)
+    Instance.new("UICorner",bar).CornerRadius = UDim.new(0,4)
 
-    local icon = Instance.new("ImageLabel")
-    icon.Size                 = UDim2.new(0, 28, 0, 28)
-    icon.Position             = UDim2.new(0, 12, 0.5, -14)
+    local icon = Instance.new("ImageLabel", bg)
+    icon.Size               = UDim2.new(0,26,0,26)
+    icon.Position           = UDim2.new(0,12,0.5,-13)
     icon.BackgroundTransparency = 1
-    icon.Image                = "rbxassetid://" .. tostring(iconId or 74283928898866)
-    icon.ImageTransparency    = 1
-    icon.Parent               = bg
+    icon.Image              = "rbxassetid://" .. tostring(iconId or 74283928898866)
+    icon.ImageTransparency  = 1
 
-    local mainText = Instance.new("TextLabel")
-    mainText.Text              = title
-    mainText.Font              = Enum.Font.GothamBold
-    mainText.TextColor3        = T.TextMain
-    mainText.TextSize          = 13
-    mainText.TextXAlignment    = Enum.TextXAlignment.Left
-    mainText.Size              = UDim2.new(1, -56, 0, 18)
-    mainText.Position          = UDim2.new(0, 50, 0, 12)
-    mainText.BackgroundTransparency = 1
-    mainText.TextTransparency  = 1
-    mainText.Parent            = bg
+    local mainTxt = Instance.new("TextLabel", bg)
+    mainTxt.Text              = title
+    mainTxt.Font              = Enum.Font.GothamBold
+    mainTxt.TextColor3        = T.TextMain
+    mainTxt.TextSize          = 13
+    mainTxt.TextXAlignment    = Enum.TextXAlignment.Left
+    mainTxt.Size              = UDim2.new(1,-52,0,18)
+    mainTxt.Position          = UDim2.new(0,48,0,12)
+    mainTxt.BackgroundTransparency = 1
+    mainTxt.TextTransparency  = 1
 
-    local subText = Instance.new("TextLabel")
-    subText.Text               = subtitle or ""
-    subText.Font               = Enum.Font.Gotham
-    subText.TextColor3         = T.TextSub
-    subText.TextSize           = 11
-    subText.TextXAlignment     = Enum.TextXAlignment.Left
-    subText.Size               = UDim2.new(1, -56, 0, 14)
-    subText.Position           = UDim2.new(0, 50, 0, 32)
-    subText.BackgroundTransparency = 1
-    subText.TextTransparency   = 1
-    subText.Parent             = bg
+    local subTxt = Instance.new("TextLabel", bg)
+    subTxt.Text               = subtitle or ""
+    subTxt.Font               = Enum.Font.Gotham
+    subTxt.TextColor3         = T.TextSub
+    subTxt.TextSize           = 11
+    subTxt.TextXAlignment     = Enum.TextXAlignment.Left
+    subTxt.Size               = UDim2.new(1,-52,0,14)
+    subTxt.Position           = UDim2.new(0,48,0,33)
+    subTxt.BackgroundTransparency = 1
+    subTxt.TextTransparency   = 1
 
-    local function fadeIn()
-        local ti = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-        TweenService:Create(bg,       ti, {BackgroundTransparency = 0}):Play()
-        TweenService:Create(stroke,   ti, {Transparency = 0.4}):Play()
-        TweenService:Create(bar,      ti, {BackgroundTransparency = 0}):Play()
-        TweenService:Create(mainText, ti, {TextTransparency = 0}):Play()
-        TweenService:Create(subText,  ti, {TextTransparency = 0.1}):Play()
-        TweenService:Create(icon,     ti, {ImageTransparency = 0}):Play()
-    end
-    local function fadeOut()
-        local ti = TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.In)
-        TweenService:Create(bg,       ti, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(stroke,   ti, {Transparency = 1}):Play()
-        TweenService:Create(bar,      ti, {BackgroundTransparency = 1}):Play()
-        TweenService:Create(mainText, ti, {TextTransparency = 1}):Play()
-        TweenService:Create(subText,  ti, {TextTransparency = 1}):Play()
-        TweenService:Create(icon,     ti, {ImageTransparency = 1}):Play()
-        task.delay(0.35, function() notificationGui:Destroy() end)
-    end
+    -- Progress bar at bottom
+    local progress = Instance.new("Frame", bg)
+    progress.Size               = UDim2.new(1,0,0,2)
+    progress.Position           = UDim2.new(0,0,1,-2)
+    progress.BackgroundColor3   = T.Accent
+    progress.BackgroundTransparency = 1
+    progress.BorderSizePixel    = 0
+    Instance.new("UICorner",progress).CornerRadius = UDim.new(1,0)
 
-    fadeIn()
-    task.delay(duration or 3, fadeOut)
+    local dur = duration or 3
+    local ti_in  = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local ti_out = TweenInfo.new(0.28, Enum.EasingStyle.Sine,  Enum.EasingDirection.In)
+
+    -- Fade in
+    TweenService:Create(bg,       ti_in, {BackgroundTransparency=0.05}):Play()
+    TweenService:Create(stroke,   ti_in, {Transparency=0.45}):Play()
+    TweenService:Create(bar,      ti_in, {BackgroundTransparency=0}):Play()
+    TweenService:Create(icon,     ti_in, {ImageTransparency=0}):Play()
+    TweenService:Create(mainTxt,  ti_in, {TextTransparency=0}):Play()
+    TweenService:Create(subTxt,   ti_in, {TextTransparency=0.08}):Play()
+    TweenService:Create(progress, ti_in, {BackgroundTransparency=0.35}):Play()
+
+    -- Progress shrink
+    TweenService:Create(progress,
+        TweenInfo.new(dur, Enum.EasingStyle.Linear),
+        {Size=UDim2.new(0,0,0,2)}
+    ):Play()
+
+    -- Fade out
+    task.delay(dur, function()
+        TweenService:Create(bg,       ti_out, {BackgroundTransparency=1}):Play()
+        TweenService:Create(stroke,   ti_out, {Transparency=1}):Play()
+        TweenService:Create(bar,      ti_out, {BackgroundTransparency=1}):Play()
+        TweenService:Create(icon,     ti_out, {ImageTransparency=1}):Play()
+        TweenService:Create(mainTxt,  ti_out, {TextTransparency=1}):Play()
+        TweenService:Create(subTxt,   ti_out, {TextTransparency=1}):Play()
+        TweenService:Create(progress, ti_out, {BackgroundTransparency=1}):Play()
+        task.delay(0.32, function() notifGui:Destroy() end)
+    end)
 end
 
--- Пробрасываем реальную функцию обратно в gui
+-- Wire real notification back into gui
 gui.setNotification(createNotification)
 
 -- ══════════════════════════════════════
 --  LOGIC
---  ИСПРАВЛЕНО: убрали /loader/ из пути
 -- ══════════════════════════════════════
 local logicFactory = safeLoad(BASE_ROOT .. "/logic.lua")
 if type(logicFactory) ~= "function" then
-    warn("[MH] logic.lua не загрузилась или неверный формат")
-    return
+    warn("[MH] logic.lua failed or wrong format"); return
 end
 
 local logic = logicFactory({
@@ -260,12 +283,13 @@ local logic = logicFactory({
     HubData            = HubData,
     baseUrl            = baseUrl,
     categoryMap        = categoryMap,
+    gameIcons          = gameIcons,       -- NEW: passed to logic for Games tab
     accentRegistry     = accentRegistry,
     createNotification = createNotification,
     safeLoad           = safeLoad,
 })
 
 -- ══════════════════════════════════════
---  ЗАПУСК
+--  LAUNCH
 -- ══════════════════════════════════════
 logic.init()
