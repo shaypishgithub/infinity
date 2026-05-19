@@ -1,7 +1,10 @@
 -- ══════════════════════════════════════════════════════════════════
 --  gui.lua  —  UI Construction  v2
---  NEW: Games panel slot exposed, icon loader helper, premium polish
---  FIX: dummyPatch declared before return {}
+--  FIXED:
+--    • regA принимает (obj, prop) — prop необязателен (default BackgroundColor3)
+--    • dummyPatch объявлен до return {}
+--    • closeBtn.Name = "CloseBtn" (совпадает с theme.lua)
+--    • gameName корректно экспортируется
 -- ══════════════════════════════════════════════════════════════════
 return function(deps)
     local TweenService       = deps.TweenService
@@ -11,17 +14,17 @@ return function(deps)
     local playerGui          = deps.playerGui
     local platformName       = deps.platformName
     local T                  = deps.T
-    local regA               = deps.regA
+    local regA               = deps.regA   -- function(obj, prop?)
     local HubData            = deps.HubData
 
-    local createNotification = function() end  -- stub, replaced via setNotification()
+    local createNotification = function() end  -- stub, заменяется через setNotification()
 
     -- ─────────────────────────────────────────
     --  CONSTANTS
     -- ─────────────────────────────────────────
     local CORNER   = 14
     local CORNER_S = 8
-    local TWEEN_F  = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    local TWEEN_F  = TweenInfo.new(0.18, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
     local TWEEN_M  = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
     -- ─────────────────────────────────────────
@@ -96,7 +99,7 @@ return function(deps)
                 g.Parent = get_hidden_gui()
             elseif gethui then
                 g.Parent = gethui()
-            elseif syn and typeof(syn)=="table" and syn.protect_gui then
+            elseif syn and typeof(syn) == "table" and syn.protect_gui then
                 syn.protect_gui(g); g.Parent = CoreGui
             else
                 g.Parent = CoreGui
@@ -107,7 +110,7 @@ return function(deps)
     protectGui(screenGui)
 
     -- ─────────────────────────────────────────
-    --  MAIN FRAME  (580×400 — slightly taller for breathing room)
+    --  MAIN FRAME
     -- ─────────────────────────────────────────
     local mainFrame = Instance.new("Frame")
     mainFrame.Name                   = "MainFrame"
@@ -123,7 +126,6 @@ return function(deps)
     mkStroke(mainFrame, 1, Color3.new(1,1,1), 0.78)
     mkGlassSheen(mainFrame, 3)
 
-    -- Subtle bottom accent glow bar
     local accentBar = Instance.new("Frame")
     accentBar.Name                   = "AccentBar"
     accentBar.BackgroundColor3       = T.Accent
@@ -134,10 +136,10 @@ return function(deps)
     accentBar.ZIndex                 = 4
     accentBar.Parent                 = mainFrame
     mkCorner(accentBar, 2)
-    regA(accentBar)
+    regA(accentBar)  -- BackgroundColor3 по умолчанию
 
     -- ─────────────────────────────────────────
-    --  HEADER  (52px tall)
+    --  HEADER  (52px)
     -- ─────────────────────────────────────────
     local headerFrame = Instance.new("Frame")
     headerFrame.Name                   = "HeaderFrame"
@@ -146,7 +148,6 @@ return function(deps)
     headerFrame.ZIndex                 = 5
     headerFrame.Parent                 = mainFrame
 
-    -- Separator line under header
     local headerLine = Instance.new("Frame")
     headerLine.BackgroundColor3       = Color3.new(1,1,1)
     headerLine.BackgroundTransparency = 0.88
@@ -156,7 +157,6 @@ return function(deps)
     headerLine.ZIndex                 = 6
     headerLine.Parent                 = headerFrame
 
-    -- Logo icon
     local logoIcon = Instance.new("ImageLabel")
     logoIcon.BackgroundTransparency = 1
     logoIcon.Image    = "rbxassetid://7072717762"
@@ -165,7 +165,6 @@ return function(deps)
     logoIcon.ZIndex   = 8
     logoIcon.Parent   = headerFrame
 
-    -- Title
     local titleLabel = Instance.new("TextLabel")
     titleLabel.BackgroundTransparency = 1
     titleLabel.Text           = "MEGAHACK"
@@ -179,7 +178,6 @@ return function(deps)
     titleLabel.Parent         = headerFrame
     titleLabel:SetAttribute("TextRole","main")
 
-    -- Version badge
     local versionBadge = Instance.new("Frame")
     versionBadge.BackgroundColor3       = T.Accent
     versionBadge.BackgroundTransparency = 0.18
@@ -193,16 +191,15 @@ return function(deps)
 
     local versionText = Instance.new("TextLabel")
     versionText.BackgroundTransparency = 1
-    versionText.Text     = "v2.0"
-    versionText.Font     = Enum.Font.GothamBold
-    versionText.TextSize = 10
+    versionText.Text       = "v2.0"
+    versionText.Font       = Enum.Font.GothamBold
+    versionText.TextSize   = 10
     versionText.TextColor3 = T.TextMain
-    versionText.Size     = UDim2.new(1,0,1,0)
-    versionText.ZIndex   = 9
-    versionText.Parent   = versionBadge
+    versionText.Size       = UDim2.new(1,0,1,0)
+    versionText.ZIndex     = 9
+    versionText.Parent     = versionBadge
     versionText:SetAttribute("TextRole","main")
 
-    -- Script count (right side of header)
     local scriptCountLabel = Instance.new("TextLabel")
     scriptCountLabel.BackgroundTransparency = 1
     scriptCountLabel.Text           = countScripts() .. " scripts"
@@ -215,7 +212,6 @@ return function(deps)
     scriptCountLabel.ZIndex         = 8
     scriptCountLabel.Parent         = headerFrame
 
-    -- Current game label
     local ok_g, gname = pcall(function()
         return MarketplaceService:GetProductInfo(game.PlaceId).Name
     end)
@@ -231,7 +227,7 @@ return function(deps)
     gameNameHeader.ZIndex         = 8
     gameNameHeader.Parent         = headerFrame
 
-    -- Close button
+    -- Close button — Name = "CloseBtn" (синхронизировано с theme.lua)
     local closeBtn = Instance.new("TextButton")
     closeBtn.Name                   = "CloseBtn"
     closeBtn.BackgroundColor3       = Color3.fromRGB(195,55,55)
@@ -274,7 +270,6 @@ return function(deps)
     sidebarSep.ZIndex                 = 4
     sidebarSep.Parent                 = sidebarFrame
 
-    -- Category scroll (sidebar list)
     local catScroll = Instance.new("ScrollingFrame")
     catScroll.BackgroundTransparency = 1
     catScroll.BorderSizePixel        = 0
@@ -340,8 +335,7 @@ return function(deps)
     end)
 
     -- ─────────────────────────────────────────
-    --  GAMES PANEL  (full-size overlay, hidden by default)
-    --  Lives inside contentFrame, shown/hidden by logic.lua
+    --  GAMES PANEL
     -- ─────────────────────────────────────────
     local gamesPanel = Instance.new("ScrollingFrame")
     gamesPanel.Name                   = "GamesPanel"
@@ -351,17 +345,16 @@ return function(deps)
     gamesPanel.CanvasSize             = UDim2.new(0,0,0,0)
     gamesPanel.ScrollBarThickness     = 2
     gamesPanel.ScrollBarImageColor3   = T.Accent
-    gamesPanel.Visible                = false   -- hidden until Games tab is selected
+    gamesPanel.Visible                = false
     gamesPanel.ZIndex                 = 3
     gamesPanel.Parent                 = contentFrame
     regA(gamesPanel, "ScrollBarImageColor3")
 
-    --  Grid layout for game cards
     local gamesGrid = Instance.new("UIGridLayout")
-    gamesGrid.CellSize     = UDim2.new(0,128,0,96)
-    gamesGrid.CellPadding  = UDim2.new(0,8,0,8)
-    gamesGrid.SortOrder    = Enum.SortOrder.LayoutOrder
-    gamesGrid.Parent       = gamesPanel
+    gamesGrid.CellSize    = UDim2.new(0,128,0,96)
+    gamesGrid.CellPadding = UDim2.new(0,8,0,8)
+    gamesGrid.SortOrder   = Enum.SortOrder.LayoutOrder
+    gamesGrid.Parent      = gamesPanel
 
     local gamesPad = Instance.new("UIPadding")
     gamesPad.PaddingLeft   = UDim.new(0,4)
@@ -375,7 +368,7 @@ return function(deps)
     end)
 
     -- ─────────────────────────────────────────
-    --  REOPEN BUTTON (floating, shown when GUI is minimised)
+    --  REOPEN BUTTON
     -- ─────────────────────────────────────────
     local reopenButton = Instance.new("ImageButton")
     reopenButton.Size                   = UDim2.new(0,46,0,46)
@@ -401,7 +394,7 @@ return function(deps)
     end)
 
     -- ─────────────────────────────────────────
-    --  DUMMY PATCH (compatibility shim, must be before return {})
+    --  DUMMY PATCH — ДОЛЖЕН БЫТЬ ДО return {}
     -- ─────────────────────────────────────────
     local dummyPatch = Instance.new("Frame")
     dummyPatch.Visible = false
@@ -417,7 +410,6 @@ return function(deps)
         container.ZIndex = 4
         container.Parent = parent
 
-        -- Accent pip
         local pip = Instance.new("Frame")
         pip.BackgroundColor3       = T.Accent
         pip.BackgroundTransparency = 0
@@ -461,8 +453,6 @@ return function(deps)
         return label
     end
 
-    -- createButton: isCategoryButton=true → sidebar nav pill
-    --               isCategoryButton=false/nil → content action button
     local function createButton(text, parent, callback, isCategoryButton)
         if isCategoryButton then
             local btn = Instance.new("TextButton")
@@ -492,7 +482,6 @@ return function(deps)
                 TweenService:Create(btn, TWEEN_F, {BackgroundTransparency=1, TextColor3=T.TextSub}):Play()
             end)
             btn.MouseButton1Click:Connect(function()
-                -- Deactivate siblings
                 for _, child in ipairs(parent:GetChildren()) do
                     if child:IsA("TextButton") then
                         child:SetAttribute("Active", false)
@@ -505,7 +494,6 @@ return function(deps)
             end)
             return btn
         else
-            -- Content action button — glass card style
             local btn = Instance.new("TextButton")
             btn.Size                   = UDim2.new(1,0,0,36)
             btn.BackgroundColor3       = T.BgPanel
@@ -517,7 +505,6 @@ return function(deps)
             mkCorner(btn, CORNER_S)
             local s = mkStroke(btn, 1, Color3.new(1,1,1), 0.90)
 
-            -- Left accent bar (hidden by default, shown on hover)
             local leftBar = Instance.new("Frame")
             leftBar.BackgroundColor3       = T.Accent
             leftBar.BackgroundTransparency = 1
@@ -564,9 +551,7 @@ return function(deps)
     end
 
     -- ─────────────────────────────────────────
-    --  GAME CARD BUILDER  (used by Games panel, lazy-load icon)
-    --  placeId: integer PlaceId for thumbnail  (or nil for placeholder)
-    --  onClick: function called when card is clicked
+    --  GAME CARD BUILDER
     -- ─────────────────────────────────────────
     local function createGameCard(gameName, placeId, onClick)
         local card = Instance.new("TextButton")
@@ -580,7 +565,6 @@ return function(deps)
         mkCorner(card, CORNER_S)
         local cs = mkStroke(card, 1, Color3.new(1,1,1), 0.90)
 
-        -- Thumbnail placeholder (dark bg while image loads)
         local thumb = Instance.new("ImageLabel")
         thumb.Name                   = "GameCardBg"
         thumb.BackgroundColor3       = T.BgBtn
@@ -588,14 +572,13 @@ return function(deps)
         thumb.BorderSizePixel        = 0
         thumb.Size                   = UDim2.new(1,0,0,62)
         thumb.Position               = UDim2.new(0,0,0,0)
-        thumb.Image                  = ""           -- filled by lazy loader
-        thumb.ImageTransparency      = 1            -- fade in when loaded
+        thumb.Image                  = ""
+        thumb.ImageTransparency      = 1
         thumb.ScaleType              = Enum.ScaleType.Crop
         thumb.ZIndex                 = 5
         thumb.Parent                 = card
         mkCorner(thumb, CORNER_S)
 
-        -- Gradient overlay at bottom of thumbnail
         local overlay = Instance.new("Frame")
         overlay.BackgroundColor3       = T.BgPanel
         overlay.BackgroundTransparency = 0
@@ -609,7 +592,6 @@ return function(deps)
             NumberSequenceKeypoint.new(1, 0),
         }, 90)
 
-        -- Game name label
         local nameLbl = Instance.new("TextLabel")
         nameLbl.BackgroundTransparency = 1
         nameLbl.Text           = gameName
@@ -624,7 +606,6 @@ return function(deps)
         nameLbl.Parent         = card
         nameLbl:SetAttribute("TextRole","main")
 
-        -- Hover effects
         card.MouseEnter:Connect(function()
             TweenService:Create(card, TWEEN_F, {BackgroundTransparency=0.10, BackgroundColor3=T.BgBtnHov}):Play()
             TweenService:Create(cs,   TWEEN_F, {Transparency=0.50, Color=T.Accent}):Play()
@@ -641,7 +622,6 @@ return function(deps)
             if onClick then onClick() end
         end)
 
-        -- Return the thumb ImageLabel so logic.lua can feed it the URL after lazy-load
         return card, thumb
     end
 
@@ -664,7 +644,6 @@ return function(deps)
         reopenButton   = reopenButton,
         gameName       = ok_g and gname or "Unknown",
 
-        -- Builders (used by logic.lua)
         mkCorner            = mkCorner,
         mkStroke            = mkStroke,
         createButton        = createButton,
