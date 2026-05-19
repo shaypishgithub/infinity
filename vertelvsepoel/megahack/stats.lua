@@ -1,24 +1,36 @@
 -- ══════════════════════════════════════════════════════════════════
 --  stats.lua  —  Статистика сессий, дней, вкладок
---  Зависимости: deps = { RunService, HttpService, Players, ... }
+--  FIXED: корректная работа safeIsFile / safeReadFile
 -- ══════════════════════════════════════════════════════════════════
-
 return function(deps)
-    local RunService       = deps.RunService
-    local HttpService      = deps.HttpService
-    local Players          = deps.Players
-    local player           = deps.player
-    local createNotification = deps.createNotification
+    local RunService         = deps.RunService
+    local HttpService        = deps.HttpService
+    local Players            = deps.Players
+    local player             = deps.player
+    local createNotification = deps.createNotification or function() end
 
-    -- Вспомогательные функции для работы с файловой системой (если executor поддерживает)
-    local safeIsFolder, safeMakeFolder, safeWriteFile, safeReadFile, safeIsFile
-    safeIsFolder = function(path) pcall(function() return isfolder(path) end) return isfolder and isfolder(path) or false end
-    safeMakeFolder = function(path) if makefolder then pcall(makefolder, path) end end
-    safeWriteFile = function(path, data) if writefile then pcall(writefile, path, data) end end
-    safeReadFile = function(path) if readfile then return pcall(readfile, path) and readfile(path) or nil end return nil end
-    safeIsFile = function(path) if isfile then return isfile(path) end return false end
+    -- ── Безопасная работа с ФС ────────────────────────────────────
+    local function safeIsFolder(path)
+        if not isfolder then return false end
+        local ok, r = pcall(isfolder, path); return ok and r or false
+    end
+    local function safeMakeFolder(path)
+        if makefolder then pcall(makefolder, path) end
+    end
+    local function safeWriteFile(path, data)
+        if writefile then pcall(writefile, path, data) end
+    end
+    local function safeIsFile(path)
+        if not isfile then return false end
+        local ok, r = pcall(isfile, path); return ok and r or false
+    end
+    local function safeReadFile(path)
+        if not readfile then return nil end
+        local ok, r = pcall(readfile, path)
+        return ok and r or nil
+    end
 
-    -- ── Состояние статистики ──────────────────────────────────────
+    -- ── Состояние ─────────────────────────────────────────────────
     local statsData = {
         totalSeconds  = 0,
         totalSessions = 0,
@@ -28,10 +40,9 @@ return function(deps)
         streak        = 0,
         lastDayPlayed = 0,
     }
-
     local sessionTimerConn = nil
 
-    -- ── Форматирование времени ────────────────────────────────────
+    -- ── Форматирование ────────────────────────────────────────────
     local function fmtTime(secs)
         secs = math.floor(secs)
         local h = math.floor(secs / 3600)
@@ -44,9 +55,9 @@ return function(deps)
     local function fmtTimerLive(secs)
         secs = math.floor(secs)
         return string.format("%02d:%02d:%02d",
-            math.floor(secs/3600),
-            math.floor((secs%3600)/60),
-            secs%60)
+            math.floor(secs / 3600),
+            math.floor((secs % 3600) / 60),
+            secs % 60)
     end
 
     -- ── Сохранение / загрузка ─────────────────────────────────────
@@ -59,24 +70,24 @@ return function(deps)
 
     local function loadStats()
         pcall(function()
-            if safeIsFile("MegaHack/stats.json") then
-                local data = HttpService:JSONDecode(safeReadFile("MegaHack/stats.json"))
-                if data.totalSeconds  then statsData.totalSeconds  = data.totalSeconds  end
-                if data.totalSessions then statsData.totalSessions = data.totalSessions end
-                if data.tabClicks     then statsData.tabClicks     = data.tabClicks     end
-                if data.daySeconds    then statsData.daySeconds    = data.daySeconds    end
-                if data.streak        then statsData.streak        = data.streak        end
-                if data.lastDayPlayed then statsData.lastDayPlayed = data.lastDayPlayed end
-            end
+            if not safeIsFile("MegaHack/stats.json") then return end
+            local raw = safeReadFile("MegaHack/stats.json")
+            if not raw then return end
+            local data = HttpService:JSONDecode(raw)
+            if data.totalSeconds  then statsData.totalSeconds  = data.totalSeconds  end
+            if data.totalSessions then statsData.totalSessions = data.totalSessions end
+            if data.tabClicks     then statsData.tabClicks     = data.tabClicks     end
+            if data.daySeconds    then statsData.daySeconds    = data.daySeconds    end
+            if data.streak        then statsData.streak        = data.streak        end
+            if data.lastDayPlayed then statsData.lastDayPlayed = data.lastDayPlayed end
         end)
     end
 
-    -- ── Обновление дневной статистики и серий ─────────────────────
+    -- ── День / серия ──────────────────────────────────────────────
     local function updateDayStats(secsThisSession)
         local dow    = tonumber(os.date("%w")) or 0
         local dayIdx = tostring(dow == 0 and 7 or dow)
-        if not statsData.daySeconds[dayIdx] then statsData.daySeconds[dayIdx] = 0 end
-        statsData.daySeconds[dayIdx] = statsData.daySeconds[dayIdx] + secsThisSession
+        statsData.daySeconds[dayIdx] = (statsData.daySeconds[dayIdx] or 0) + secsThisSession
         local todayNum = math.floor(os.time() / 86400)
         if statsData.lastDayPlayed == todayNum - 1 then
             statsData.streak = statsData.streak + 1
@@ -87,7 +98,7 @@ return function(deps)
         saveStats()
     end
 
-    -- ── Управление сессией ────────────────────────────────────────
+    -- ── Сессия ────────────────────────────────────────────────────
     local function finishCurrentSession()
         if sessionTimerConn then
             pcall(function() sessionTimerConn:Disconnect() end)
@@ -105,7 +116,9 @@ return function(deps)
 
     local function startSessionTimer()
         statsData.sessionStart = tick()
-        if sessionTimerConn then pcall(function() sessionTimerConn:Disconnect() end) end
+        if sessionTimerConn then
+            pcall(function() sessionTimerConn:Disconnect() end)
+        end
         local acc = 0
         sessionTimerConn = RunService.Heartbeat:Connect(function(dt)
             acc = acc + dt
@@ -120,24 +133,20 @@ return function(deps)
     end
 
     local function recordTabClick(name)
-        if not statsData.tabClicks[name] then statsData.tabClicks[name] = 0 end
-        statsData.tabClicks[name] = statsData.tabClicks[name] + 1
+        statsData.tabClicks[name] = (statsData.tabClicks[name] or 0) + 1
         saveStats()
     end
 
     -- ── Публичное API ─────────────────────────────────────────────
     return {
-        -- Инициализация (загрузка + запуск таймера)
         init = function()
             loadStats()
             startSessionTimer()
-            -- Автосохранение при закрытии игры
             game:BindToClose(function()
                 finishCurrentSession()
             end)
         end,
 
-        -- Получение копии данных (для отображения в UI)
         getData = function()
             return {
                 totalSeconds  = statsData.totalSeconds,
@@ -150,15 +159,13 @@ return function(deps)
             }
         end,
 
-        -- Форматирование времени
         formatTime      = fmtTime,
         formatTimerLive = fmtTimerLive,
 
-        -- Операции
-        recordTabClick      = recordTabClick,
+        recordTabClick       = recordTabClick,
         finishCurrentSession = finishCurrentSession,
-        startSessionTimer   = startSessionTimer,
-        saveStats           = saveStats,
-        loadStats           = loadStats,
+        startSessionTimer    = startSessionTimer,
+        saveStats            = saveStats,
+        loadStats            = loadStats,
     }
 end
