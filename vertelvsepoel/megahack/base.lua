@@ -55,6 +55,7 @@ local database = {
         StealBrainRoot = 1538240503,
         Admins = 135286097425026,
         MegaHack = 74418885847818,
+        Animations = 92241142143654,
     },
     
     -- ─── Динамическая таблица для Image ID ──────────────────────────
