@@ -53,7 +53,7 @@ local database = {
         ViolenceDistrict = 4465734,
         Night = 6516141723,
         StealBrainRoot = 1538240503,
-        Admins = 138812831716468,
+        Admins = 135286097425026,
     },
     
     -- ─── Динамическая таблица для Image ID ──────────────────────────
