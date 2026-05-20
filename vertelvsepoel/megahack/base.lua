@@ -35,7 +35,7 @@ local database = {
     
     -- ─── Game icon PlaceIds ────────────────────────────────────────
     gameIcons = {
-        Brookhaven = 10023132409,
+        Brookhaven = 93652827298808,
         Evade = 9872472334,
         MM2 = 142823291,
         BloxFruit = 2753915549,
