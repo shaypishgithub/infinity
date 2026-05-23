@@ -1,110 +1,89 @@
---[[
-    Avatar Loader – массовая загрузка одежды и аксессуаров по ID
-    Работает на любом современном executor'е (Synapse X, Krnl, Fluxus и др.)
---]]
+-- Загрузка предметов из каталога на персонажа
+-- Описание: https://github.com/CatalizCS/Scripts
 
+-- Получаем сервисы игры
 local Players = game:GetService("Players")
-local Marketplace = game:GetService("MarketplaceService")
 local InsertService = game:GetService("InsertService")
-local Player = Players.LocalPlayer
+local player = Players.LocalPlayer
 
--- Список ID (из сообщения Mish)
-local items = {
-    {id = 126854635708461, name = "Y2K-Cargo-Pants-w-Strap-Black"},
-    {id = 85807724535090,   name = "Choker-and-spiked-cuffs-Woman-3-0"},
-    {id = 76407495358051,   name = "kawaii-lashes"},
-    {id = 140127383196216,  name = "Black-Steel-Horns-Of-Conquest"},
-    {id = 90674521788365,   name = "Black-Glasses"},
-    {id = 134506208923733,  name = "black-neck-fur"},
-    {id = 116930991247014,  name = "Black-Gothic-Void-Rusty-Halo-Crown"},
-    {id = 132641613427329,  name = "Black-Dark-Devil-Wings"},
-    {id = 17295937996,      name = "Black-Puffer-Vest-Neck-Fur-Collar-3-0"},
-    {id = 107447557799161,  name = "2000s-punk-emo-stud-bracelet-stack"},
-    {id = 93221904910049,   name = "3-0-gothic-spiked-belt-fur-skull-black"},
-    {id = 18670125985,      name = "Elite-Suspender-Waist-Straps-V3-Silver"},
-    {id = 113299753922459,  name = "3-0-kawaii-black-collar-w-giant-bell"},
+-- Ваш список ID предметов из каталога
+local itemsIDs = {
+    126854635708461, -- Y2K-Cargo-Pants-w-Strap-Black
+    85807724535090,  -- Choker-and-spiked-cuffs-Woman-3-0
+    76407495358051,  -- kawaii-lashes
+    140127383196216, -- Black-Steel-Horns-Of-Conquest
+    90674521788365,  -- Black-Glasses
+    134506208923733, -- black-neck-fur
+    116930991247014, -- Black-Gothic-Void-Rusty-Halo-Crown
+    132641613427329, -- Black-Dark-Devil-Wings
+    17295937996,     -- Black-Puffer-Vest-Neck-Fur-Collar-3-0
+    107447557799161, -- 2000s-punk-emo-stud-bracelet-stack
+    93221904910049,  -- 3-0-gothic-spiked-belt-fur-skull-black
+    18670125985,     -- Elite-Suspender-Waist-Straps-V3-Silver
+    113299753922459, -- 3-0-kawaii-black-collar-w-giant-bell
 }
 
--- Функция для вывода сообщений (можно заменить на GUI)
-local function log(msg)
-    print("[AvatarLoader] " .. msg)
-end
-
--- Определяем тип предмета по ID
-local function getAssetType(assetId)
-    local success, info = pcall(function()
-        return Marketplace:GetProductInfoAsync(assetId, Enum.InfoType.Asset)
-    end)
-    if success then
-        return info.AssetTypeId
-    else
-        return nil
+-- Функция для загрузки и применения предметов
+local function loadItems()
+    -- Ждем появления персонажа
+    if not player.Character then
+        player.CharacterAdded:Wait()
     end
-end
-
--- Загружаем и применяем все предметы
-local function applyItemsToCharacter()
-    local character = Player.Character
-    if not character then
-        log("Персонаж не найден, ждём...")
-        Player.CharacterAdded:Wait()
-        character = Player.Character
-    end
-
+    local character = player.Character
     local humanoid = character:WaitForChild("Humanoid")
-    local description = Instance.new("HumanoidDescription")
 
-    -- Счётчики для прогресса
-    local total = #items
-    local completed = 0
+    -- Создаем новую модель для загруженных предметов, чтобы не засорять персонаж
+    local loadedItemsModel = Instance.new("Model")
+    loadedItemsModel.Name = "LoadedCatalogItems"
+    loadedItemsModel.Parent = character
 
-    for _, item in ipairs(items) do
-        local assetId = item.id
-        local assetTypeId = getAssetType(assetId)
+    for _, itemId in ipairs(itemsIDs) do
+        pcall(function()
+            -- Загружаем модель предмета по его ID[reference:1]
+            local loadedModel = InsertService:LoadAsset(itemId)
+            if not loadedModel then 
+                print("Не удалось загрузить предмет с ID:", itemId)
+                return 
+            end
 
-        if not assetTypeId then
-            log("Не удалось определить тип предмета " .. assetId .. " (" .. item.name .. ") – пропускаем")
-            completed = completed + 1
-            goto continue
-        end
+            loadedModel.Parent = loadedItemsModel
+            
+            -- Ищем в загруженной модели аксессуар или одежду
+            local accessory = loadedModel:FindFirstChildOfClass("Accessory")
+            local shirt = loadedModel:FindFirstChildOfClass("Shirt")
+            local pants = loadedModel:FindFirstChildOfClass("Pants")
 
-        -- Типы из Roblox API:
-        -- 8 = Hat (аксессуар), 41 = Hair, 42 = Face, 43 = Neck, 44 = Shoulders,
-        -- 45 = Front, 46 = Back, 47 = Waist, 11 = Shirt, 12 = Pants
-        if assetTypeId == 11 then
-            description.Shirt = assetId
-            log("Shirt: " .. assetId .. " (" .. item.name .. ")")
-        elseif assetTypeId == 12 then
-            description.Pants = assetId
-            log("Pants: " .. assetId .. " (" .. item.name .. ")")
-        elseif assetTypeId == 8 or assetTypeId == 41 or assetTypeId == 42 or assetTypeId == 43 or
-               assetTypeId == 44 or assetTypeId == 45 or assetTypeId == 46 or assetTypeId == 47 then
-            -- Аксессуар – добавляем в список
-            local current = description:GetAccessories()
-            table.insert(current, assetId)
-            description:SetAccessories(current)
-            log("Accessory: " .. assetId .. " (" .. item.name .. ")")
-        else
-            log("Неизвестный тип (" .. assetTypeId .. ") у " .. assetId .. " – пропускаем")
-        end
-
-        completed = completed + 1
-        if completed % 3 == 0 or completed == total then
-            log(string.format("Прогресс: %d / %d", completed, total))
-        end
-
-        ::continue::
-        task.wait() -- небольшая задержка, чтобы не флудить API
+            if accessory then
+                -- Прикрепляем аксессуар к персонажу
+                accessory.Parent = character
+                local handle = accessory:FindFirstChildOfClass("Part") or accessory:FindFirstChildOfClass("MeshPart")
+                if handle then
+                    local weld = handle:FindFirstChildOfClass("Weld")
+                    if weld then
+                        -- Обновляем сварку, чтобы предмет правильно сидел на персонаже
+                        weld.Part1 = handle
+                        weld.Part0 = humanoid.RootPart
+                    end
+                end
+                print("Аксессуар загружен:", itemId)
+            elseif shirt then
+                -- Если нашли футболку, просто наденем её
+                shirt.Parent = character
+                print("Футболка загружена:", itemId)
+            elseif pants then
+                -- Если нашли штаны, также наденем их
+                pants.Parent = character
+                print("Штаны загружены:", itemId)
+            else
+                -- Если ничего не нашли, возможно, это инструмент или другое. Просто удаляем его.
+                print("Предмет с ID", itemId, "не является аксессуаром/одеждой и будет удалён.")
+                loadedModel:Destroy()
+            end
+        end)
+        wait(0.5) -- Небольшая задержка, чтобы не перегружать API
     end
-
-    -- Применяем описание к персонажу
-    humanoid:ApplyDescription(description)
-    log("Одежда и аксессуары успешно нанесены!")
+    print("Загрузка предметов завершена!")
 end
 
--- Запускаем
-local success, err = pcall(applyItemsToCharacter)
-if not success then
-    warn("Ошибка: " .. tostring(err))
-    log("Возможно, превышен лимит запросов. Попробуйте перезапустить скрипт.")
-end
+-- Запускаем загрузку
+loadItems()
