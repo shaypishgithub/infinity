@@ -1,196 +1,110 @@
 --[[
-    Nude Mod v2 – Автономный скрипт для обнажения персонажа
-    Не требует внешних файлов, работает на любом исполнителе.
-    GUI – стильная кнопка с анимацией.
+    Avatar Loader – массовая загрузка одежды и аксессуаров по ID
+    Работает на любом современном executor'е (Synapse X, Krnl, Fluxus и др.)
 --]]
 
 local Players = game:GetService("Players")
+local Marketplace = game:GetService("MarketplaceService")
+local InsertService = game:GetService("InsertService")
 local Player = Players.LocalPlayer
-local UIS = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
--- Настройки (можно менять)
-local HOTKEY = Enum.KeyCode.U
-local ENABLE_HOTKEY = true
-local MANUAL_SKIN_COLOR = nil  -- укажи свой цвет, например Color3.fromRGB(255,200,150)
+-- Список ID (из сообщения Mish)
+local items = {
+    {id = 126854635708461, name = "Y2K-Cargo-Pants-w-Strap-Black"},
+    {id = 85807724535090,   name = "Choker-and-spiked-cuffs-Woman-3-0"},
+    {id = 76407495358051,   name = "kawaii-lashes"},
+    {id = 140127383196216,  name = "Black-Steel-Horns-Of-Conquest"},
+    {id = 90674521788365,   name = "Black-Glasses"},
+    {id = 134506208923733,  name = "black-neck-fur"},
+    {id = 116930991247014,  name = "Black-Gothic-Void-Rusty-Halo-Crown"},
+    {id = 132641613427329,  name = "Black-Dark-Devil-Wings"},
+    {id = 17295937996,      name = "Black-Puffer-Vest-Neck-Fur-Collar-3-0"},
+    {id = 107447557799161,  name = "2000s-punk-emo-stud-bracelet-stack"},
+    {id = 93221904910049,   name = "3-0-gothic-spiked-belt-fur-skull-black"},
+    {id = 18670125985,      name = "Elite-Suspender-Waist-Straps-V3-Silver"},
+    {id = 113299753922459,  name = "3-0-kawaii-black-collar-w-giant-bell"},
+}
 
--- Глобальные переменные
-local isActive = false
-local originalClothing = {}  -- сохранённая одежда
-local fakeBodyParts = {}      -- созданные голые части
-
--- Функция получения цвета кожи (из BodyColors или стандарт)
-local function getSkinColor(character)
-    if MANUAL_SKIN_COLOR then return MANUAL_SKIN_COLOR end
-    local bodyColors = character:FindFirstChildOfClass("BodyColors")
-    if bodyColors then
-        return bodyColors.TorsoColor3 or Color3.fromRGB(255,204,153)
-    end
-    return Color3.fromRGB(255,204,153) -- стандартный светлый
+-- Функция для вывода сообщений (можно заменить на GUI)
+local function log(msg)
+    print("[AvatarLoader] " .. msg)
 end
 
--- Создать голые части тела (упрощённые, под R6)
-local function createNudeBody(character)
-    local parts = {}
-    local skinColor = getSkinColor(character)
-    local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
-    if not torso then return end
-
-    -- Позиции для R6
-    local pos = {
-        Torso    = CFrame.new(0,0,0),
-        Head     = CFrame.new(0,1.5,0),
-        LeftArm  = CFrame.new(-1.5,0,0),
-        RightArm = CFrame.new(1.5,0,0),
-        LeftLeg  = CFrame.new(-0.6,-1.5,0),
-        RightLeg = CFrame.new(0.6,-1.5,0)
-    }
-    local sizes = {
-        Torso    = Vector3.new(2,2,1),
-        Head     = Vector3.new(2,1.5,1),
-        LeftArm  = Vector3.new(1,2,1),
-        RightArm = Vector3.new(1,2,1),
-        LeftLeg  = Vector3.new(1,2,1),
-        RightLeg = Vector3.new(1,2,1)
-    }
-
-    for name, offset in pairs(pos) do
-        local part = Instance.new("Part")
-        part.Name = name.."_Nude"
-        part.Size = sizes[name]
-        part.Color = skinColor
-        part.Material = Enum.Material.SmoothPlastic
-        part.CanCollide = false
-        part.Anchored = false
-        part.CustomPhysicalProperties = PhysicalProperties.new(0,0,0,0,0)
-        part.Parent = character
-
-        local weld = Instance.new("Weld")
-        weld.Part0 = torso
-        weld.Part1 = part
-        weld.C0 = offset
-        weld.Parent = part
-
-        table.insert(parts, part)
-    end
-
-    -- Меш для головы (чтобы был круглый)
-    local head = character:FindFirstChild("Head_Nude")
-    if head then
-        local mesh = Instance.new("SpecialMesh", head)
-        mesh.MeshType = Enum.MeshType.Head
-        mesh.Scale = Vector3.new(1.25,1.25,1.25)
-    end
-
-    return parts
-end
-
--- Удалить голые части
-local function clearNudeBody()
-    for _, part in ipairs(fakeBodyParts) do
-        if part and part.Parent then pcall(part.Destroy, part) end
-    end
-    fakeBodyParts = {}
-end
-
--- Удалить одежду и аксессуары (с сохранением)
-local function removeClothing(character)
-    originalClothing = {}
-    for _, child in ipairs(character:GetChildren()) do
-        if child:IsA("Shirt") or child:IsA("Pants") or child:IsA("ShirtGraphic") or child:IsA("Accessory") then
-            table.insert(originalClothing, child)
-        end
-    end
-    for _, item in ipairs(originalClothing) do
-        item:Destroy()
-    end
-end
-
--- Восстановить одежду
-local function restoreClothing(character)
-    for _, item in ipairs(originalClothing) do
-        item.Parent = character
-    end
-    originalClothing = {}
-    clearNudeBody()
-end
-
--- Переключить режим
-local function toggle()
-    local character = Player.Character
-    if not character then return end
-
-    isActive = not isActive
-    if isActive then
-        removeClothing(character)
-        fakeBodyParts = createNudeBody(character)
-        button.ImageColor3 = Color3.fromRGB(255,160,160)
-        button.BackgroundColor3 = Color3.fromRGB(80,40,40)
-    else
-        restoreClothing(character)
-        button.ImageColor3 = Color3.fromRGB(255,255,255)
-        button.BackgroundColor3 = Color3.fromRGB(30,30,40)
-    end
-end
-
--- GUI – круглая кнопка с современным видом
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "NudeModGUI"
-screenGui.ResetOnSpawn = false
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
--- Защита для некоторых экзекьюторов
-if syn and syn.protect_gui then syn.protect_gui(screenGui) end
-screenGui.Parent = game:GetService("CoreGui")
-
-local button = Instance.new("ImageButton")
-button.Size = UDim2.new(0, 65, 0, 65)
-button.Position = UDim2.new(1, -85, 1, -85)
-button.AnchorPoint = Vector2.new(1, 1)
-button.BackgroundColor3 = Color3.fromRGB(30,30,40)
-button.BackgroundTransparency = 0.15
-button.Image = "rbxassetid://6026567605"  -- простая круглая иконка
-button.ImageColor3 = Color3.fromRGB(255,255,255)
-button.ImageTransparency = 0.1
-button.BorderSizePixel = 0
-
--- Скругление и тень
-local corner = Instance.new("UICorner", button)
-corner.CornerRadius = UDim.new(1,0)
-
-local shadow = Instance.new("UIShadow", button)
-shadow.Color = Color3.fromRGB(0,0,0)
-shadow.Offset = Vector2.new(0,2)
-shadow.BlurRadius = 8
-
--- Анимации
-local hoverTween = TweenService:Create(button, TweenInfo.new(0.2), {BackgroundTransparency = 0})
-local leaveTween = TweenService:Create(button, TweenInfo.new(0.2), {BackgroundTransparency = 0.15})
-
-button.MouseEnter:Connect(function() hoverTween:Play() end)
-button.MouseLeave:Connect(function() leaveTween:Play() end)
-button.MouseButton1Click:Connect(toggle)
-
-button.Parent = screenGui
-
--- Горячая клавиша
-if ENABLE_HOTKEY then
-    UIS.InputBegan:Connect(function(input, processed)
-        if processed or not isActive then return end
-        if input.KeyCode == HOTKEY then
-            toggle()
-        end
+-- Определяем тип предмета по ID
+local function getAssetType(assetId)
+    local success, info = pcall(function()
+        return Marketplace:GetProductInfoAsync(assetId, Enum.InfoType.Asset)
     end)
-end
-
--- Обработка респавна
-local function onCharacterAdded(character)
-    task.wait(0.3)
-    if isActive then
-        removeClothing(character)
-        clearNudeBody()
-        fakeBodyParts = createNudeBody(character)
+    if success then
+        return info.AssetTypeId
+    else
+        return nil
     end
 end
 
-Player.CharacterAdded:Connect(onCharacterAdded)
-if Player.Character then onCharacterAdded(Player.Character) end
+-- Загружаем и применяем все предметы
+local function applyItemsToCharacter()
+    local character = Player.Character
+    if not character then
+        log("Персонаж не найден, ждём...")
+        Player.CharacterAdded:Wait()
+        character = Player.Character
+    end
+
+    local humanoid = character:WaitForChild("Humanoid")
+    local description = Instance.new("HumanoidDescription")
+
+    -- Счётчики для прогресса
+    local total = #items
+    local completed = 0
+
+    for _, item in ipairs(items) do
+        local assetId = item.id
+        local assetTypeId = getAssetType(assetId)
+
+        if not assetTypeId then
+            log("Не удалось определить тип предмета " .. assetId .. " (" .. item.name .. ") – пропускаем")
+            completed = completed + 1
+            goto continue
+        end
+
+        -- Типы из Roblox API:
+        -- 8 = Hat (аксессуар), 41 = Hair, 42 = Face, 43 = Neck, 44 = Shoulders,
+        -- 45 = Front, 46 = Back, 47 = Waist, 11 = Shirt, 12 = Pants
+        if assetTypeId == 11 then
+            description.Shirt = assetId
+            log("Shirt: " .. assetId .. " (" .. item.name .. ")")
+        elseif assetTypeId == 12 then
+            description.Pants = assetId
+            log("Pants: " .. assetId .. " (" .. item.name .. ")")
+        elseif assetTypeId == 8 or assetTypeId == 41 or assetTypeId == 42 or assetTypeId == 43 or
+               assetTypeId == 44 or assetTypeId == 45 or assetTypeId == 46 or assetTypeId == 47 then
+            -- Аксессуар – добавляем в список
+            local current = description:GetAccessories()
+            table.insert(current, assetId)
+            description:SetAccessories(current)
+            log("Accessory: " .. assetId .. " (" .. item.name .. ")")
+        else
+            log("Неизвестный тип (" .. assetTypeId .. ") у " .. assetId .. " – пропускаем")
+        end
+
+        completed = completed + 1
+        if completed % 3 == 0 or completed == total then
+            log(string.format("Прогресс: %d / %d", completed, total))
+        end
+
+        ::continue::
+        task.wait() -- небольшая задержка, чтобы не флудить API
+    end
+
+    -- Применяем описание к персонажу
+    humanoid:ApplyDescription(description)
+    log("Одежда и аксессуары успешно нанесены!")
+end
+
+-- Запускаем
+local success, err = pcall(applyItemsToCharacter)
+if not success then
+    warn("Ошибка: " .. tostring(err))
+    log("Возможно, превышен лимит запросов. Попробуйте перезапустить скрипт.")
+end
