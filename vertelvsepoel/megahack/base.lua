@@ -31,6 +31,7 @@ local database = {
         Rivals = "rivals.lua",
         FORSAKEN = "forsaken.lua",
         LootUp = "lootup.lua",
+        Vertelevsepoel = "vertelevsepoel.lua"
     },
     
     -- ─── Game icon PlaceIds ────────────────────────────────────────
@@ -56,6 +57,7 @@ local database = {
         Admins = 135286097425026,
         MegaHack = 74418885847818,
         Animations = 92241142143654,
+        Vertelevsepoel = 104146829885606,
     },
     
     -- ─── Динамическая таблица для Image ID ──────────────────────────
