@@ -308,9 +308,9 @@ return function(deps)
             createSectionHeader("Community", scrollingFrame)
             local links = {
                 { icon="▶", label="YouTube", sub="@Vermax", color=Color3.fromRGB(220,60,60),
-                  url="https://youtube.com/@Vermax" },
+                  url="https://www.youtube.com/@sajne_ss" },
                 { icon="✈", label="Telegram", sub="@vermax", color=Color3.fromRGB(40,160,240),
-                  url="https://t.me/@vermax" },
+                  url="https://t.me/vertelevsepoel" },
                 { icon="💬", label="Discord", sub="invite/vermax", color=Color3.fromRGB(88,101,242),
                   url="https://discord.com/invite/vermax" },
             }
