@@ -61,7 +61,7 @@ return function(deps)
         T.TextMain   = tx
         T.Stroke     = str
 
-        -- Accent registry flush
+        -- ── Accent registry (accentBar, pips, leftBars, scrollbars, etc.) ──
         if accentRegistry then
             for _, entry in ipairs(accentRegistry) do
                 if entry.obj and entry.obj.Parent then
@@ -71,16 +71,44 @@ return function(deps)
             end
         end
 
+        -- ── Main frame ──────────────────────────────────────────────────────
         mainFrame.BackgroundColor3       = bg
         mainFrame.BackgroundTransparency = settings.transparency or 0.04
 
+        -- ── Reopen button (живёт в screenGui, не в mainFrame) ───────────────
+        if playerGui then
+            -- ищем по всему screenGui
+            local sg = playerGui:FindFirstChild("MegaHack_GUI")
+                    or (mainFrame and mainFrame.Parent)
+            if sg then
+                local rb = sg:FindFirstChild("ImageButton")  -- reopenButton
+                -- ищем точнее по классу и размеру
+                for _, obj in ipairs(sg:GetChildren()) do
+                    if obj:IsA("ImageButton") then
+                        pcall(function() obj.BackgroundColor3 = T.BgSide end)
+                        -- ring stroke
+                        for _, ch in ipairs(obj:GetDescendants()) do
+                            if ch:IsA("UIStroke") then
+                                pcall(function() ch.Color = acc end)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        -- ── Все потомки mainFrame ────────────────────────────────────────────
+        local closeBtn = mainFrame:FindFirstChild("CloseBtn", true)
+
         for _, obj in pairs(mainFrame:GetDescendants()) do
-            -- Пропускаем CloseButton и его детей
-            if obj.Name == "CloseBtn" then continue end
-            local cb = mainFrame:FindFirstChild("CloseBtn", true)
-            if cb and obj:IsDescendantOf(cb) then continue end
+            -- Пропускаем CloseBtn и его детей (у него своя фиксированная красная тема)
+            if obj == closeBtn then continue end
+            if closeBtn and obj:IsDescendantOf(closeBtn) then continue end
 
             if obj:IsA("UIStroke") then
+                -- Не трогаем обводку HomeCard (белая тонкая рамка)
+                local p = obj.Parent
+                if p and p.Name == "HomeCard" then continue end
                 if settings.rgbStroke then
                     local conn; conn = RunService.Heartbeat:Connect(function()
                         if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
@@ -99,17 +127,40 @@ return function(deps)
                     end)
                     table.insert(rgbConnections, conn)
                 else
-                    local role = obj:GetAttribute("TextRole")
-                    if role == "main" then
+                    if obj:GetAttribute("TextRole") == "main" then
                         obj.TextColor3 = tx
                     end
                 end
 
             elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
-                if obj.Name == "SidebarFrame" then
+                local name = obj.Name
+                if name == "SidebarFrame" then
                     obj.BackgroundColor3 = T.BgSide
-                elseif obj.Name == "GameCardBg" then
+                elseif name == "GameCardBg" then
                     obj.BackgroundColor3 = T.BgPanel
+                elseif name == "HomeCard" or name == "FpsCard" then
+                    -- Overview cards в home.lua
+                    obj.BackgroundColor3 = T.BgPanel
+                elseif name == "PlatBadge" then
+                    -- Бейдж платформы на Home
+                    obj.BackgroundColor3 = acc
+                elseif obj:IsA("Frame")
+                    and obj.BackgroundTransparency < 0.99
+                    and obj.Name ~= "GlassSheen"
+                    and obj.Name ~= "AccentBar"
+                    and obj.Name ~= "HeaderFrame"
+                    and obj.Name ~= "" -- анонимные разделители/пипсы пропускаем отдельно
+                then
+                    -- Обычные кнопки-кнопки в content (TextButton-обёртки — Frame внутри них)
+                    -- Определяем «panel»-фреймы по тому, что их родитель — ScrollingFrame
+                    local parent = obj.Parent
+                    if parent and (parent:IsA("ScrollingFrame") or parent:IsA("Frame")) then
+                        -- Только если это не пип/leftBar (маленькие акцентные полоски)
+                        local sz = obj.AbsoluteSize
+                        if sz.X > 20 and sz.Y > 10 then
+                            obj.BackgroundColor3 = T.BgPanel
+                        end
+                    end
                 end
             end
         end
