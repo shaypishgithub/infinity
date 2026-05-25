@@ -49,7 +49,7 @@ return function(deps)
     --  LOAD SUBMODULES
     --  games.lua и colorpicker.lua лежат рядом с logic.lua
     -- ══════════════════════════════════════
-    local GamesModule, ColorPickerModule
+    local GamesModule, ColorPickerModule, HomeModule
 
     local function loadSubmodule(name)
         local url = BASE_RAW .. name
@@ -286,17 +286,37 @@ return function(deps)
         T.TextMain   = tx
         T.Stroke     = str
 
+        -- Accent registry (accentBar, pips, leftBars, scrollbars)
         for _, entry in ipairs(deps.accentRegistry or {}) do
             if entry.obj and entry.obj.Parent then
                 pcall(function() entry.obj[entry.prop] = acc end)
             end
         end
 
+        -- Main frame background
         mainFrame.BackgroundColor3       = bg
         mainFrame.BackgroundTransparency = settings.transparency
 
+        -- Reopen button (живёт в screenGui, вне mainFrame)
+        pcall(function()
+            if reopenButton and reopenButton.Parent then
+                reopenButton.BackgroundColor3 = T.BgSide
+                for _, ch in ipairs(reopenButton:GetDescendants()) do
+                    if ch:IsA("UIStroke") then ch.Color = acc end
+                end
+            end
+        end)
+
+        local closeBtn = mainFrame:FindFirstChild("CloseBtn", true)
+
         for _, obj in pairs(mainFrame:GetDescendants()) do
+            -- Пропускаем CloseBtn
+            if obj == closeBtn then continue end
+            if closeBtn and obj:IsDescendantOf(closeBtn) then continue end
+
             if obj:IsA("UIStroke") then
+                -- Белая тонкая рамка HomeCard — не трогаем
+                if obj.Parent and obj.Parent.Name == "HomeCard" then continue end
                 if settings.rgbStroke then
                     local conn; conn = RunService.Heartbeat:Connect(function()
                         if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
@@ -306,6 +326,7 @@ return function(deps)
                 else
                     obj.Color = str
                 end
+
             elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
                 if settings.rgbAccent then
                     local conn; conn = RunService.Heartbeat:Connect(function()
@@ -316,6 +337,41 @@ return function(deps)
                 else
                     if obj:GetAttribute("TextRole") == "main" then
                         obj.TextColor3 = tx
+                    end
+                end
+
+                -- Фон кнопок контентной области (не сайдбар)
+                if obj:IsA("TextButton") and obj.Parent ~= catScroll then
+                    local cur = obj.BackgroundTransparency
+                    -- Только если кнопка не прозрачная полностью (сайдбарные = 1)
+                    if cur < 0.99 then
+                        obj.BackgroundColor3 = T.BgPanel
+                    end
+                end
+
+            elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
+                local name = obj.Name
+                if name == "SidebarFrame" then
+                    obj.BackgroundColor3 = T.BgSide
+                elseif name == "GameCardBg" then
+                    obj.BackgroundColor3 = T.BgPanel
+                elseif name == "HomeCard" or name == "FpsCard" then
+                    obj.BackgroundColor3 = T.BgPanel
+                elseif name == "PlatBadge" then
+                    obj.BackgroundColor3 = acc
+                elseif obj:IsA("Frame")
+                    and obj.BackgroundTransparency < 0.99
+                    and name ~= "GlassSheen"
+                    and name ~= "AccentBar"
+                    and name ~= "HeaderFrame"
+                then
+                    -- Обычные panel-фреймы в контентной области
+                    local parent = obj.Parent
+                    if parent and (parent:IsA("ScrollingFrame") or parent:IsA("Frame")) then
+                        local sz = obj.AbsoluteSize
+                        if sz.X > 20 and sz.Y > 10 then
+                            obj.BackgroundColor3 = T.BgPanel
+                        end
                     end
                 end
             end
@@ -598,88 +654,32 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  HOME
+    --  HOME  (делегируем в home.lua)
     -- ══════════════════════════════════════
     local function showHome()
         clearContent()
         showScrollPanel()
-        createSectionHeader("Overview", scrollingFrame)
 
-        local card = Instance.new("Frame")
-        card.Size                   = UDim2.new(1,0,0,92)
-        card.BackgroundColor3       = T.BgPanel
-        card.BackgroundTransparency = 0.12
-        card.BorderSizePixel        = 0
-        card.ZIndex                 = 4
-        card.Parent                 = scrollingFrame
-        mkCorner(card, 10)
-        mkStroke(card, 1, Color3.new(1,1,1), 0.88)
-
-        local ok2, thumbnail = pcall(function()
-            return Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size180x180)
-        end)
-        local avatarImg = Instance.new("ImageLabel")
-        avatarImg.Size                   = UDim2.new(0,64,0,64)
-        avatarImg.Position               = UDim2.new(0,14,0.5,-32)
-        avatarImg.BackgroundColor3       = T.BgSide
-        avatarImg.BackgroundTransparency = 0
-        avatarImg.Image                  = ok2 and thumbnail or ""
-        avatarImg.ZIndex                 = 6
-        avatarImg.Parent                 = card
-        mkCorner(avatarImg, 32)
-
-        mkLabel(card, player.Name,
-            UDim2.new(1,-96,0,20), UDim2.new(0,88,0,14),
-            T.TextMain, nil, Enum.Font.GothamBold, 15, 6)
-        mkLabel(card, "UID: " .. player.UserId,
-            UDim2.new(1,-96,0,14), UDim2.new(0,88,0,36),
-            T.TextSub, nil, Enum.Font.Gotham, 11, 6)
-        mkLabel(card, "Game: " .. gui.gameName .. "  ·  PlaceId: " .. game.PlaceId,
-            UDim2.new(1,-96,0,14), UDim2.new(0,88,0,52),
-            T.TextMuted, nil, Enum.Font.Gotham, 10, 6)
-
-        local platBadge = Instance.new("Frame")
-        platBadge.BackgroundColor3       = T.Accent
-        platBadge.BackgroundTransparency = 0.55
-        platBadge.BorderSizePixel        = 0
-        platBadge.Size                   = UDim2.new(0,52,0,16)
-        platBadge.Position               = UDim2.new(0,88,0,70)
-        platBadge.ZIndex                 = 6
-        platBadge.Parent                 = card
-        mkCorner(platBadge, 5)
-        mkLabel(platBadge, platformName,
-            UDim2.new(1,0,1,0), UDim2.new(0,0,0,0),
-            T.TextMain, Enum.TextXAlignment.Center, Enum.Font.GothamBold, 9, 7)
-
-        local fpsCard = mkFrame(scrollingFrame, UDim2.new(1,0,0,34), nil, T.BgPanel, 0.18, 4)
-        mkCorner(fpsCard, 8)
-        local fpsLabel = mkLabel(fpsCard, "FPS: Calculating...",
-            UDim2.new(1,-16,1,0), UDim2.new(0,16,0,0),
-            T.TextMain, nil, Enum.Font.Gotham, 12, 5)
-        fpsLabel:SetAttribute("TextRole","main")
-
-        do
-            local lastTime, frames = tick(), 0
-            local conn; conn = RunService.Heartbeat:Connect(function()
-                frames = frames + 1
-                local now = tick()
-                if now - lastTime >= 1 then
-                    local fps   = frames
-                    local color = fps >= 55 and Color3.fromRGB(80,220,100)
-                                or fps >= 30 and Color3.fromRGB(220,180,40)
-                                or Color3.fromRGB(220,80,60)
-                    fpsLabel.Text       = "FPS: " .. fps
-                    fpsLabel.TextColor3 = color
-                    frames = 0; lastTime = now
-                end
-                if not fpsCard.Parent then conn:Disconnect() end
-            end)
+        if not HomeModule then
+            HomeModule = loadSubmodule("home.lua")
+            if HomeModule then
+                HomeModule = HomeModule({
+                    RunService   = RunService,
+                    Players      = Players,
+                    T            = T,
+                    gui          = gui,
+                    player       = player,
+                    platformName = platformName,
+                })
+            end
         end
 
-        createSectionHeader("Community", scrollingFrame)
-        createLabel("▶  YouTube  ·  youtube.com/@Vermax",    scrollingFrame)
-        createLabel("✈  Telegram  ·  t.me/@vermax",          scrollingFrame)
-        createLabel("💬  Discord  ·  discord.com/invite/vermax", scrollingFrame)
+        if HomeModule then
+            HomeModule.showHome(scrollingFrame)
+        else
+            createSectionHeader("Overview", scrollingFrame)
+            createLabel("⚠  Failed to load home.lua", scrollingFrame)
+        end
     end
 
     -- ══════════════════════════════════════
@@ -1105,5 +1105,3 @@ return function(deps)
         end
     }
 end
-
-
