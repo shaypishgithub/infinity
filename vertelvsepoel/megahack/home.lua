@@ -45,6 +45,7 @@ return function(deps)
 
     local function mkGradientBar(parent, zidx)
         local bar = Instance.new("Frame")
+        bar.Name = "GradientBar"
         bar.Size = UDim2.new(1,0,0,2)
         bar.Position = UDim2.new(0,0,0,0)
         bar.BackgroundColor3 = T.Accent or Color3.fromRGB(120,80,255)
