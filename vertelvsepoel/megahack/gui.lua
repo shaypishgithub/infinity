@@ -489,9 +489,12 @@ return function(deps)
                     end
                 end
                 btn:SetAttribute("Active", true)
+                -- читаем T.Accent динамически, чтобы подхватить текущий акцент
                 TweenService:Create(btn, TWEEN_F, {BackgroundTransparency=0.78, TextColor3=T.Accent}):Play()
                 callback()
             end)
+            -- регистрируем кнопку чтобы theme.lua мог обновить её TextColor3 при смене акцента
+            regA(btn, "TextColor3")
             return btn
         else
             local btn = Instance.new("TextButton")
