@@ -36,13 +36,15 @@ return function(deps)
         return l
     end
 
-    local function mkGlass(parent, size, pos, zidx, alpha, radius)
-        local f = mkFrame(parent, size, pos, T.BgPanel, alpha or 0.72, zidx or 4)
-        mkCorner(f, radius or 12)
-        mkStroke(f, 1, Color3.new(1,1,1), 0.78)
-        return f
-    end
-
+ local function mkGlass(parent, size, pos, zidx, alpha, radius)
+    local f = mkFrame(parent, size, pos, T.BgPanel, alpha or 0.72, zidx or 4)
+    mkCorner(f, radius or 12)
+    
+    -- Обводка теперь использует глобальный Stroke из темы
+    local stroke = mkStroke(f, 1, Color3.new(1,1,1), 0.78)
+    
+    return f
+end
         -- просто тонкая акцентная линия без радуги
         local bar = Instance.new("Frame")
         bar.Name = "GradientBar"
