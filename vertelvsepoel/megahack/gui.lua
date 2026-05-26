@@ -1,10 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
 --  gui.lua  —  UI Construction  v2
---  FIXED:
---    • regA принимает (obj, prop) — prop необязателен (default BackgroundColor3)
---    • dummyPatch объявлен до return {}
---    • closeBtn.Name = "CloseBtn" (совпадает с theme.lua)
---    • gameName корректно экспортируется
 -- ══════════════════════════════════════════════════════════════════
 return function(deps)
     local TweenService       = deps.TweenService
@@ -14,22 +9,16 @@ return function(deps)
     local playerGui          = deps.playerGui
     local platformName       = deps.platformName
     local T                  = deps.T
-    local regA               = deps.regA   -- function(obj, prop?)
+    local regA               = deps.regA
     local HubData            = deps.HubData
 
-    local createNotification = function() end  -- stub, заменяется через setNotification()
+    local createNotification = function() end
 
-    -- ─────────────────────────────────────────
-    --  CONSTANTS
-    -- ─────────────────────────────────────────
     local CORNER   = 14
     local CORNER_S = 8
     local TWEEN_F  = TweenInfo.new(0.18, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
     local TWEEN_M  = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 
-    -- ─────────────────────────────────────────
-    --  LOW-LEVEL BUILDERS
-    -- ─────────────────────────────────────────
     local function mkCorner(parent, r)
         local c = Instance.new("UICorner")
         c.CornerRadius = UDim.new(0, r or CORNER)
@@ -84,9 +73,6 @@ return function(deps)
         return n
     end
 
-    -- ─────────────────────────────────────────
-    --  SCREEN GUI + PROTECTION
-    -- ─────────────────────────────────────────
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name           = "MegaHack_GUI"
     screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
@@ -109,9 +95,6 @@ return function(deps)
     end
     protectGui(screenGui)
 
-    -- ─────────────────────────────────────────
-    --  MAIN FRAME
-    -- ─────────────────────────────────────────
     local mainFrame = Instance.new("Frame")
     mainFrame.Name                   = "MainFrame"
     mainFrame.BackgroundColor3       = T.BgBase
@@ -136,11 +119,8 @@ return function(deps)
     accentBar.ZIndex                 = 4
     accentBar.Parent                 = mainFrame
     mkCorner(accentBar, 2)
-    regA(accentBar)  -- BackgroundColor3 по умолчанию
+    regA(accentBar)
 
-    -- ─────────────────────────────────────────
-    --  HEADER  (52px)
-    -- ─────────────────────────────────────────
     local headerFrame = Instance.new("Frame")
     headerFrame.Name                   = "HeaderFrame"
     headerFrame.BackgroundTransparency = 1
@@ -227,7 +207,6 @@ return function(deps)
     gameNameHeader.ZIndex         = 8
     gameNameHeader.Parent         = headerFrame
 
-    -- Close button — Name = "CloseBtn" (синхронизировано с theme.lua)
     local closeBtn = Instance.new("TextButton")
     closeBtn.Name                   = "CloseBtn"
     closeBtn.BackgroundColor3       = Color3.fromRGB(195,55,55)
@@ -250,9 +229,6 @@ return function(deps)
         TweenService:Create(closeBtn, TWEEN_F, {BackgroundTransparency=0.38, BackgroundColor3=Color3.fromRGB(195,55,55)}):Play()
     end)
 
-    -- ─────────────────────────────────────────
-    --  SIDEBAR  (148px)
-    -- ─────────────────────────────────────────
     local sidebarFrame = Instance.new("Frame")
     sidebarFrame.Name                   = "SidebarFrame"
     sidebarFrame.BackgroundTransparency = 1
@@ -296,9 +272,6 @@ return function(deps)
         catScroll.CanvasSize = UDim2.new(0,0,0, catLayout.AbsoluteContentSize.Y + 16)
     end)
 
-    -- ─────────────────────────────────────────
-    --  CONTENT PANEL
-    -- ─────────────────────────────────────────
     local contentFrame = Instance.new("Frame")
     contentFrame.BackgroundTransparency = 1
     contentFrame.BorderSizePixel        = 0
@@ -334,9 +307,6 @@ return function(deps)
         scrollingFrame.CanvasSize = UDim2.new(0,0,0, scrollLayout.AbsoluteContentSize.Y + 14)
     end)
 
-    -- ─────────────────────────────────────────
-    --  GAMES PANEL
-    -- ─────────────────────────────────────────
     local gamesPanel = Instance.new("ScrollingFrame")
     gamesPanel.Name                   = "GamesPanel"
     gamesPanel.BackgroundTransparency = 1
@@ -367,9 +337,6 @@ return function(deps)
         gamesPanel.CanvasSize = UDim2.new(0,0,0, gamesGrid.AbsoluteContentSize.Y + 20)
     end)
 
-    -- ─────────────────────────────────────────
-    --  REOPEN BUTTON
-    -- ─────────────────────────────────────────
     local reopenButton = Instance.new("ImageButton")
     reopenButton.Size                   = UDim2.new(0,46,0,46)
     reopenButton.Position               = UDim2.new(0.5,-23,0.9,-23)
@@ -393,16 +360,10 @@ return function(deps)
         TweenService:Create(reopenButton, TWEEN_F, {BackgroundColor3=T.BgSide, BackgroundTransparency=0.14}):Play()
     end)
 
-    -- ─────────────────────────────────────────
-    --  DUMMY PATCH — ДОЛЖЕН БЫТЬ ДО return {}
-    -- ─────────────────────────────────────────
     local dummyPatch = Instance.new("Frame")
     dummyPatch.Visible = false
     dummyPatch.Parent  = mainFrame
 
-    -- ─────────────────────────────────────────
-    --  COMPONENT HELPERS
-    -- ─────────────────────────────────────────
     local function createSectionHeader(text, parent)
         local container = Instance.new("Frame")
         container.BackgroundTransparency = 1
@@ -489,12 +450,9 @@ return function(deps)
                     end
                 end
                 btn:SetAttribute("Active", true)
-                -- читаем T.Accent динамически, чтобы подхватить текущий акцент
                 TweenService:Create(btn, TWEEN_F, {BackgroundTransparency=0.78, TextColor3=T.Accent}):Play()
                 callback()
             end)
-            -- регистрируем кнопку чтобы theme.lua мог обновить её TextColor3 при смене акцента
-            regA(btn, "TextColor3")
             return btn
         else
             local btn = Instance.new("TextButton")
@@ -553,9 +511,6 @@ return function(deps)
         end
     end
 
-    -- ─────────────────────────────────────────
-    --  GAME CARD BUILDER
-    -- ─────────────────────────────────────────
     local function createGameCard(gameName, placeId, onClick)
         local card = Instance.new("TextButton")
         card.Name                   = "GameCard_" .. gameName
@@ -628,9 +583,6 @@ return function(deps)
         return card, thumb
     end
 
-    -- ─────────────────────────────────────────
-    --  PUBLIC API
-    -- ─────────────────────────────────────────
     return {
         screenGui      = screenGui,
         mainFrame      = mainFrame,
