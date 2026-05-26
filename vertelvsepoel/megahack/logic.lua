@@ -315,8 +315,10 @@ return function(deps)
             if closeBtn and obj:IsDescendantOf(closeBtn) then continue end
 
             if obj:IsA("UIStroke") then
-                -- Белая тонкая рамка HomeCard — не трогаем
-                if obj.Parent and obj.Parent.Name == "HomeCard" then continue end
+                -- Белая тонкая рамка glass-карточек — не трогаем
+                local pName = obj.Parent and obj.Parent.Name or ""
+                if pName == "HomeCard" or pName == "ExecCard"
+                or pName == "FpsCard" or pName == "PingCard" then continue end
                 if settings.rgbStroke then
                     local conn; conn = RunService.Heartbeat:Connect(function()
                         if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
@@ -355,7 +357,8 @@ return function(deps)
                     obj.BackgroundColor3 = T.BgSide
                 elseif name == "GameCardBg" then
                     obj.BackgroundColor3 = T.BgPanel
-                elseif name == "HomeCard" or name == "FpsCard" then
+                elseif name == "HomeCard" or name == "FpsCard"
+                    or name == "ExecCard" or name == "PingCard" then
                     obj.BackgroundColor3 = T.BgPanel
                 elseif name == "PlatBadge" then
                     obj.BackgroundColor3 = acc
@@ -363,6 +366,7 @@ return function(deps)
                     and obj.BackgroundTransparency < 0.99
                     and name ~= "GlassSheen"
                     and name ~= "AccentBar"
+                    and name ~= "GradientBar"
                     and name ~= "HeaderFrame"
                 then
                     -- Обычные panel-фреймы в контентной области
