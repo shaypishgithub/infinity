@@ -1,6 +1,6 @@
 -- ══════════════════════════════════════════════════════════════════
 --  theme.lua  —  Color system, RGB effects, save/load
---  FIXED: полностью совместим с logic.lua / gui.lua
+--  FIXED: обводка карточек Home остаётся белой, остальные обводки меняются
 -- ══════════════════════════════════════════════════════════════════
 return function(deps)
     local TweenService       = deps.TweenService
@@ -8,12 +8,11 @@ return function(deps)
     local HttpService        = deps.HttpService
     local UserInputService   = deps.UserInputService
     local playerGui          = deps.playerGui
-    local accentRegistry     = deps.accentRegistry  -- таблица {obj, prop}
+    local accentRegistry     = deps.accentRegistry
     local createNotification = deps.createNotification or function() end
 
     local mainFrame, scrollingFrame
 
-    -- ═══════════ DEFAULT COLOR PALETTE ═══════════
     local T = {
         BgBase     = Color3.fromRGB(10,  10,  14),
         BgSide     = Color3.fromRGB(15,  15,  21),
@@ -40,7 +39,6 @@ return function(deps)
         rgbConnections = {}
     end
 
-    -- ═══════════ APPLY COLORS TO GUI ═══════════
     local function updateGuiColors(settings)
         if not mainFrame then return end
         clearRgbConnections()
@@ -61,7 +59,6 @@ return function(deps)
         T.TextMain   = tx
         T.Stroke     = str
 
-        -- ── Accent registry (accentBar, pips, leftBars, scrollbars, etc.) ──
         if accentRegistry then
             for _, entry in ipairs(accentRegistry) do
                 if entry.obj and entry.obj.Parent then
@@ -71,29 +68,15 @@ return function(deps)
             end
         end
 
-        -- ── GradientBar в HomeCard / ExecCard ───────────────────────────────
-        for _, obj in pairs(mainFrame:GetDescendants()) do
-            if obj.Name == "GradientBar" and obj:IsA("Frame") then
-                pcall(function() obj.BackgroundColor3 = acc end)
-            end
-        end
-
-        -- ── Main frame ──────────────────────────────────────────────────────
         mainFrame.BackgroundColor3       = bg
         mainFrame.BackgroundTransparency = settings.transparency or 0.04
 
-        -- ── Reopen button (живёт в screenGui, не в mainFrame) ───────────────
         if playerGui then
-            -- ищем по всему screenGui
-            local sg = playerGui:FindFirstChild("MegaHack_GUI")
-                    or (mainFrame and mainFrame.Parent)
+            local sg = playerGui:FindFirstChild("MegaHack_GUI") or (mainFrame and mainFrame.Parent)
             if sg then
-                local rb = sg:FindFirstChild("ImageButton")  -- reopenButton
-                -- ищем точнее по классу и размеру
                 for _, obj in ipairs(sg:GetChildren()) do
                     if obj:IsA("ImageButton") then
                         pcall(function() obj.BackgroundColor3 = T.BgSide end)
-                        -- ring stroke
                         for _, ch in ipairs(obj:GetDescendants()) do
                             if ch:IsA("UIStroke") then
                                 pcall(function() ch.Color = acc end)
@@ -104,32 +87,29 @@ return function(deps)
             end
         end
 
-        -- ── Все потомки mainFrame ────────────────────────────────────────────
-        local closeBtn = mainFrame:FindFirstChild("CloseBtn", true)
+        local closeBtnObj = mainFrame:FindFirstChild("CloseBtn", true)
 
         for _, obj in pairs(mainFrame:GetDescendants()) do
-            -- Пропускаем CloseBtn и его детей (у него своя фиксированная красная тема)
-            if obj == closeBtn then continue end
-            if closeBtn and obj:IsDescendantOf(closeBtn) then continue end
+            if obj == closeBtnObj then continue end
+            if closeBtnObj and obj:IsDescendantOf(closeBtnObj) then continue end
 
             if obj:IsA("UIStroke") then
-                -- Пропускаем обводки mainFrame (белая внешняя рамка)
-                if obj.Parent == mainFrame then continue end
-                -- Пропускаем обводки HomeCard/ExecCard/PingCard/FpsCard (белая тонкая рамка стекла)
                 local p = obj.Parent
-                local skipGlassStroke = p and (p.Name == "HomeCard" or p.Name == "FpsCard"
-                    or p.Name == "PingCard" or p.Name == "ExecCard")
-                    and obj.Color == Color3.new(1,1,1)
-                if skipGlassStroke then continue end
-
-                if settings.rgbStroke then
-                    local conn; conn = RunService.Heartbeat:Connect(function()
-                        if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
-                        obj.Color = Color3.fromHSV((tick() % 5) / 5, 1, 1)
-                    end)
-                    table.insert(rgbConnections, conn)
+                local whiteStrokeCards = {"HomeCard","FpsCard","PingCard","ExecCard"}
+                local isWhite = p and table.find(whiteStrokeCards, p.Name)
+                if isWhite then
+                    obj.Color = Color3.new(1,1,1)
+                    obj.Transparency = 0.78
                 else
-                    obj.Color = str
+                    if settings.rgbStroke then
+                        local conn; conn = RunService.Heartbeat:Connect(function()
+                            if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
+                            obj.Color = Color3.fromHSV((tick() % 5) / 5, 1, 1)
+                        end)
+                        table.insert(rgbConnections, conn)
+                    else
+                        obj.Color = str
+                    end
                 end
 
             elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
@@ -151,24 +131,18 @@ return function(deps)
                     obj.BackgroundColor3 = T.BgSide
                 elseif name == "GameCardBg" then
                     obj.BackgroundColor3 = T.BgPanel
-                elseif name == "HomeCard" or name == "FpsCard" then
-                    -- Overview cards в home.lua
+                elseif name == "HomeCard" or name == "FpsCard" or name == "PingCard" or name == "ExecCard" then
                     obj.BackgroundColor3 = T.BgPanel
                 elseif name == "PlatBadge" then
-                    -- Бейдж платформы на Home
                     obj.BackgroundColor3 = acc
                 elseif obj:IsA("Frame")
                     and obj.BackgroundTransparency < 0.99
                     and obj.Name ~= "GlassSheen"
                     and obj.Name ~= "AccentBar"
                     and obj.Name ~= "HeaderFrame"
-                    and obj.Name ~= "" -- анонимные разделители/пипсы пропускаем отдельно
                 then
-                    -- Обычные кнопки-кнопки в content (TextButton-обёртки — Frame внутри них)
-                    -- Определяем «panel»-фреймы по тому, что их родитель — ScrollingFrame
                     local parent = obj.Parent
                     if parent and (parent:IsA("ScrollingFrame") or parent:IsA("Frame")) then
-                        -- Только если это не пип/leftBar (маленькие акцентные полоски)
                         local sz = obj.AbsoluteSize
                         if sz.X > 20 and sz.Y > 10 then
                             obj.BackgroundColor3 = T.BgPanel
@@ -179,7 +153,6 @@ return function(deps)
         end
     end
 
-    -- ═══════════ PERSIST ═══════════
     local function saveColorSettings(settings)
         pcall(function()
             if not isfolder("MegaHack") then makefolder("MegaHack") end
@@ -210,7 +183,6 @@ return function(deps)
         end)
     end
 
-    -- ═══════════ PUBLIC API ═══════════
     return {
         T                   = T,
         updateGuiColors     = updateGuiColors,
@@ -218,7 +190,6 @@ return function(deps)
         loadColorSettings   = loadColorSettings,
         clearRgbConnections = clearRgbConnections,
 
-        -- ОБЯЗАТЕЛЬНО вызвать до updateGuiColors!
         setFrames = function(mf, sf)
             mainFrame      = mf
             scrollingFrame = sf
