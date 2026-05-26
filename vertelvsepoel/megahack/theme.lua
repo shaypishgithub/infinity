@@ -71,6 +71,13 @@ return function(deps)
             end
         end
 
+        -- ── GradientBar в HomeCard / ExecCard ───────────────────────────────
+        for _, obj in pairs(mainFrame:GetDescendants()) do
+            if obj.Name == "GradientBar" and obj:IsA("Frame") then
+                pcall(function() obj.BackgroundColor3 = acc end)
+            end
+        end
+
         -- ── Main frame ──────────────────────────────────────────────────────
         mainFrame.BackgroundColor3       = bg
         mainFrame.BackgroundTransparency = settings.transparency or 0.04
@@ -106,9 +113,15 @@ return function(deps)
             if closeBtn and obj:IsDescendantOf(closeBtn) then continue end
 
             if obj:IsA("UIStroke") then
-                -- Не трогаем обводку HomeCard (белая тонкая рамка)
+                -- Пропускаем обводки mainFrame (белая внешняя рамка)
+                if obj.Parent == mainFrame then continue end
+                -- Пропускаем обводки HomeCard/ExecCard/PingCard/FpsCard (белая тонкая рамка стекла)
                 local p = obj.Parent
-                if p and p.Name == "HomeCard" then continue end
+                local skipGlassStroke = p and (p.Name == "HomeCard" or p.Name == "FpsCard"
+                    or p.Name == "PingCard" or p.Name == "ExecCard")
+                    and obj.Color == Color3.new(1,1,1)
+                if skipGlassStroke then continue end
+
                 if settings.rgbStroke then
                     local conn; conn = RunService.Heartbeat:Connect(function()
                         if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
