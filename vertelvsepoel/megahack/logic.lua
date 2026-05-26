@@ -1,9 +1,5 @@
 -- ══════════════════════════════════════════════════════════════════
 --  logic.lua  —  v2  Full Logic Layer
---  Модульная архитектура:
---    games.lua       → Games tab + lazy icon loader
---    colorpicker.lua → Color Picker UI
---  Оба файла загружаются по raw GitHub URL ниже.
 -- ══════════════════════════════════════════════════════════════════
 
 local BASE_RAW = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/"
@@ -47,7 +43,6 @@ return function(deps)
 
     -- ══════════════════════════════════════
     --  LOAD SUBMODULES
-    --  games.lua и colorpicker.lua лежат рядом с logic.lua
     -- ══════════════════════════════════════
     local GamesModule, ColorPickerModule, HomeModule
 
@@ -286,7 +281,7 @@ return function(deps)
         T.TextMain   = tx
         T.Stroke     = str
 
-        -- Accent registry (accentBar, pips, leftBars, scrollbars)
+        -- Accent registry
         for _, entry in ipairs(deps.accentRegistry or {}) do
             if entry.obj and entry.obj.Parent then
                 pcall(function() entry.obj[entry.prop] = acc end)
@@ -297,7 +292,7 @@ return function(deps)
         mainFrame.BackgroundColor3       = bg
         mainFrame.BackgroundTransparency = settings.transparency
 
-        -- Reopen button (живёт в screenGui, вне mainFrame)
+        -- Reopen button
         pcall(function()
             if reopenButton and reopenButton.Parent then
                 reopenButton.BackgroundColor3 = T.BgSide
@@ -307,26 +302,30 @@ return function(deps)
             end
         end)
 
-        local closeBtn = mainFrame:FindFirstChild("CloseBtn", true)
+        local closeBtnObj = mainFrame:FindFirstChild("CloseBtn", true)
 
         for _, obj in pairs(mainFrame:GetDescendants()) do
-            -- Пропускаем CloseBtn
-            if obj == closeBtn then continue end
-            if closeBtn and obj:IsDescendantOf(closeBtn) then continue end
+            if obj == closeBtnObj then continue end
+            if closeBtnObj and obj:IsDescendantOf(closeBtnObj) then continue end
 
             if obj:IsA("UIStroke") then
-                -- Белая тонкая рамка glass-карточек — не трогаем
-                local pName = obj.Parent and obj.Parent.Name or ""
-                if pName == "HomeCard" or pName == "ExecCard"
-                or pName == "FpsCard" or pName == "PingCard" then continue end
-                if settings.rgbStroke then
-                    local conn; conn = RunService.Heartbeat:Connect(function()
-                        if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
-                        obj.Color = Color3.fromHSV((tick()%5)/5, 1, 1)
-                    end)
-                    table.insert(rgbConnections, conn)
+                local p = obj.Parent
+                local whiteStrokeCards = {"HomeCard","FpsCard","PingCard","ExecCard"}
+                local isWhite = p and table.find(whiteStrokeCards, p.Name)
+                if isWhite then
+                    -- оставляем белую обводку
+                    obj.Color = Color3.new(1,1,1)
+                    obj.Transparency = 0.78
                 else
-                    obj.Color = str
+                    if settings.rgbStroke then
+                        local conn; conn = RunService.Heartbeat:Connect(function()
+                            if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
+                            obj.Color = Color3.fromHSV((tick()%5)/5, 1, 1)
+                        end)
+                        table.insert(rgbConnections, conn)
+                    else
+                        obj.Color = str
+                    end
                 end
 
             elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
@@ -342,10 +341,8 @@ return function(deps)
                     end
                 end
 
-                -- Фон кнопок контентной области (не сайдбар)
                 if obj:IsA("TextButton") and obj.Parent ~= catScroll then
                     local cur = obj.BackgroundTransparency
-                    -- Только если кнопка не прозрачная полностью (сайдбарные = 1)
                     if cur < 0.99 then
                         obj.BackgroundColor3 = T.BgPanel
                     end
@@ -357,8 +354,7 @@ return function(deps)
                     obj.BackgroundColor3 = T.BgSide
                 elseif name == "GameCardBg" then
                     obj.BackgroundColor3 = T.BgPanel
-                elseif name == "HomeCard" or name == "FpsCard"
-                    or name == "ExecCard" or name == "PingCard" then
+                elseif name == "HomeCard" or name == "FpsCard" or name == "ExecCard" or name == "PingCard" then
                     obj.BackgroundColor3 = T.BgPanel
                 elseif name == "PlatBadge" then
                     obj.BackgroundColor3 = acc
@@ -369,7 +365,6 @@ return function(deps)
                     and name ~= "GradientBar"
                     and name ~= "HeaderFrame"
                 then
-                    -- Обычные panel-фреймы в контентной области
                     local parent = obj.Parent
                     if parent and (parent:IsA("ScrollingFrame") or parent:IsA("Frame")) then
                         local sz = obj.AbsoluteSize
@@ -391,7 +386,6 @@ return function(deps)
         end
         colorPickerConnections = {}
 
-        -- Сброс lazy loader в Games модуле
         if GamesModule then
             pcall(function() GamesModule.reset() end)
         end
@@ -476,14 +470,11 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  SHOW GAMES  (делегируем в games.lua)
+    --  SHOW GAMES
     -- ══════════════════════════════════════
     local function showGames()
         clearContent()
-        -- gamesPanel уже скрыт clearContent; модуль сам его покажет
-
         if not GamesModule then
-            -- Ленивая загрузка модуля при первом обращении
             GamesModule = loadSubmodule("games.lua")
             if not GamesModule then
                 showScrollPanel()
@@ -491,7 +482,6 @@ return function(deps)
                 createLabel("⚠  Failed to load games.lua", scrollingFrame)
                 return
             end
-            -- Инициализируем модуль с зависимостями
             GamesModule = GamesModule({
                 TweenService = TweenService,
                 RunService   = RunService,
@@ -509,7 +499,6 @@ return function(deps)
                 loadHacksFromCategory(catName)
                 updateGuiColors()
 
-                -- Подсветка кнопки в сайдбаре
                 for _, child in ipairs(catScroll:GetChildren()) do
                     if child:IsA("TextButton") and child.Text == catName then
                         child:SetAttribute("Active", true)
@@ -658,7 +647,7 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  HOME  (делегируем в home.lua)
+    --  HOME
     -- ══════════════════════════════════════
     local function showHome()
         clearContent()
@@ -782,7 +771,7 @@ return function(deps)
     end
 
     -- ══════════════════════════════════════
-    --  SETTINGS  (Color Picker — из colorpicker.lua)
+    --  SETTINGS (Color Picker)
     -- ══════════════════════════════════════
     local function saveCoordinates()
         local char = player.Character
@@ -857,7 +846,6 @@ return function(deps)
         clearContent()
         showScrollPanel()
 
-        -- ── Color Picker (загружается из colorpicker.lua) ──────────
         createSectionHeader("Color Picker", scrollingFrame)
 
         if not ColorPickerModule then
@@ -883,7 +871,6 @@ return function(deps)
             createLabel("⚠  Failed to load colorpicker.lua", scrollingFrame)
         end
 
-        -- ── Transparency ───────────────────────────────────────────
         createSectionHeader("Transparency", scrollingFrame)
         for _, t in ipairs({{"0%",0},{"10%",0.1},{"25%",0.25},{"50%",0.5},{"75%",0.75}}) do
             createButton(t[1], scrollingFrame, function()
@@ -891,7 +878,6 @@ return function(deps)
             end)
         end
 
-        -- ── Appearance ─────────────────────────────────────────────
         createSectionHeader("Appearance", scrollingFrame)
         createButton("Lock GUI: " .. (settings.locked and "ON" or "OFF"), scrollingFrame, function()
             settings.locked = not settings.locked; saveColorSettings()
@@ -904,7 +890,6 @@ return function(deps)
             settings.rgbStroke = not settings.rgbStroke; saveColorSettings(); updateGuiColors()
         end)
 
-        -- ── Utilities ──────────────────────────────────────────────
         createSectionHeader("Utilities", scrollingFrame)
         createButton("Copy Username", scrollingFrame, function()
             pcall(function() setclipboard(player.Name) end)
@@ -919,7 +904,6 @@ return function(deps)
             createNotification("COPY","Server ID copied!",2)
         end)
 
-        -- ── Server ─────────────────────────────────────────────────
         createSectionHeader("Server", scrollingFrame)
         createButton("Rejoin", scrollingFrame, function()
             local ok2, e = pcall(function() TeleportService:Teleport(game.PlaceId, player) end)
@@ -943,12 +927,10 @@ return function(deps)
             if not ok2 then createNotification("ERROR","Server hop failed: "..tostring(e),5,7733968497) end
         end)
 
-        -- ── Coordinates ────────────────────────────────────────────
         createSectionHeader("Coordinates", scrollingFrame)
         createButton("Save Current Position",      scrollingFrame, saveCoordinates)
         createButton("Teleport to Saved Position", scrollingFrame, teleportToCoordinates)
 
-        -- ── Security ───────────────────────────────────────────────
         createSectionHeader("Security", scrollingFrame)
         createButton("Enable Anti-Ban / Anti-Kick", scrollingFrame, setupAntiBanKick)
         createButton("Check Executor Functions",    scrollingFrame, function()
@@ -956,7 +938,6 @@ return function(deps)
             createNotification("FUNCTIONS","Available: "..#av.."/"..(#av+#unav),5,7733960981)
         end)
 
-        -- ── Actions ────────────────────────────────────────────────
         createSectionHeader("Actions", scrollingFrame)
         createButton("Save Settings", scrollingFrame, saveSettings)
         createButton("Close GUI",     scrollingFrame, function() gui.screenGui:Destroy() end)
@@ -1006,7 +987,6 @@ return function(deps)
             loadStats()
             startSessionTimer()
 
-            -- Сайдбар: специальные вкладки
             local specialOrder = {"Home", "Games", "Stats", "Settings", "All Scripts"}
             local specialFuncs = {
                 Home = function()
@@ -1034,7 +1014,6 @@ return function(deps)
                 createButton(name, catScroll, specialFuncs[name], true)
             end
 
-            -- Сайдбар: категории игр
             local sortedCats = {}
             for catName in pairs(categoryMap) do table.insert(sortedCats, catName) end
             table.sort(sortedCats)
@@ -1046,11 +1025,9 @@ return function(deps)
                 end, true)
             end
 
-            -- Dragging
             MakeDraggable(mainFrame, headerFrame)
             MakeDraggable(reopenButton, reopenButton)
 
-            -- Close / Reopen
             closeBtn.MouseButton1Click:Connect(function()
                 finishCurrentSession()
                 TweenService:Create(mainFrame,
@@ -1077,7 +1054,6 @@ return function(deps)
                 ):Play()
             end)
 
-            -- Intro animation
             mainFrame.Size                   = UDim2.new(0,0,0,0)
             mainFrame.BackgroundTransparency = 1
             TweenService:Create(mainFrame,
@@ -1085,7 +1061,6 @@ return function(deps)
                 {Size=UDim2.new(0,590,0,400), BackgroundTransparency=settings.transparency}
             ):Play()
 
-            -- Default view
             recordTabClick("Home")
             showHome()
             updateGuiColors()
