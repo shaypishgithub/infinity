@@ -43,25 +43,17 @@ return function(deps)
         return f
     end
 
-    local function mkGradientBar(parent, zidx)
+        -- просто тонкая акцентная линия без радуги
         local bar = Instance.new("Frame")
         bar.Name = "GradientBar"
         bar.Size = UDim2.new(1,0,0,2)
         bar.Position = UDim2.new(0,0,0,0)
-        bar.BackgroundColor3 = T.Accent or Color3.fromRGB(120,80,255)
-        bar.BackgroundTransparency = 0
+        bar.BackgroundColor3 = T.Accent
+        bar.BackgroundTransparency = 0.3
         bar.BorderSizePixel = 0
         bar.ZIndex = (zidx or 5) + 1
         bar.Parent = parent
         mkCorner(bar, 2)
-        local g = Instance.new("UIGradient")
-        g.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, T.Accent or Color3.fromRGB(120,80,255)),
-            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80,180,255)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(180,80,255)),
-        })
-        g.Rotation = 0
-        g.Parent = bar
         return bar
     end
 
@@ -147,7 +139,6 @@ return function(deps)
 
             local card = mkGlass(scrollingFrame, UDim2.new(1,0,0,100), nil, 4, 0.10, 14)
             card.Name = "HomeCard"
-            mkGradientBar(card, 5)
 
             local ok2, thumbnail = pcall(function()
                 return Players:GetUserThumbnailAsync(
@@ -248,7 +239,6 @@ return function(deps)
             createSectionHeader("Executor", scrollingFrame)
             local execCard = mkGlass(scrollingFrame, UDim2.new(1,0,0,90), nil, 4, 0.10, 14)
             execCard.Name = "ExecCard"
-            mkGradientBar(execCard, 5)
 
             local detected = detectExecutor()
             if detected then
