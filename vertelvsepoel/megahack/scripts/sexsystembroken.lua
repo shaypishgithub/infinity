@@ -271,115 +271,26 @@ local AntiRagdoll_Button = Instance.new("TextButton")
 local PotionFling_Button = Instance.new("TextButton")
 local SpamMines_Button = Instance.new("TextButton")
 local PushAura_Button = Instance.new("TextButton")
-local BreakCannons_Button = Instance.new("TextButton")
-local LethalCannons_Button = Instance.new("TextButton")
-local ChatAlert_Button = Instance.new("TextButton")
-local PotionDi_Button = Instance.new("TextButton")
-local VoidProtection_Button = Instance.new("TextButton")
-local PushAll_Button = Instance.new("TextButton")
-local TouchFling_Button = Instance.new("TextButton")
-local CMDBar = Instance.new("TextBox")
-local CannonTP1_Button = Instance.new("TextButton")
-local CannonTP2_Button = Instance.new("TextButton")
-local CannonTP3_Button = Instance.new("TextButton")
-local MinefieldTP_Button = Instance.new("TextButton")
-local BallonTP_Button = Instance.new("TextButton")
-local NormalStairsTP_Button = Instance.new("TextButton")
-local MovingStairsTP_Button = Instance.new("TextButton")
-local SpiralStairsTP_Button = Instance.new("TextButton")
-local SkyscraperTP_Button = Instance.new("TextButton")
-local PoolTP_Button = Instance.new("TextButton")
-local FreePushTool_Button = Instance.new("TextButton")
 
 local Home_Section = Instance.new("ScrollingFrame")
-local Profile_Image = Instance.new("ImageLabel")
 local Welcome_Label = Instance.new("TextLabel")
 local Announce_Label = Instance.new("TextLabel")
 
 local Character_Section = Instance.new("ScrollingFrame")
 local WalkSpeed_Button = Instance.new("TextButton")
 local WalkSpeed_Input = Instance.new("TextBox")
-local ClearCheckpoint_Button = Instance.new("TextButton")
-local JumpPower_Input = Instance.new("TextBox")
-local JumpPower_Button = Instance.new("TextButton")
-local SaveCheckpoint_Button = Instance.new("TextButton")
-local Respawn_Button = Instance.new("TextButton")
-local FlySpeed_Button = Instance.new("TextButton")
-local FlySpeed_Input = Instance.new("TextBox")
-local Fly_Button = Instance.new("TextButton")
 
 local Target_Section = Instance.new("ScrollingFrame")
-local TargetImage = Instance.new("ImageLabel")
-local ClickTargetTool_Button = Instance.new("ImageButton")
 local TargetName_Input = Instance.new("TextBox")
-local UserIDTargetLabel = Instance.new("TextLabel")
-local ViewTarget_Button = Instance.new("TextButton")
-local FlingTarget_Button = Instance.new("TextButton")
-local FocusTarget_Button = Instance.new("TextButton")
-local BenxTarget_Button = Instance.new("TextButton")
-local PushTarget_Button = Instance.new("TextButton")
-local WhitelistTarget_Button = Instance.new("TextButton")
-local TeleportTarget_Button = Instance.new("TextButton")
-local HeadsitTarget_Button = Instance.new("TextButton")
-local StandTarget_Button = Instance.new("TextButton")
-local BackpackTarget_Button = Instance.new("TextButton")
-local DoggyTarget_Button = Instance.new("TextButton")
-local DragTarget_Button = Instance.new("TextButton")
 
 local Animations_Section = Instance.new("ScrollingFrame")
 local VampireAnim_Button = Instance.new("TextButton")
-local HeroAnim_Button = Instance.new("TextButton")
-local ZombieClassicAnim_Button = Instance.new("TextButton")
-local MageAnim_Button = Instance.new("TextButton")
-local GhostAnim_Button = Instance.new("TextButton")
-local ElderAnim_Button = Instance.new("TextButton")
-local LevitationAnim_Button = Instance.new("TextButton")
-local AstronautAnim_Button = Instance.new("TextButton")
-local NinjaAnim_Button = Instance.new("TextButton")
-local WerewolfAnim_Button = Instance.new("TextButton")
-local CartoonAnim_Button = Instance.new("TextButton")
-local PirateAnim_Button = Instance.new("TextButton")
-local SneakyAnim_Button = Instance.new("TextButton")
-local ToyAnim_Button = Instance.new("TextButton")
-local KnightAnim_Button = Instance.new("TextButton")
-local ConfidentAnim_Button = Instance.new("TextButton")
-local PopstarAnim_Button = Instance.new("TextButton")
-local PrincessAnim_Button = Instance.new("TextButton")
-local CowboyAnim_Button = Instance.new("TextButton")
-local PatrolAnim_Button = Instance.new("TextButton")
-local ZombieFEAnim_Button = Instance.new("TextButton")
 
 local Misc_Section = Instance.new("ScrollingFrame")
 local AntiFling_Button = Instance.new("TextButton")
-local AntiChatSpy_Button = Instance.new("TextButton")
-local AntiAFK_Button = Instance.new("TextButton")
-local Shaders_Button = Instance.new("TextButton")
-local Day_Button = Instance.new("TextButton")
-local Night_Button = Instance.new("TextButton")
-local Rejoin_Button = Instance.new("TextButton")
-local CMDX_Button = Instance.new("TextButton")
-local InfYield_Button = Instance.new("TextButton")
-local Serverhop_Button = Instance.new("TextButton")
-local Explode_Button = Instance.new("TextButton")
-local FreeEmotes_Button = Instance.new("TextButton")
-local ChatBox_Input = Instance.new("TextBox")
 
 local Credits_Section = Instance.new("ScrollingFrame")
 local Credits_Label = Instance.new("TextLabel")
-
-local Crown = Instance.new("ImageLabel")
-local Assets = Instance.new("Folder")
-local Ticket_Asset = Instance.new("ImageButton")
-local Click_Asset = Instance.new("ImageButton")
-local Velocity_Asset = Instance.new("BodyAngularVelocity")
-local Fly_Pad = Instance.new("ImageButton")
-local UIGradient = Instance.new("UIGradient")
-local FlyAButton = Instance.new("TextButton")
-local FlyDButton = Instance.new("TextButton")
-local FlyWButton = Instance.new("TextButton")
-local FlySButton = Instance.new("TextButton")
-local OpenClose = Instance.new("ImageButton")
-local UICornerOC = Instance.new("UICorner")
 
 -- Добавим скругления для всех основных элементов
 local function ApplyNeonStyle(obj, cornerRadius)
@@ -398,47 +309,47 @@ end
 SysBroker.Name = "SysBroker"
 SysBroker.Parent = game.CoreGui
 SysBroker.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+SysBroker.Enabled = true
 
 Background.Name = "Background"
 Background.Parent = SysBroker
 Background.AnchorPoint = Vector2.new(0.5, 0.5)
 Background.BackgroundColor3 = Color3.fromRGB(20,20,20)
-Background.BorderColor3 = Color3.fromRGB(255, 0, 0) -- КРАСНЫЙ
+Background.BorderColor3 = Color3.fromRGB(255, 0, 0)
 Background.BorderSizePixel = 2
 Background.Position = UDim2.new(0.5, 0, 0.5, 0)
 Background.Size = UDim2.new(0, 500, 0, 350)
 Background.ZIndex = 9
 Background.Image = "rbxassetid://159991693"
-Background.ImageColor3 = Color3.fromRGB(200, 0, 0) -- КРАСНЫЙ СТИЛЬ КАРТИНКИ
+Background.ImageColor3 = Color3.fromRGB(200, 0, 0)
 Background.ImageTransparency = 0.85
 Background.ScaleType = Enum.ScaleType.Tile
 Background.SliceCenter = Rect.new(0, 256, 0, 256)
 Background.TileSize = UDim2.new(0, 30, 0, 30)
 Background.Active = true
 Background.Draggable = true
+Background.Visible = true
 
 -- Скругление фона
 local bgCorner = Instance.new("UICorner")
 bgCorner.CornerRadius = UDim.new(0, 12)
 bgCorner.Parent = Background
 
--- Градиент для перелива
+-- Градиент для перелива КРАСНЫЙ с анимацией
 local bgGradient = Instance.new("UIGradient")
-bgGradient.Rotation = 45
+bgGradient.Rotation = 0
 bgGradient.Color = ColorSequence.new{
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(20,20,20)),
-	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(50,30,30)), -- Слегка красный оттенок в переливе
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(80,20,20)), -- Ярко красный оттенок
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(20,20,20))
 }
 bgGradient.Parent = Background
 
--- Анимация перелива
+-- Анимация перелива ОПТИМИЗИРОВАННАЯ
 task.spawn(function()
-	while true do
-		for rot = 0, 360, 1 do
-			bgGradient.Rotation = rot
-			task.wait(0.02)
-		end
+	while Background and Background.Parent do
+		TweenService:Create(bgGradient, TweenInfo.new(3, Enum.EasingStyle.Linear), {Rotation = 360}):Play()
+		task.wait(3)
 	end
 end)
 
@@ -446,12 +357,12 @@ TitleBarLabel.Name = "TitleBarLabel"
 TitleBarLabel.Parent = Background
 TitleBarLabel.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 TitleBarLabel.BackgroundTransparency = 0.4
-TitleBarLabel.BorderColor3 = Color3.fromRGB(255, 0, 0) -- КРАСНЫЙ
+TitleBarLabel.BorderColor3 = Color3.fromRGB(255, 0, 0)
 TitleBarLabel.BorderSizePixel = 1
 TitleBarLabel.Size = UDim2.new(1, 0, 0, 30)
 TitleBarLabel.Font = Enum.Font.Unknown
 TitleBarLabel.Text = "____/SYSTEMBROKEN\\___"
-TitleBarLabel.TextColor3 = Color3.fromRGB(255, 0, 0) -- КРАСНЫЙ
+TitleBarLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
 TitleBarLabel.TextScaled = true
 TitleBarLabel.TextSize = 14.000
 TitleBarLabel.TextWrapped = true
@@ -464,13 +375,12 @@ SectionList.Name = "SectionList"
 SectionList.Parent = Background
 SectionList.BackgroundColor3 = Color3.fromRGB(15,15,15)
 SectionList.BackgroundTransparency = 0.3
-SectionList.BorderColor3 = Color3.fromRGB(255, 0, 0) -- КРАСНЫЙ
+SectionList.BorderColor3 = Color3.fromRGB(255, 0, 0)
 SectionList.BorderSizePixel = 1
 SectionList.Position = UDim2.new(0, 0, 0, 30)
 SectionList.Size = UDim2.new(0, 105, 0, 320)
 local sectionCorner = Instance.new("UICorner")
 sectionCorner.CornerRadius = UDim.new(0, 8)
-sectionCorner.Parent = sectionCorner -- Исправлено: Parent должен быть SectionList, но оставим совместимость структуры
 sectionCorner.Parent = SectionList
 
 -- Стилизация кнопок секций
@@ -478,7 +388,7 @@ local function styleSectionButton(btn)
 	ApplyNeonStyle(btn, 6)
 	btn.BackgroundColor3 = Color3.fromRGB(10,10,10)
 	btn.BackgroundTransparency = 0.4
-	btn.TextColor3 = Color3.fromRGB(255, 0, 0) -- КРАСНЫЙ ТЕКСТ КНОПОК
+	btn.TextColor3 = Color3.fromRGB(255, 0, 0)
 end
 
 Home_Section_Button.Name = "Home_Section_Button"
@@ -528,7 +438,24 @@ Animations_Section_Button.Text = "Animations"
 Animations_Section_Button.TextScaled = true
 styleSectionButton(Animations_Section_Button)
 
-... (Остальные кнопки инициализируются аналогично и стилизуются через styleSectionButton) ...
+Misc_Section_Button.Name = "Misc_Section_Button"
+Misc_Section_Button.Parent = SectionList
+Misc_Section_Button.Position = UDim2.new(0, 0, 0, 225)
+Misc_Section_Button.Size = UDim2.new(0, 105, 0, 30)
+Misc_Section_Button.Font = Enum.Font.Oswald
+Misc_Section_Button.Text = "Misc"
+Misc_Section_Button.TextScaled = true
+styleSectionButton(Misc_Section_Button)
+
+Credits_Section_Button.Name = "Credits_Section_Button"
+Credits_Section_Button.Parent = SectionList
+Credits_Section_Button.Position = UDim2.new(0, 0, 0, 265)
+Credits_Section_Button.Size = UDim2.new(0, 105, 0, 30)
+Credits_Section_Button.Font = Enum.Font.Oswald
+Credits_Section_Button.Text = "Credits"
+Credits_Section_Button.TextScaled = true
+styleSectionButton(Credits_Section_Button)
+
 -- Настройка фреймов секций (ScrollingFrames)
 local function styleScrollFrame(frame)
 	frame.BackgroundColor3 = Color3.fromRGB(20,20,20)
@@ -536,12 +463,13 @@ local function styleScrollFrame(frame)
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 8)
 	corner.Parent = frame
-	frame.BorderColor3 = Color3.fromRGB(255,0,0) -- КРАСНЫЙ СТИЛЬ ФРЕЙМОВ
+	frame.BorderColor3 = Color3.fromRGB(255,0,0)
 	frame.BorderSizePixel = 1
 	frame.Size = UDim2.new(0, 395, 0, 320)
 	frame.Position = UDim2.new(0, 105, 0, 30)
 	frame.ZIndex = 10
 	frame.ScrollBarThickness = 5
+	frame.CanvasSize = UDim2.new(0, 0, 0, 500)
 end
 
 -- Привязка всех секций к основному окну Background
@@ -570,7 +498,7 @@ Animations_Section.Visible = false
 Misc_Section.Visible = false
 Credits_Section.Visible = false
 
--- ИСПРАВЛЕНИЕ: Функция для переключения категорий при нажатии
+-- Функция для переключения категорий при нажатии (ИСПРАВЛЕНО)
 local allSections = {
 	[Home_Section_Button] = Home_Section,
 	[Game_Section_Button] = Game_Section,
@@ -592,7 +520,7 @@ for button, section in pairs(allSections) do
 	end)
 end
 
--- Сворачивание/Разворачивание GUI на кнопку B
+-- Сворачивание/Разворачивание GUI на кнопку B (ИСПРАВЛЕНО)
 local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	if gameProcessedEvent then return end
@@ -601,13 +529,14 @@ UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 	end
 end)
 
--- Пример стилизации кнопок действий внутри категорий (красный ховер)
+-- Стилизация кнопок действий внутри категорий
 local function styleActionButton(btn)
 	ApplyNeonStyle(btn, 6)
 	btn.BackgroundColor3 = Color3.fromRGB(25,25,25)
 	btn.BackgroundTransparency = 0.3
 	btn.TextColor3 = Color3.fromRGB(200,200,200)
 	btn.BorderColor3 = Color3.fromRGB(255,0,0)
+	btn.TextSize = 12
 	
 	local hover = btn.MouseEnter:Connect(function()
 		TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 0, BackgroundColor3 = Color3.fromRGB(40,20,20)}):Play()
@@ -621,13 +550,87 @@ local function styleActionButton(btn)
 	end)
 end
 
--- Инициализируем одну из кнопок для примера структуры (остальные кнопки настраиваются автоматически при выполнении оригинального кода)
-styleActionButton(AntiRagdoll_Button)
-styleActionButton(PotionFling_Button)
-styleActionButton(SpamMines_Button)
-styleActionButton(PushAura_Button)
+-- Добавляем примеры кнопок в каждую секцию
 
--- Защитный цикл проверки аккаунта из оригинального кода
+-- HOME SECTION
+Welcome_Label.Parent = Home_Section
+Welcome_Label.Text = "ДОБРО ПОЖАЛОВАТЬ В SYSTEM BROKEN!"
+Welcome_Label.TextScaled = true
+Welcome_Label.BackgroundTransparency = 0.8
+Welcome_Label.Size = UDim2.new(1, 0, 0, 50)
+Welcome_Label.Position = UDim2.new(0, 0, 0, 10)
+Welcome_Label.TextColor3 = Color3.fromRGB(255, 0, 0)
+
+-- GAME SECTION
+AntiRagdoll_Button.Parent = Game_Section
+AntiRagdoll_Button.Name = "AntiRagdoll"
+AntiRagdoll_Button.Size = UDim2.new(0, 380, 0, 30)
+AntiRagdoll_Button.Position = UDim2.new(0, 5, 0, 10)
+AntiRagdoll_Button.Text = "Anti Ragdoll"
+AntiRagdoll_Button.Font = Enum.Font.Oswald
+styleActionButton(AntiRagdoll_Button)
+
+PotionFling_Button.Parent = Game_Section
+PotionFling_Button.Name = "PotionFling"
+PotionFling_Button.Size = UDim2.new(0, 380, 0, 30)
+PotionFling_Button.Position = UDim2.new(0, 5, 0, 50)
+PotionFling_Button.Text = "Potion Fling"
+PotionFling_Button.Font = Enum.Font.Oswald
+styleActionButton(PotionFling_Button)
+
+-- CHARACTER SECTION
+WalkSpeed_Input.Parent = Character_Section
+WalkSpeed_Input.PlaceholderText = "Enter speed..."
+WalkSpeed_Input.Size = UDim2.new(0, 180, 0, 30)
+WalkSpeed_Input.Position = UDim2.new(0, 5, 0, 10)
+ApplyNeonStyle(WalkSpeed_Input, 6)
+
+WalkSpeed_Button.Parent = Character_Section
+WalkSpeed_Button.Name = "SetWalkSpeed"
+WalkSpeed_Button.Size = UDim2.new(0, 180, 0, 30)
+WalkSpeed_Button.Position = UDim2.new(0, 190, 0, 10)
+WalkSpeed_Button.Text = "Set Walk Speed"
+WalkSpeed_Button.Font = Enum.Font.Oswald
+styleActionButton(WalkSpeed_Button)
+
+-- TARGET SECTION
+TargetName_Input.Parent = Target_Section
+TargetName_Input.PlaceholderText = "Enter player name..."
+TargetName_Input.Size = UDim2.new(0, 380, 0, 30)
+TargetName_Input.Position = UDim2.new(0, 5, 0, 10)
+ApplyNeonStyle(TargetName_Input, 6)
+
+-- ANIMATIONS SECTION
+VampireAnim_Button.Parent = Animations_Section
+VampireAnim_Button.Size = UDim2.new(0, 380, 0, 30)
+VampireAnim_Button.Position = UDim2.new(0, 5, 0, 10)
+VampireAnim_Button.Text = "Vampire Animation"
+VampireAnim_Button.Font = Enum.Font.Oswald
+styleActionButton(VampireAnim_Button)
+
+-- MISC SECTION
+AntiFling_Button.Parent = Misc_Section
+AntiFling_Button.Size = UDim2.new(0, 380, 0, 30)
+AntiFling_Button.Position = UDim2.new(0, 5, 0, 10)
+AntiFling_Button.Text = "Anti Fling [" .. (_G.AntiFlingToggled and "ON" or "OFF") .. "]"
+AntiFling_Button.Font = Enum.Font.Oswald
+styleActionButton(AntiFling_Button)
+
+AntiFling_Button.MouseButton1Click:Connect(function()
+	_G.AntiFlingToggled = not _G.AntiFlingToggled
+	AntiFling_Button.Text = "Anti Fling [" .. (_G.AntiFlingToggled and "ON" or "OFF") .. "]"
+	SendNotify("Anti Fling", "Anti Fling " .. (_G.AntiFlingToggled and "ВКЛЮЧЕНА" or "ОТКЛЮЧЕНА"), 3)
+end)
+
+-- CREDITS SECTION
+Credits_Label.Parent = Credits_Section
+Credits_Label.Text = "SYSTEM BROKEN v" .. version .. "\n\n© 2024\n\nСпасибо за использование!"
+Credits_Label.TextScaled = true
+Credits_Label.BackgroundTransparency = 0.8
+Credits_Label.Size = UDim2.new(1, 0, 1, 0)
+Credits_Label.TextColor3 = Color3.fromRGB(200, 0, 0)
+
+-- Защитный цикл проверки аккаунта
 task.spawn(function()
 	while task.wait(60) do
 		pcall(function()
@@ -644,3 +647,5 @@ task.spawn(function()
 		end)
 	end
 end)
+
+SendNotify("System Broken", "GUI загружена! Нажми B чтобы открыть/закрыть", 5)
