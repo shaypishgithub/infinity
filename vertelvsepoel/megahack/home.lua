@@ -39,22 +39,8 @@ return function(deps)
     local function mkGlass(parent, size, pos, zidx, alpha, radius)
         local f = mkFrame(parent, size, pos, T.BgPanel, alpha or 0.72, zidx or 4)
         mkCorner(f, radius or 12)
-        mkStroke(f, 1, Color3.new(1,1,1), 0.78)
+        mkStroke(f, 1, Color3.new(1,1,1), 0.78)   -- только белая обводка, без градиентной полосы
         return f
-    end
-
-        -- просто тонкая акцентная линия без радуги
-        local bar = Instance.new("Frame")
-        bar.Name = "GradientBar"
-        bar.Size = UDim2.new(1,0,0,2)
-        bar.Position = UDim2.new(0,0,0,0)
-        bar.BackgroundColor3 = T.Accent
-        bar.BackgroundTransparency = 0.3
-        bar.BorderSizePixel = 0
-        bar.ZIndex = (zidx or 5) + 1
-        bar.Parent = parent
-        mkCorner(bar, 2)
-        return bar
     end
 
     local function mkButton(parent, text, size, pos, accent, callback, zidx)
@@ -82,18 +68,6 @@ return function(deps)
             btn.MouseButton1Click:Connect(callback)
         end
         return btn
-    end
-
-    local function mkDivider(parent)
-        local d = Instance.new("Frame")
-        d.Size = UDim2.new(1,-24,0,1)
-        d.Position = UDim2.new(0,12,0,0)
-        d.BackgroundColor3 = Color3.new(1,1,1)
-        d.BackgroundTransparency = 0.88
-        d.BorderSizePixel = 0
-        d.ZIndex = 5
-        d.Parent = parent
-        return d
     end
 
     local EXECUTORS = {
