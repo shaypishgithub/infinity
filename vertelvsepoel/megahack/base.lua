@@ -31,7 +31,7 @@ local database = {
         Rivals = "rivals.lua",
         FORSAKEN = "forsaken.lua",
         LootUp = "lootup.lua",
-        Vertelevsepoel = "vertelevsepoel.lua"
+        Vertelevsepoel = "vertelevsepoel.lua",
         PetSimulatorX = "petsimx.lua",
     },
     
