@@ -32,6 +32,7 @@ local database = {
         FORSAKEN = "forsaken.lua",
         LootUp = "lootup.lua",
         Vertelevsepoel = "vertelevsepoel.lua"
+        PetSimulatorX = "petsimx.lua",
     },
     
     -- ─── Game icon PlaceIds ────────────────────────────────────────
@@ -58,6 +59,7 @@ local database = {
         MegaHack = 74418885847818,
         Animations = 92241142143654,
         Vertelevsepoel = 104146829885606,
+        PetSimulatorX = 93652827298808,
     },
     
     -- ─── Динамическая таблица для Image ID ──────────────────────────
