@@ -31,7 +31,7 @@ local database = {
         Rivals = "rivals.lua",
         FORSAKEN = "forsaken.lua",
         LootUp = "lootup.lua",
-        Vertelevsepoel = "vertelevsepoel.lua",
+        Vertelevsepoel = "vertelevsepoel.lua", -- Поставили пропущенную запятую тут
         PetSimulatorX = "petsimx.lua",
     },
     
@@ -63,7 +63,6 @@ local database = {
     },
     
     -- ─── Динамическая таблица для Image ID ──────────────────────────
-    -- Сюда запишутся готовые ссылки на изображения после вызова функций
     imageIds = {},
 }
 
@@ -71,18 +70,14 @@ local database = {
 -- ФУНКЦИИ ДЛЯ РАБОТЫ С ИКОНКАМИ (МЕТОДЫ)
 -- ──────────────────────────────────────────────────────────────────
 
--- Метод 1: Быстрый способ (Генерирует rbxthumb ссылку для UI)
--- Размер иконки можно передать вторым аргументом (по умолчанию 150x150)
 function database:GetImageIdFast(categoryName, size)
     local placeId = self.gameIcons[categoryName]
     if not placeId then return nil end
     
     local imageSize = size or 150
-    -- Возвращает готовый ID, который кушает любой ImageLabel.Image в Roblox
     return string.format("rbxthumb://type=Asset&id=%s&w=%d&h=%d", tostring(placeId), imageSize, imageSize)
 end
 
--- Метод 2: Продвинутый способ через MarketplaceService (Получает оригинальный AssetID картинки)
 local MarketplaceService = game:GetService("MarketplaceService")
 function database:GetOriginalAssetId(categoryName)
     local placeId = self.gameIcons[categoryName]
@@ -95,12 +90,11 @@ function database:GetOriginalAssetId(categoryName)
     if success and assetInfo and assetInfo.IconImageAssetId then
         return "rbxassetid://" .. tostring(assetInfo.IconImageAssetId)
     else
-        -- Возвращает иконку-заглушку Roblox, если у игры нет иконки или произошла ошибка запроса
         return "rbxasset://textures/ui/GuiImagePlaceholder.png" 
     end
 end
 
--- Автоматически заполняем таблицу imageIds быстрыми ссылками при инициализации скрипта
+-- Автоматически заполняем таблицу imageIds быстрыми ссылками
 for category, _ in pairs(database.gameIcons) do
     database.imageIds[category] = database:GetImageIdFast(category, 150)
 end
