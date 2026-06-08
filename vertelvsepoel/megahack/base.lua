@@ -60,7 +60,7 @@ local database = {
     Pressure = "pressure.lua",
     Regretevator = "regretevator.lua",
     BladeBall = "bladeball.lua",          -- уже есть
-    BrookhavenRP = "brookhaven.lua",      -- уже есть
+  
         
     Universal = "universal.lua",
     ScriptsHub = "scripthub.lua",
