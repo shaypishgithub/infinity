@@ -53,13 +53,13 @@ local database = {
     MuscleLegends = "musclelegends.lua",
     DragonAdventures = "dragonadventures.lua",
     PetSimulator99 = "petsim99.lua",
-    MurderMystery2 = "mm2.lua",           -- уже есть, но для ясности
+   
     CounterBlox = "counterblox.lua",
     Banana = "banana.lua",
     DandysWorld = "dandysworld.lua",
     Pressure = "pressure.lua",
     Regretevator = "regretevator.lua",
-    BladeBall = "bladeball.lua",          -- уже есть
+
   
         
     Universal = "universal.lua",
