@@ -152,15 +152,17 @@ end
 -- Drag: AnchorPoint stays fixed, Position.Scale never changes — only
 -- Offset moves. This is the ONLY correct way to drag an anchor-centered
 -- frame without it jumping or drifting off-screen.
-local function MakeDraggable(frame, handle, boundsPadding)
+local function MakeDraggable(frame, handle, boundsPadding, onDragStateChanged)
     handle = handle or frame
     boundsPadding = boundsPadding or 0
     local dragging = false
     local dragStart, startOffset
     local endConn
+    local moved = false
 
     local function beginDrag(input)
         dragging     = true
+        moved        = false
         dragStart    = input.Position
         startOffset  = Vector2.new(frame.Position.X.Offset, frame.Position.Y.Offset)
 
@@ -168,6 +170,9 @@ local function MakeDraggable(frame, handle, boundsPadding)
         endConn = input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
+                if onDragStateChanged then
+                    task.defer(onDragStateChanged, moved)
+                end
             end
         end)
     end
@@ -190,6 +195,7 @@ local function MakeDraggable(frame, handle, boundsPadding)
     UserInputService.InputChanged:Connect(function(input)
         if not dragging or input ~= dragInput then return end
         local delta = input.Position - dragStart
+        if delta.Magnitude > 4 then moved = true end
         local newX  = startOffset.X + delta.X
         local newY  = startOffset.Y + delta.Y
 
@@ -263,40 +269,13 @@ local function CreateLabel(parent, text, size, pos, font, color, zindex)
     return lbl
 end
 
--- Soft floating glass "orb" — purely decorative
-local function SpawnGlowOrb(parent, size, startPos, zindex)
-    local orb = Instance.new("Frame")
-    orb.Size             = UDim2.new(0, size, 0, size)
-    orb.Position         = startPos
-    orb.AnchorPoint      = Vector2.new(0.5, 0.5)
-    orb.BackgroundColor3 = Color3.new(1, 1, 1)
-    orb.BackgroundTransparency = 0.94
-    orb.BorderSizePixel  = 0
-    orb.ZIndex           = zindex or 0
-    orb.Parent           = parent
-    Instance.new("UICorner", orb).CornerRadius = UDim.new(1, 0)
-
-    task.spawn(function()
-        while orb.Parent do
-            local dx = math.random(-18, 18)
-            local dy = math.random(-14, 14)
-            SmoothTween(orb, math.random(30, 50) / 10, {
-                Position = startPos + UDim2.new(0, dx, 0, dy),
-                BackgroundTransparency = math.random(90, 97) / 100,
-            })
-            task.wait(math.random(30, 50) / 10)
-        end
-    end)
-    return orb
-end
-
 -- ╔══════════════════════════════════════════════════════╗
 -- ║                   MAIN LIBRARY                       ║
 -- ╚══════════════════════════════════════════════════════╝
 
 local ZandarUI = {}
 ZandarUI.__index = ZandarUI
-ZandarUI.Version = "3.0.0"
+ZandarUI.Version = "3.0.1"
 
 function ZandarUI.Destroy()
     if CoreGui:FindFirstChild("ZandarUI") then CoreGui:FindFirstChild("ZandarUI"):Destroy() end
@@ -364,10 +343,6 @@ function ZandarUI.new(config)
 
     Instance.new("UICorner", Window).CornerRadius = UDim.new(0, 18)
 
-    -- Decorative glass orbs drifting behind the window
-    SpawnGlowOrb(ScreenGui, 220, UDim2.new(0.5, -WIN_W * 0.6, 0.5, -WIN_H * 0.5), 1)
-    SpawnGlowOrb(ScreenGui, 160, UDim2.new(0.5,  WIN_W * 0.65, 0.5,  WIN_H * 0.55), 1)
-
     local winStroke = Instance.new("UIStroke")
     winStroke.Color           = T.BorderGlow
     winStroke.Transparency    = 0.6
@@ -415,7 +390,7 @@ function ZandarUI.new(config)
     headerLine.BorderSizePixel  = 0
     headerLine.ZIndex           = 4
     headerLine.Parent           = Header
-    ShimmerText(headerLine) -- reuse: gradient works on any GuiObject's stroke/fill via UIGradient
+    ShimmerText(headerLine)
 
     local accentBar = Instance.new("Frame")
     accentBar.Size             = UDim2.new(0, 3, 0, 24)
@@ -453,7 +428,9 @@ function ZandarUI.new(config)
 
     MakeDraggable(Window, Header)
 
-    -- ── Round Close button in header (small) ─────────────
+    -- ── Round Close button in header (drawn with an X made of two
+    --    rotated bars, NOT a unicode glyph — glyphs like "✕" fall back
+    --    to a missing-character "tofu" box on some fonts/platforms) ───
     local HeaderClose = Instance.new("TextButton")
     HeaderClose.Size             = UDim2.new(0, 22, 0, 22)
     HeaderClose.Position         = UDim2.new(1, -14, 0.5, -11)
@@ -461,11 +438,10 @@ function ZandarUI.new(config)
     HeaderClose.BackgroundColor3 = T.SurfaceGlass
     HeaderClose.BackgroundTransparency = 0.3
     HeaderClose.BorderSizePixel  = 0
-    HeaderClose.Text             = "✕"
-    HeaderClose.TextColor3       = T.TextMuted
-    HeaderClose.TextSize         = 11
-    HeaderClose.Font             = Enum.Font.GothamBold
+    HeaderClose.Text             = ""
+    HeaderClose.AutoButtonColor  = false
     HeaderClose.ZIndex           = 6
+    HeaderClose.ClipsDescendants = true
     HeaderClose.Parent           = Header
     Instance.new("UICorner", HeaderClose).CornerRadius = UDim.new(1, 0)
 
@@ -473,11 +449,30 @@ function ZandarUI.new(config)
     hcStroke.Color = T.Border; hcStroke.Transparency = 0.5; hcStroke.Thickness = 1
     hcStroke.Parent = HeaderClose
 
+    local hcBar1 = Instance.new("Frame")
+    hcBar1.Size             = UDim2.new(0, 11, 0, 2)
+    hcBar1.AnchorPoint      = Vector2.new(0.5, 0.5)
+    hcBar1.Position         = UDim2.new(0.5, 0, 0.5, 0)
+    hcBar1.Rotation         = 45
+    hcBar1.BackgroundColor3 = T.TextMuted
+    hcBar1.BorderSizePixel  = 0
+    hcBar1.ZIndex           = 7
+    hcBar1.Parent           = HeaderClose
+    Instance.new("UICorner", hcBar1).CornerRadius = UDim.new(1, 0)
+
+    local hcBar2 = hcBar1:Clone()
+    hcBar2.Rotation = -45
+    hcBar2.Parent   = HeaderClose
+
     HeaderClose.MouseEnter:Connect(function()
-        QuickTween(HeaderClose, 0.15, { BackgroundColor3 = Color3.fromRGB(60, 30, 30), BackgroundTransparency = 0, TextColor3 = T.AccentBright })
+        QuickTween(HeaderClose, 0.15, { BackgroundColor3 = Color3.fromRGB(60, 30, 30), BackgroundTransparency = 0 })
+        QuickTween(hcBar1, 0.15, { BackgroundColor3 = T.AccentBright })
+        QuickTween(hcBar2, 0.15, { BackgroundColor3 = T.AccentBright })
     end)
     HeaderClose.MouseLeave:Connect(function()
-        QuickTween(HeaderClose, 0.15, { BackgroundColor3 = T.SurfaceGlass, BackgroundTransparency = 0.3, TextColor3 = T.TextMuted })
+        QuickTween(HeaderClose, 0.15, { BackgroundColor3 = T.SurfaceGlass, BackgroundTransparency = 0.3 })
+        QuickTween(hcBar1, 0.15, { BackgroundColor3 = T.TextMuted })
+        QuickTween(hcBar2, 0.15, { BackgroundColor3 = T.TextMuted })
     end)
 
     -- ── Tab Rail ──────────────────────────────────────────
@@ -1269,6 +1264,7 @@ function ZandarUI.new(config)
     Fab.BorderSizePixel  = 0
     Fab.Text             = ""
     Fab.AutoButtonColor  = false
+    Fab.ClipsDescendants = true
     Fab.ZIndex           = 50
     Fab.Parent           = ScreenGui
     Instance.new("UICorner", Fab).CornerRadius = UDim.new(1, 0)
@@ -1351,9 +1347,14 @@ function ZandarUI.new(config)
     end
     self._setOpen = SetOpen
 
-    fabHitArea.MouseButton1Click:Connect(function()
-        RippleEffect(Fab)
-        SetOpen(not self._open)
+    -- FAB is draggable (bounds-clamped to the screen). A click only
+    -- toggles open/closed if the pointer didn't actually move — this way
+    -- dragging the button around never accidentally opens/closes the menu.
+    MakeDraggable(Fab, fabHitArea, 6, function(didMove)
+        if not didMove then
+            RippleEffect(Fab)
+            SetOpen(not self._open)
+        end
     end)
 
     HeaderClose.MouseButton1Click:Connect(function()
