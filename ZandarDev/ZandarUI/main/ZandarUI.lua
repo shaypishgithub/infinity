@@ -117,13 +117,17 @@ end
 local function MakeDraggable(frame, handle)
     handle = handle or frame
     local dragging, dragInput, dragStart, startPos
+    local endConn -- reused, avoids stacking a new connection every press
 
     handle.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
             dragging  = true
             dragStart = input.Position
             startPos  = frame.Position
-            input.Changed:Connect(function()
+
+            if endConn then endConn:Disconnect() end
+            endConn = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     dragging = false
                 end
@@ -132,7 +136,8 @@ local function MakeDraggable(frame, handle)
     end)
 
     handle.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
+        if input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch then
             dragInput = input
         end
     end)
@@ -140,9 +145,23 @@ local function MakeDraggable(frame, handle)
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
+            local newX  = startPos.X.Offset + delta.X
+            local newY  = startPos.Y.Offset + delta.Y
+
+            -- Keep window fully on-screen (uses AbsoluteSize so it works at any resolution)
+            local cam = workspace.CurrentCamera
+            if cam then
+                local vp = cam.ViewportSize
+                local fsX, fsY = frame.AbsoluteSize.X, frame.AbsoluteSize.Y
+                local minX, maxX = fsX * startPos.X.Scale, vp.X - fsX * (1 - startPos.X.Scale)
+                local minY, maxY = fsY * startPos.Y.Scale, vp.Y - fsY * (1 - startPos.Y.Scale)
+                newX = math.clamp(newX, minX, maxX)
+                newY = math.clamp(newY, minY, maxY)
+            end
+
             frame.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                startPos.X.Scale, newX,
+                startPos.Y.Scale, newY
             )
         end
     end)
@@ -256,7 +275,16 @@ function ZandarUI.new(config)
     SmoothTween(Overlay, 0.5, { BackgroundTransparency = 0.55 })
 
     -- ── Main Window ─────────────────────────────────────
-    local WIN_W, WIN_H = 600, 420
+    -- Size scales with the viewport so it fits phones and PCs alike,
+    -- instead of a fixed 600x420 that can overflow small screens.
+    local Camera = workspace.CurrentCamera
+    local function GetWindowSize()
+        local vp = Camera and Camera.ViewportSize or Vector2.new(1280, 720)
+        local w = math.clamp(vp.X * 0.55, 340, 600)
+        local h = math.clamp(vp.Y * 0.62, 240, 420)
+        return math.floor(w), math.floor(h)
+    end
+    local WIN_W, WIN_H = GetWindowSize()
 
     local Window = Instance.new("Frame")
     Window.Name             = "Window"
@@ -292,9 +320,13 @@ function ZandarUI.new(config)
     end)
 
     -- OPEN ANIMATION — scale up from center with elastic bounce
+    -- NOTE: Window.AnchorPoint is (0.5, 0.5), so centering only needs
+    -- Position = (0.5, 0, 0.5, 0). Adding -WIN_W/2 / -WIN_H/2 on top of that
+    -- double-compensates and shoves the window toward the top-left corner
+    -- (this was the "GUI flies off somewhere" bug).
     ElasticTween(Window, 0.65, {
         Size     = UDim2.new(0, WIN_W, 0, WIN_H),
-        Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
     })
 
     -- ── Header ──────────────────────────────────────────
@@ -410,7 +442,7 @@ function ZandarUI.new(config)
         QuickTween(Window, 0.35, {
             BackgroundTransparency = 1,
             Size     = UDim2.new(0, WIN_W * 0.6, 0, WIN_H * 0.6),
-            Position = UDim2.new(0.5, -WIN_W * 0.3, 0.5, -WIN_H * 0.3),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
         })
         task.delay(0.4, function()
             ScreenGui:Destroy()
@@ -429,19 +461,32 @@ function ZandarUI.new(config)
             Window.ClipsDescendants = true
             SpringTween(Window, 0.45, {
                 Size     = UDim2.new(0, WIN_W, 0, WIN_H),
-                Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2),
+                Position = UDim2.new(0.5, 0, 0.5, 0),
             })
-            Instance.findFirstChildOfClass(Window, "UICorner").CornerRadius = UDim.new(0, 18)
+            local corner = Window:FindFirstChildOfClass("UICorner")
+            if corner then corner.CornerRadius = UDim.new(0, 18) end
         else
             -- Collapse to pill
             SpringTween(Window, 0.4, {
                 Size     = UDim2.new(0, WIN_W, 0, 52),
-                Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -26),
+                Position = UDim2.new(0.5, 0, 0.5, 0),
             })
         end
     end)
 
     MakeDraggable(Window, Header)
+
+    -- Re-fit the window whenever the screen/viewport size changes
+    -- (phone rotation, resizing the Roblox window on PC, etc.)
+    if Camera then
+        Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
+            local newW, newH = GetWindowSize()
+            WIN_W, WIN_H = newW, newH
+            if self._open then
+                QuickTween(Window, 0.25, { Size = UDim2.new(0, WIN_W, 0, WIN_H) })
+            end
+        end)
+    end
 
     -- ── Tab Rail ────────────────────────────────────────
     local TabRail = Instance.new("Frame")
@@ -1451,14 +1496,14 @@ function ZandarUI.new(config)
                 Window.Visible = true
                 ElasticTween(Window, 0.55, {
                     Size     = UDim2.new(0, WIN_W, 0, WIN_H),
-                    Position = UDim2.new(0.5, -WIN_W / 2, 0.5, -WIN_H / 2),
+                    Position = UDim2.new(0.5, 0, 0.5, 0),
                 })
                 SmoothTween(Overlay, 0.4, { BackgroundTransparency = 0.55 })
                 SmoothTween(blur, 0.4, { Size = T.BlurSize })
             else
                 SmoothTween(Window, 0.32, {
                     Size     = UDim2.new(0, WIN_W * 0.88, 0, WIN_H * 0.88),
-                    Position = UDim2.new(0.5, -WIN_W * 0.44, 0.5, -WIN_H * 0.44),
+                    Position = UDim2.new(0.5, 0, 0.5, 0),
                 })
                 QuickTween(Window, 0.32, { BackgroundTransparency = 1 })
                 SmoothTween(Overlay, 0.35, { BackgroundTransparency = 1 })
