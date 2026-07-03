@@ -1,32 +1,35 @@
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
-
--- Инициализация UI
-local ZandarUI = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/ZandarDev/ZandarUI/main/ZandarUI.lua"
-))()
+-- Загрузка интерфейса ZandarUI
+local ZandarUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/ZandarDev/ZandarUI/main/ZandarUI.lua"))()
 
 local Window = ZandarUI.new({
-    Title       = "Zandar Hub",
-    Subtitle    = "v1.1",
+    Title       = "Zandar UI",
+    Subtitle    = "v1.0",
     Theme       = "Dark",
     AccentColor = Color3.fromRGB(120, 80, 255),
     ToggleKey   = Enum.KeyCode.RightShift,
 })
 
-local MainTab = Window:AddTab("Main")
-local VisualsTab = Window:AddTab("Visuals")
+-- Сервисы
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local LocalPlayer = Players.LocalPlayer
 
--- Переменные для отслеживания состояний
-local SelectedPlayerName = ""
-local ESPEnabled = false
+-- Переменные состояния (Флаги)
+local _G = _G or {}
+_G.ESP_Enabled = false
+_G.Hat_Enabled = false
+
+local SelectedPlayer = nil
 local Spectating = false
-local EspObjects = {}
 
--- === ФУНКЦИЯ ОБНОВЛЕНИЯ СПИСКА ИГРОКОВ ===
+-- Таблицы для хранения эффектов
+local ActiveESP = {}
+local ActiveHats = {}
+
+-- === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+
+-- Функция обновления списков игроков в выпадающих меню (Dropdown)
 local function GetPlayerNames()
     local names = {}
     for _, p in ipairs(Players:GetPlayers()) do
@@ -34,23 +37,104 @@ local function GetPlayerNames()
             table.insert(names, p.Name)
         end
     end
+    if #names == 0 then table.insert(names, "No players found") end
     return names
 end
 
--- === ЭФФЕКТЫ ДЛЯ СЕБЯ (Zandar) ===
-local function CreateSelfEffects(char)
-    if not char then return end
-    local head = char:WaitForChild("Head", 5)
-    if not head then return end
+-- Удаление ESP у конкретного игрока
+local function RemoveESP(player)
+    if ActiveESP[player] then
+        if ActiveESP[player].Highlight then ActiveESP[player].Highlight:Destroy() end
+        if ActiveESP[player].Billboard then ActiveESP[player].Billboard:Destroy() end
+        if ActiveESP[player].Connection then ActiveESP[player].Connection:Disconnect() end
+        ActiveESP[player] = nil
+    end
+end
 
-    local oldObjects = {"EliteHat", "EliteAura", "EliteName"}
+-- Создание ESP (Ник, Дистанция, Черно-бело-серая обводка)
+local function CreateESP(player)
+    if player == LocalPlayer then return end
+    RemoveESP(player)
+
+    local char = player.Character
+    if not char then return end
+    local root = char:WaitForChild("HumanoidRootPart", 5)
+    local head = char:WaitForChild("Head", 5)
+    if not root or not head then return end
+
+    local espData = {}
+
+    -- Обводка (Highlight)
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ZandarESP"
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = char
+    highlight.Parent = char
+    espData.Highlight = highlight
+
+    -- Текст (BillboardGui)
+    local bgui = Instance.new("BillboardGui")
+    bgui.Name = "ZandarESPText"
+    bgui.Size = UDim2.new(0, 200, 0, 50)
+    bgui.StudsOffset = Vector3.new(0, 3, 0)
+    bgui.AlwaysOnTop = true
+    bgui.Adornee = head
+    bgui.Parent = char
+    espData.Billboard = bgui
+
+    local textLabel = Instance.new("TextLabel", bgui)
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextSize = 16
+    textLabel.TextStrokeTransparency = 0.5
+
+    -- Цикл обновления цвета (Черно-бело-серый) и дистанции
+    espData.Connection = RunService.RenderStepped:Connect(function()
+        if not char.Parent or not root.Parent or not _G.ESP_Enabled then
+            RemoveESP(player)
+            return
+        end
+
+        local wave = (math.sin(tick() * 2.5) + 1) / 2
+        local monoColor = Color3.new(wave, wave, wave) -- Перелив от черного к белому через серый
+
+        highlight.OutlineColor = monoColor
+        textLabel.TextColor3 = monoColor
+        
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = math.floor((root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude)
+            textLabel.Text = string.format("%s [%d m]", player.Name, dist)
+        else
+            textLabel.Text = player.Name
+        end
+    end)
+
+    ActiveESP[player] = espData
+end
+
+-- Удаление эффектов конической шляпы и ника vertelevsepoel
+local function RemoveHatEffects(char)
+    if not char then return end
+    local oldObjects = {"ZandarHat", "ZandarAura", "ZandarName"}
     for _, name in ipairs(oldObjects) do
         local old = char:FindFirstChild(name)
         if old then old:Destroy() end
     end
+end
 
+-- Создание конической шляпы и ника (vertelevsepoel)
+local function CreateHatEffects(char)
+    if not char or not _G.Hat_Enabled then return end
+    RemoveHatEffects(char)
+
+    local head = char:WaitForChild("Head", 5)
+    if not head then return end
+
+    -- 1. Шляпа
     local hatPart = Instance.new("Part")
-    hatPart.Name = "EliteHat"
+    hatPart.Name = "ZandarHat"
     hatPart.Size = Vector3.new(1, 0.4, 1)
     hatPart.CanCollide = false
     hatPart.Massless = true
@@ -67,8 +151,9 @@ local function CreateSelfEffects(char)
     weld.Part1 = head
     weld.C0 = CFrame.new(0, -1.15, 0)
 
+    -- 2. Ник vertelevsepoel
     local bgui = Instance.new("BillboardGui")
-    bgui.Name = "EliteName"
+    bgui.Name = "ZandarName"
     bgui.Parent = char
     bgui.Adornee = head
     bgui.Size = UDim2.new(0, 200, 0, 50)
@@ -78,127 +163,139 @@ local function CreateSelfEffects(char)
     local nameLabel = Instance.new("TextLabel", bgui)
     nameLabel.Size = UDim2.new(1, 0, 1, 0)
     nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = "Zandar" -- Изменено на Zandar
+    nameLabel.Text = "vertelevsepoel"
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextSize = 25
     nameLabel.TextStrokeTransparency = 0.5
 
+    -- 3. Аура
     local highlight = Instance.new("Highlight")
-    highlight.Name = "EliteAura"
+    highlight.Name = "ZandarAura"
     highlight.FillTransparency = 1
     highlight.OutlineTransparency = 0
     highlight.Adornee = char
     highlight.Parent = char
 
+    -- Цикл синхронного перелива
     local connection
     connection = RunService.RenderStepped:Connect(function()
-        if not char.Parent or not hatPart.Parent then
+        if not char.Parent or not hatPart.Parent or not _G.Hat_Enabled then
             connection:Disconnect()
+            RemoveHatEffects(char)
             return
         end
         local wave = (math.sin(tick() * 2.5) + 1) / 2
         local color = Color3.new(wave, wave, wave)
+
         hatPart.Color = color
         highlight.OutlineColor = color
         nameLabel.TextColor3 = color
-        nameLabel.TextStrokeColor3 = Color3.new(1-wave, 1-wave, 1-wave)
+        nameLabel.TextStrokeColor3 = Color3.new(1 - wave, 1 - wave, 1 - wave)
     end)
 end
 
-if LocalPlayer.Character then CreateSelfEffects(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(CreateSelfEffects)
+-- === СОЗДАНИЕ СТРАНИЦ И ФУНКЦИЙ ИНТЕРФЕЙСА ===
 
--- === РЕАЛИЗАЦИЯ ESP ===
-local function CreateESP(player)
-    if player == LocalPlayer then return end
+-- Вкладка Main (Основные функции и Твики персонажа)
+local MainTab = Window:AddTab("Main")
+MainTab:AddSection("Player Modifiers")
 
-    local function setupCharacterEsp(char)
-        if not char then return end
-        local root = char:WaitForChild("HumanoidRootPart", 5)
-        local head = char:WaitForChild("Head", 5)
-        if not root or not head then return end
-
-        if EspObjects[player.Name] then
-            pcall(function() EspObjects[player.Name].BGui:Destroy() end)
-            pcall(function() EspObjects[player.Name].Highlight:Destroy() end)
-        end
-
-        local bgui = Instance.new("BillboardGui")
-        bgui.Name = "EspGui"
-        bgui.AlwaysOnTop = true
-        bgui.Size = UDim2.new(0, 200, 0, 50)
-        bgui.StudsOffset = Vector3.new(0, 3, 0)
-        bgui.Adornee = head
-        bgui.Parent = char
-
-        local textLabel = Instance.new("TextLabel", bgui)
-        textLabel.Size = UDim2.new(1, 0, 1, 0)
-        textLabel.BackgroundTransparency = 1
-        textLabel.Font = Enum.Font.SourceSansBold
-        textLabel.TextSize = 18
-        textLabel.TextColor3 = Color3.new(1, 1, 1)
-        textLabel.TextStrokeTransparency = 0.2
-
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "EspHighlight"
-        highlight.FillTransparency = 1
-        highlight.OutlineTransparency = 0
-        highlight.OutlineColor = Color3.fromRGB(180, 180, 180) -- Серо-белый цвет ауры
-        highlight.Adornee = char
-        highlight.Parent = char
-
-        EspObjects[player.Name] = {
-            BGui = bgui,
-            Highlight = highlight,
-            Label = textLabel,
-            Root = root
-        }
-        
-        highlight.Enabled = ESPEnabled
-        bgui.Enabled = ESPEnabled
+MainTab:AddSlider("Speed", {Min=16, Max=500, Default=16, Suffix=" stud/s"}, function(v)
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = v
     end
+end)
 
-    if player.Character then setupCharacterEsp(player.Character) end
-    player.CharacterAdded:Connect(setupCharacterEsp)
-end
+MainTab:AddToggle("God Mode", false, function(v)
+    print("God Mode Status: ", v)
+end)
 
-for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
-Players.PlayerAdded:Connect(CreateESP)
+MainTab:AddSeparator("Visuals")
+
+-- Отдельная функция для активации Conical Hat + переливающегося ника
+MainTab:AddToggle("Conical Hat (vertelevsepoel)", false, function(state)
+    _G.Hat_Enabled = state
+    if state then
+        if LocalPlayer.Character then CreateHatEffects(LocalPlayer.Character) end
+    else
+        RemoveHatEffects(LocalPlayer.Character)
+    end
+end)
+
+-- Вкладка Players (Игроки, ESP, Телепорт, Слежка)
+local PlayersTab = Window:AddTab("Players")
+PlayersTab:AddSection("Visuals")
+
+PlayersTab:AddToggle("Player ESP (Mono)", false, function(state)
+    _G.ESP_Enabled = state
+    if state then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character then CreateESP(p) end
+        end
+    else
+        for p, _ in pairs(ActiveESP) do RemoveESP(p) end
+    end
+end)
+
+PlayersTab:AddSection("Target Control")
+
+-- Выпадающий список игроков, который автоматически обновляется при открытии/нажатии
+local PlayerDropdown = PlayersTab:AddDropdown("Select Target", GetPlayerNames(), function(v)
+    SelectedPlayer = Players:FindFirstChild(v)
+end)
+
+-- Функции взаимодействия с выбранным игроком
+PlayersTab:AddButton("Teleport to Target", function()
+    if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+        end
+    end
+end)
+
+PlayersTab:AddToggle("Spectate Target", false, function(state)
+    Spectating = state
+    local camera = Workspace.CurrentCamera
+    if state and SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("Humanoid") then
+        camera.CameraSubject = SelectedPlayer.Character.Humanoid
+    else
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            camera.CameraSubject = LocalPlayer.Character.Humanoid
+        end
+    end
+end)
+
+-- === ОБРАБОТЧИКИ СОБЫТИЙ И АВТО-ОБНОВЛЕНИЕ ===
+
+-- Отслеживание появления персонажа для применения эффектов шляпы
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if _G.Hat_Enabled then
+        task.wait(0.5)
+        CreateHatEffects(char)
+    end
+end)
+
+-- Обработка ESP для заходящих/выходящих игроков
+Players.PlayerPlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(char)
+        if _G.ESP_Enabled then
+            task.wait(0.5)
+            CreateESP(player)
+        end
+    end)
+end)
 
 Players.PlayerRemoving:Connect(function(player)
-    if EspObjects[player.Name] then
-        EspObjects[player.Name] = nil
-    end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if not ESPEnabled then return end
-    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    
-    for name, data in pairs(EspObjects) do
-        if data.Root and data.Root.Parent and localRoot then
-            local distance = math.floor((localRoot.Position - data.Root.Position).Magnitude)
-            data.Label.Text = string.format("%s\n[%d m]", name, distance)
+    RemoveESP(player)
+    if SelectedPlayer == player then
+        SelectedPlayer = nil
+        if Spectating then
+            Workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
         end
     end
 end)
 
-
--- === НАСТРОЙКА ВКЛАДОК И ФУНКЦИЙ UI ===
-
-MainTab:AddSection("Target Control")
-
-local PlayerDropdown = MainTab:AddDropdown("Select Player", GetPlayerNames(), function(v)
-    SelectedPlayerName = v
-    -- Если мы уже наблюдаем за кем-то и меняем цель в списке, обновляем фокус камеры
-    if Spectating and SelectedPlayerName ~= "" then
-        local targetPlayer = Players:FindFirstChild(SelectedPlayerName)
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
-            Camera.CameraSubject = targetPlayer.Character.Humanoid
-        end
-    end
-end)
-
+-- Постоянное фоновое обновление списков игроков в Dropdown
 task.spawn(function()
     while task.wait(3) do
         pcall(function()
@@ -207,55 +304,10 @@ task.spawn(function()
     end
 end)
 
-MainTab:AddButton("Teleport to Player", function()
-    if SelectedPlayerName ~= "" then
-        local targetPlayer = Players:FindFirstChild(SelectedPlayerName)
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local localChar = LocalPlayer.Character
-            if localChar and localChar:FindFirstChild("HumanoidRootPart") then
-                localChar.HumanoidRootPart.CFrame = targetPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
-            end
-        end
-    end
-end)
-
-MainTab:AddToggle("Spectate Player", false, function(state)
-    Spectating = state
-    if Spectating and SelectedPlayerName ~= "" then
-        local targetPlayer = Players:FindFirstChild(SelectedPlayerName)
-        if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Humanoid") then
-            Camera.CameraSubject = targetPlayer.Character.Humanoid
-        end
-    else
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            Camera.CameraSubject = LocalPlayer.Character.Humanoid
-        end
-    end
-end)
-
-MainTab:AddSeparator("Local Player")
-
-MainTab:AddSlider("Speed", {Min=16, Max=500, Default=16, Suffix=" stud/s"}, function(v)
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = v
-    end
-end)
-
-VisualsTab:AddSection("Render Options")
-
-VisualsTab:AddToggle("Enable ESP", false, function(state)
-    ESPEnabled = state
-    for _, data in pairs(EspObjects) do
-        if data.Highlight and data.BGui then
-            data.Highlight.Enabled = state
-            data.BGui.Enabled = state
-        end
-    end
-end)
-
+-- Уведомление о готовности
 Window:Notify({
-    Title   = "Loaded!",
-    Message = "Zandar Hub Ready.",
+    Title   = "Zandar UI",
+    Message = "Script loaded successfully!",
     Type    = "Success",
     Duration = 4,
 })
