@@ -1,9 +1,11 @@
--- Загрузка интерфейса ZandarUI v3
+-- Загрузка интерфейса ZandarUI
 local ZandarUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/ZandarDev/ZandarUI/main/ZandarUI.lua"))()
 
 local Window = ZandarUI.new({
     Title       = "Zandar UI",
-    Subtitle    = "v3.0.1 - Fixed",
+    Subtitle    = "v1.0",
+    Theme       = "Dark",
+    AccentColor = Color3.fromRGB(120, 80, 255),
     ToggleKey   = Enum.KeyCode.RightShift,
 })
 
@@ -11,40 +13,167 @@ local Window = ZandarUI.new({
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
--- Переменные состояния
+-- Переменные состояния (Флаги)
 local _G = _G or {}
 _G.ESP_Enabled = false
 _G.Hat_Enabled = false
+_G.FlyEnabled = false
+_G.SpeedValue = 16
 
-local SelectedPlayerName = nil
+local SelectedPlayer = nil
 local Spectating = false
-
--- Скорость и Fly конфигурация
-local TargetSpeed = 16
-local FlyEnabled = false
 local FlySpeed = 50
-
--- Объекты физики для Fly
-local FlyVelocity = nil
-local FlyGyro = nil
 
 -- Таблицы для хранения эффектов
 local ActiveESP = {}
+local ActiveHats = {}
+
+-- === НОВЫЙ КОД ДЛЯ СКОРОСТИ И ПОЛЕТА (ВЗЯТ ИЗ speek.txt) ===
+local flyConnection = nil
+local flyBodyVelocity = nil
+
+-- Функция для обновления скорости (авто-обновление каждые 2 секунды)
+local function UpdateWalkSpeed()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        local hum = LocalPlayer.Character.Humanoid
+        if hum.WalkSpeed ~= _G.SpeedValue then
+            hum.WalkSpeed = _G.SpeedValue
+        end
+    end
+end
+
+-- Авто-обновление скорости каждые 2 секунды
+task.spawn(function()
+    while task.wait(2) do
+        pcall(UpdateWalkSpeed)
+    end
+end)
+
+-- === ФУНКЦИИ ПОЛЕТА (АДАПТИРОВАНЫ ДЛЯ ТЕЛЕФОНА И ПК) ===
+local function StartFly(speed)
+    if flyConnection then return end
+    
+    local char = LocalPlayer.Character
+    if not char then return end
+    
+    local hum = char:FindFirstChild("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not hum or not root then return end
+    
+    -- Отключаем гравитацию для гуманоида
+    hum.UseJumpPower = false
+    hum.PlatformStand = true
+    
+    -- Создаем BodyVelocity для плавного полета
+    flyBodyVelocity = Instance.new("BodyVelocity")
+    flyBodyVelocity.MaxForce = Vector3.new(1, 1, 1) * 100000
+    flyBodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    flyBodyVelocity.Parent = root
+    
+    -- Подключаем обновление полета
+    flyConnection = RunService.RenderStepped:Connect(function()
+        if not _G.FlyEnabled or not LocalPlayer.Character then
+            StopFly()
+            return
+        end
+        
+        local rootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if not rootPart then return end
+        
+        local camera = Workspace.CurrentCamera
+        local moveDirection = Vector3.new(0, 0, 0)
+        local forward = camera.CFrame.LookVector
+        local right = camera.CFrame.RightVector
+        local up = camera.CFrame.UpVector
+        
+        -- Управление для ПК (WASD + Space/Ctrl)
+        if UserInputService.KeyboardEnabled then
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveDirection = moveDirection + forward
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveDirection = moveDirection - forward
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveDirection = moveDirection - right
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveDirection = moveDirection + right
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then
+                moveDirection = moveDirection + up
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
+                moveDirection = moveDirection - up
+            end
+        end
+        
+        -- Управление для телефона (джойстик будет добавлен отдельно)
+        if UserInputService.TouchEnabled then
+            -- Здесь будет логика для джойстика, пока используем базовое управление
+            -- Для телефона можно использовать нажатие на экран для подъема/спуска
+            if UserInputService:IsKeyDown(Enum.KeyCode.Up) or UserInputService:IsKeyDown(Enum.KeyCode.E) then
+                moveDirection = moveDirection + up
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Down) or UserInputService:IsKeyDown(Enum.KeyCode.Q) then
+                moveDirection = moveDirection - up
+            end
+        end
+        
+        -- Нормализуем направление и применяем скорость
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit * speed
+        end
+        
+        -- Применяем скорость
+        flyBodyVelocity.Velocity = moveDirection
+        
+        -- Синхронизируем положение с физикой
+        if moveDirection.Magnitude > 0 then
+            rootPart.Velocity = moveDirection
+        end
+    end)
+end
+
+local function StopFly()
+    if flyConnection then
+        flyConnection:Disconnect()
+        flyConnection = nil
+    end
+    
+    if flyBodyVelocity then
+        flyBodyVelocity:Destroy()
+        flyBodyVelocity = nil
+    end
+    
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            hum.PlatformStand = false
+            hum.UseJumpPower = true
+        end
+    end
+end
 
 -- === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 
+-- Функция обновления списков игроков в выпадающих меню (Dropdown)
 local function GetPlayerNames()
     local names = {}
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then table.insert(names, p.Name) end
+        if p ~= LocalPlayer then
+            table.insert(names, p.Name)
+        end
     end
     if #names == 0 then table.insert(names, "No players found") end
     return names
 end
 
+-- Удаление ESP у конкретного игрока
 local function RemoveESP(player)
     if ActiveESP[player] then
         if ActiveESP[player].Highlight then ActiveESP[player].Highlight:Destroy() end
@@ -54,38 +183,55 @@ local function RemoveESP(player)
     end
 end
 
+-- Создание ESP (Ник, Дистанция, Черно-бело-серая обводка)
 local function CreateESP(player)
-    if player == LocalPlayer or not _G.ESP_Enabled then return end
+    if player == LocalPlayer then return end
     RemoveESP(player)
-    
+
     local char = player.Character
     if not char then return end
-    
     local root = char:WaitForChild("HumanoidRootPart", 5)
     local head = char:WaitForChild("Head", 5)
     if not root or not head then return end
 
     local espData = {}
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ZandarESP"; highlight.FillTransparency = 1; highlight.OutlineTransparency = 0
-    highlight.Adornee = char; highlight.Parent = char; espData.Highlight = highlight
 
+    -- Обводка (Highlight)
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ZandarESP"
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = char
+    highlight.Parent = char
+    espData.Highlight = highlight
+
+    -- Текст (BillboardGui)
     local bgui = Instance.new("BillboardGui")
-    bgui.Name = "ZandarESPText"; bgui.Size = UDim2.new(0, 200, 0, 50)
-    bgui.StudsOffset = Vector3.new(0, 3, 0); bgui.AlwaysOnTop = true; bgui.Adornee = head; bgui.Parent = char
+    bgui.Name = "ZandarESPText"
+    bgui.Size = UDim2.new(0, 200, 0, 50)
+    bgui.StudsOffset = Vector3.new(0, 3, 0)
+    bgui.AlwaysOnTop = true
+    bgui.Adornee = head
+    bgui.Parent = char
     espData.Billboard = bgui
 
     local textLabel = Instance.new("TextLabel", bgui)
-    textLabel.Size = UDim2.new(1, 0, 1, 0); textLabel.BackgroundTransparency = 1
-    textLabel.Font = Enum.Font.GothamBold; textLabel.TextSize = 16; textLabel.TextStrokeTransparency = 0.5
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.TextSize = 16
+    textLabel.TextStrokeTransparency = 0.5
 
+    -- Цикл обновления цвета (Черно-бело-серый) и дистанции
     espData.Connection = RunService.RenderStepped:Connect(function()
         if not char.Parent or not root.Parent or not _G.ESP_Enabled then
             RemoveESP(player)
             return
         end
+
         local wave = (math.sin(tick() * 2.5) + 1) / 2
-        local monoColor = Color3.new(wave, wave, wave)
+        local monoColor = Color3.new(wave, wave, wave) -- Перелив от черного к белому через серый
+
         highlight.OutlineColor = monoColor
         textLabel.TextColor3 = monoColor
         
@@ -96,44 +242,73 @@ local function CreateESP(player)
             textLabel.Text = player.Name
         end
     end)
+
     ActiveESP[player] = espData
 end
 
+-- Удаление эффектов конической шляпы и ника vertelevsepoel
 local function RemoveHatEffects(char)
     if not char then return end
-    for _, name in ipairs({"ZandarHat", "ZandarAura", "ZandarName"}) do
+    local oldObjects = {"ZandarHat", "ZandarAura", "ZandarName"}
+    for _, name in ipairs(oldObjects) do
         local old = char:FindFirstChild(name)
         if old then old:Destroy() end
     end
 end
 
+-- Создание конической шляпы и ника (vertelevsepoel)
 local function CreateHatEffects(char)
     if not char or not _G.Hat_Enabled then return end
     RemoveHatEffects(char)
+
     local head = char:WaitForChild("Head", 5)
     if not head then return end
 
+    -- 1. Шляпа
     local hatPart = Instance.new("Part")
-    hatPart.Name = "ZandarHat"; hatPart.Size = Vector3.new(1, 0.4, 1)
-    hatPart.CanCollide = false; hatPart.Massless = true; hatPart.Material = Enum.Material.SmoothPlastic; hatPart.Parent = char
+    hatPart.Name = "ZandarHat"
+    hatPart.Size = Vector3.new(1, 0.4, 1)
+    hatPart.CanCollide = false
+    hatPart.Massless = true
+    hatPart.Material = Enum.Material.SmoothPlastic
+    hatPart.Parent = char
 
     local mesh = Instance.new("SpecialMesh", hatPart)
-    mesh.MeshType = Enum.MeshType.FileMesh; mesh.MeshId = "rbxassetid://1033714"; mesh.Scale = Vector3.new(1.7, 1.1, 1.7)
+    mesh.MeshType = Enum.MeshType.FileMesh
+    mesh.MeshId = "rbxassetid://1033714"
+    mesh.Scale = Vector3.new(1.7, 1.1, 1.7)
 
     local weld = Instance.new("Weld", hatPart)
-    weld.Part0 = hatPart; weld.Part1 = head; weld.C0 = CFrame.new(0, -1.15, 0)
+    weld.Part0 = hatPart
+    weld.Part1 = head
+    weld.C0 = CFrame.new(0, -1.15, 0)
 
+    -- 2. Ник vertelevsepoel
     local bgui = Instance.new("BillboardGui")
-    bgui.Name = "ZandarName"; bgui.Parent = char; bgui.Adornee = head
-    bgui.Size = UDim2.new(0, 200, 0, 50); bgui.StudsOffset = Vector3.new(0, 3.5, 0); bgui.AlwaysOnTop = true
+    bgui.Name = "ZandarName"
+    bgui.Parent = char
+    bgui.Adornee = head
+    bgui.Size = UDim2.new(0, 200, 0, 50)
+    bgui.StudsOffset = Vector3.new(0, 3.5, 0)
+    bgui.AlwaysOnTop = true
 
     local nameLabel = Instance.new("TextLabel", bgui)
-    nameLabel.Size = UDim2.new(1, 0, 1, 0); nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = "vertelevsepoel"; nameLabel.Font = Enum.Font.GothamBold; nameLabel.TextSize = 25; nameLabel.TextStrokeTransparency = 0.5
+    nameLabel.Size = UDim2.new(1, 0, 1, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = "vertelevsepoel"
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 25
+    nameLabel.TextStrokeTransparency = 0.5
 
+    -- 3. Аура
     local highlight = Instance.new("Highlight")
-    highlight.Name = "ZandarAura"; highlight.FillTransparency = 1; highlight.OutlineTransparency = 0; highlight.Adornee = char; highlight.Parent = char
+    highlight.Name = "ZandarAura"
+    highlight.FillTransparency = 1
+    highlight.OutlineTransparency = 0
+    highlight.Adornee = char
+    highlight.Parent = char
 
+    -- Цикл синхронного перелива
     local connection
     connection = RunService.RenderStepped:Connect(function()
         if not char.Parent or not hatPart.Parent or not _G.Hat_Enabled then
@@ -143,6 +318,7 @@ local function CreateHatEffects(char)
         end
         local wave = (math.sin(tick() * 2.5) + 1) / 2
         local color = Color3.new(wave, wave, wave)
+
         hatPart.Color = color
         highlight.OutlineColor = color
         nameLabel.TextColor3 = color
@@ -150,187 +326,167 @@ local function CreateHatEffects(char)
     end)
 end
 
--- === ИНИЦИАЛИЗАЦИЯ ИНТЕРФЕЙСА ===
+-- === СОЗДАНИЕ СТРАНИЦ И ФУНКЦИЙ ИНТЕРФЕЙСА ===
 
+-- Вкладка Main (Основные функции и Твики персонажа)
 local MainTab = Window:AddTab("Main")
-MainTab:AddSection("Speed Modifiers")
+MainTab:AddSection("Player Modifiers")
 
-local SpeedSlider = MainTab:AddSlider("WalkSpeed", {Min=16, Max=500, Default=16, Suffix=" stud/s"}, function(v)
-    TargetSpeed = v
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = v
-    end
+-- Слайдер скорости с авто-обновлением
+local speedSlider = MainTab:AddSlider("Speed", {Min=16, Max=500, Default=16, Suffix=" stud/s"}, function(v)
+    _G.SpeedValue = v
+    pcall(UpdateWalkSpeed) -- Мгновенное обновление при изменении
 end)
 
-local SpeedBox = MainTab:AddTextBox("Custom Speed", "Enter exact speed...", function(text)
-    local num = tonumber(text)
-    if num then
-        TargetSpeed = num
-        SpeedSlider:Set(math.clamp(num, 16, 500))
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.WalkSpeed = num
-        end
-    end
-end)
-
-MainTab:AddSection("Flight Control (Fly)")
-
-MainTab:AddToggle("Fly Mode", false, function(state)
-    FlyEnabled = state
-    if not state then
-        if FlyVelocity then FlyVelocity:Destroy(); FlyVelocity = nil end
-        if FlyGyro then FlyGyro:Destroy(); FlyGyro = nil end
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-            LocalPlayer.Character.Humanoid.PlatformStand = false
-        end
-    end
-end)
-
-MainTab:AddSlider("Fly Speed", {Min=10, Max=300, Default=50, Suffix=" studs"}, function(v)
+-- Отдельная функция для добавления/уменьшения скорости полета
+MainTab:AddSlider("Fly Speed", {Min=10, Max=200, Default=50, Suffix=" stud/s"}, function(v)
     FlySpeed = v
+    if _G.FlyEnabled then
+        -- Перезапускаем полет с новой скоростью
+        StopFly()
+        StartFly(FlySpeed)
+    end
 end)
 
-MainTab:AddSection("Visuals")
+MainTab:AddToggle("God Mode", false, function(v)
+    print("God Mode Status: ", v)
+end)
 
+MainTab:AddSeparator("Movement")
+
+-- Основной тоггл полета
+MainTab:AddToggle("Fly Mode", false, function(state)
+    _G.FlyEnabled = state
+    if state then
+        StartFly(FlySpeed)
+    else
+        StopFly()
+    end
+end)
+
+MainTab:AddSeparator("Visuals")
+
+-- Отдельная функция для активации Conical Hat + переливающегося ника
 MainTab:AddToggle("Conical Hat (vertelevsepoel)", false, function(state)
     _G.Hat_Enabled = state
-    if state and LocalPlayer.Character then CreateHatEffects(LocalPlayer.Character) else RemoveHatEffects(LocalPlayer.Character) end
+    if state then
+        if LocalPlayer.Character then CreateHatEffects(LocalPlayer.Character) end
+    else
+        RemoveHatEffects(LocalPlayer.Character)
+    end
 end)
 
+-- Вкладка Players (Игроки, ESP, Телепорт, Слежка)
 local PlayersTab = Window:AddTab("Players")
 PlayersTab:AddSection("Visuals")
 
 PlayersTab:AddToggle("Player ESP (Mono)", false, function(state)
     _G.ESP_Enabled = state
     if state then
-        for _, p in ipairs(Players:GetPlayers()) do CreateESP(p) end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p.Character then CreateESP(p) end
+        end
     else
         for p, _ in pairs(ActiveESP) do RemoveESP(p) end
     end
 end)
 
 PlayersTab:AddSection("Target Control")
+
+-- Выпадающий список игроков, который автоматически обновляется при открытии/нажатии
 local PlayerDropdown = PlayersTab:AddDropdown("Select Target", GetPlayerNames(), function(v)
-    SelectedPlayerName = v
+    SelectedPlayer = Players:FindFirstChild(v)
 end)
 
+-- Функции взаимодействия с выбранным игроком
 PlayersTab:AddButton("Teleport to Target", function()
-    if not SelectedPlayerName then return end
-    local target = Players:FindFirstChild(SelectedPlayerName)
-    if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+    if SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("HumanoidRootPart") then
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
+            LocalPlayer.Character.HumanoidRootPart.CFrame = SelectedPlayer.Character.HumanoidRootPart.CFrame * CFrame.new(0, 0, -3)
         end
     end
 end)
 
-local SpectateToggle
-SpectateToggle = PlayersTab:AddToggle("Spectate Target", false, function(state)
+PlayersTab:AddToggle("Spectate Target", false, function(state)
     Spectating = state
-end)
-
--- === ОСНОВНАЯ ЛОГИКА ===
-
--- 1. Цикл жесткого обновления WalkSpeed и контроля Спектатора
-RunService.RenderStepped:Connect(function()
-    -- Анти-ресет скорости
-    if not FlyEnabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = TargetSpeed
-    end
-
-    -- Стабильный спектатор без багов переспавна
-    if Spectating and SelectedPlayerName then
-        local target = Players:FindFirstChild(SelectedPlayerName)
-        if target and target.Character and target.Character:FindFirstChild("Humanoid") then
-            Camera.CameraSubject = target.Character.Humanoid
-        else
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                Camera.CameraSubject = LocalPlayer.Character.Humanoid
-            end
-        end
+    local camera = Workspace.CurrentCamera
+    if state and SelectedPlayer and SelectedPlayer.Character and SelectedPlayer.Character:FindFirstChild("Humanoid") then
+        camera.CameraSubject = SelectedPlayer.Character.Humanoid
     else
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and Camera.CameraSubject ~= LocalPlayer.Character.Humanoid then
-            Camera.CameraSubject = LocalPlayer.Character.Humanoid
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            camera.CameraSubject = LocalPlayer.Character.Humanoid
         end
     end
 end)
 
--- 2. Физический скованный Fly (без задержек камеры, жесткая стабилизация)
-RunService.Heartbeat:Connect(function()
-    local character = LocalPlayer.Character
-    if not character then return end
-    local root = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChild("Humanoid")
-    if not root or not humanoid then return end
+-- === ОБРАБОТЧИКИ СОБЫТИЙ И АВТО-ОБНОВЛЕНИЕ ===
 
-    if FlyEnabled then
-        humanoid.PlatformStand = true
-        
-        -- Инициализация жестких гироскопов, если их нет
-        if not FlyVelocity or FlyVelocity.Parent ~= root then
-            if FlyVelocity then FlyVelocity:Destroy() end
-            FlyVelocity = Instance.new("BodyVelocity")
-            FlyVelocity.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-            FlyVelocity.Velocity = Vector3.zero
-            FlyVelocity.Parent = root
-        end
-        
-        if not FlyGyro or FlyGyro.Parent ~= root then
-            if FlyGyro then FlyGyro:Destroy() end
-            FlyGyro = Instance.new("BodyGyro")
-            FlyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-            FlyGyro.CFrame = Camera.CFrame
-            FlyGyro.Parent = root
-        end
-
-        -- Жестко заставляем персонажа смотреть туда, куда смотрит камера
-        FlyGyro.CFrame = Camera.CFrame
-
-        -- Движение
-        local moveDirection = humanoid.MoveDirection
-        if moveDirection.Magnitude > 0 then
-            local localMove = root.CFrame:VectorToObjectSpace(moveDirection)
-            local flightDirection = (Camera.CFrame.LookVector * -localMove.Z + Camera.CFrame.RightVector * localMove.X).Unit
-            FlyVelocity.Velocity = flightDirection * FlySpeed
-        else
-            FlyVelocity.Velocity = Vector3.zero
-        end
+-- Отслеживание появления персонажа для применения эффектов шляпы
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if _G.Hat_Enabled then
+        task.wait(0.5)
+        CreateHatEffects(char)
     end
 end)
 
--- Авто-обновление ESP при переспавнах (для ВСЕХ игроков)
-local function HookPlayer(player)
+-- Обработка ESP для заходящих/выходящих игроков
+Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(char)
         if _G.ESP_Enabled then
             task.wait(0.5)
             CreateESP(player)
         end
     end)
-    player.CharacterRemoving:Connect(function()
-        RemoveESP(player)
-    end)
-end
-
-for _, p in ipairs(Players:GetPlayers()) do HookPlayer(p) end
-Players.PlayerAdded:Connect(HookPlayer)
+end)
 
 Players.PlayerRemoving:Connect(function(player)
     RemoveESP(player)
-    if SelectedPlayerName == player.Name then
-        SelectedPlayerName = nil
+    if SelectedPlayer == player then
+        SelectedPlayer = nil
+        if Spectating then
+            Workspace.CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChild("Humanoid")
+        end
     end
 end)
 
--- Авто-обновление списка в дропдауне
+-- Постоянное фоновое обновление списков игроков в Dropdown
 task.spawn(function()
     while task.wait(3) do
-        pcall(function() PlayerDropdown:Refresh(GetPlayerNames(), true) end)
+        pcall(function()
+            PlayerDropdown:Refresh(GetPlayerNames(), true)
+        end)
     end
 end)
 
+-- Обработка смены персонажа для полета
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if _G.FlyEnabled then
+        task.wait(0.5)
+        StartFly(FlySpeed)
+    end
+end)
+
+-- Обработка нажатий клавиш для быстрого управления полетом (ПК)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.F and not _G.FlyEnabled then
+        -- Включаем полет по клавише F
+        _G.FlyEnabled = true
+        StartFly(FlySpeed)
+    elseif input.KeyCode == Enum.KeyCode.F and _G.FlyEnabled then
+        -- Выключаем полет по клавише F
+        _G.FlyEnabled = false
+        StopFly()
+    end
+end)
+
+-- Уведомление о готовности
 Window:Notify({
     Title   = "Zandar UI",
-    Message = "All systems fixed and optimized!",
+    Message = "Script loaded successfully! Fly with F key, WASD + Space/Ctrl",
     Type    = "Success",
     Duration = 4,
 })
+
+print("[Zandar UI] Loaded successfully! Speed updates every 2 seconds, Fly mode with F key.")
