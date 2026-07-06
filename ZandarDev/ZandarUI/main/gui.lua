@@ -26,16 +26,16 @@ local Spectating = false
 
 -- Таблицы эффектов
 local ActiveESP = {}
-local ActiveHats = {}
 
 -- === ПЕРЕМЕННЫЕ ДЛЯ СКОРОСТИ И ПОЛЁТА ===
-local DesiredWalkSpeed = 16          -- будет обновляться каждые 2 секунды
+local DesiredWalkSpeed = 16
 local FlyEnabled = false
-local FlySpeed = 50                 -- базовая скорость полёта
-local FlySpeedSlider = nil          -- ссылка на слайдер скорости полёта (для обновления)
-local FlySpeedLabel = nil           -- текстовый лейбл текущей скорости полёта
+local FlySpeed = 50
+local bodyVelocity = nil
+local flyConnection = nil
 
--- Функция обновления списков игроков
+-- === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+
 local function GetPlayerNames()
     local names = {}
     for _, p in ipairs(Players:GetPlayers()) do
@@ -47,7 +47,6 @@ local function GetPlayerNames()
     return names
 end
 
--- Удаление ESP
 local function RemoveESP(player)
     if ActiveESP[player] then
         if ActiveESP[player].Highlight then ActiveESP[player].Highlight:Destroy() end
@@ -57,62 +56,78 @@ local function RemoveESP(player)
     end
 end
 
--- Создание ESP
 local function CreateESP(player)
     if player == LocalPlayer then return end
     RemoveESP(player)
 
     local char = player.Character
     if not char then return end
-    local root = char:WaitForChild("HumanoidRootPart", 5)
-    local head = char:WaitForChild("Head", 5)
-    if not root or not head then return end
+    
+    local function setupESP()
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local head = char:FindFirstChild("Head")
+        if not root or not head then return end
 
-    local espData = {}
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ZandarESP"
-    highlight.FillTransparency = 1
-    highlight.OutlineTransparency = 0
-    highlight.Adornee = char
-    highlight.Parent = char
-    espData.Highlight = highlight
+        local espData = {}
+        
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ZandarESP"
+        highlight.FillTransparency = 1
+        highlight.OutlineTransparency = 0
+        highlight.Adornee = char
+        highlight.Parent = char
+        espData.Highlight = highlight
 
-    local bgui = Instance.new("BillboardGui")
-    bgui.Name = "ZandarESPText"
-    bgui.Size = UDim2.new(0, 200, 0, 50)
-    bgui.StudsOffset = Vector3.new(0, 3, 0)
-    bgui.AlwaysOnTop = true
-    bgui.Adornee = head
-    bgui.Parent = char
-    espData.Billboard = bgui
+        local bgui = Instance.new("BillboardGui")
+        bgui.Name = "ZandarESPText"
+        bgui.Size = UDim2.new(0, 200, 0, 50)
+        bgui.StudsOffset = Vector3.new(0, 3, 0)
+        bgui.AlwaysOnTop = true
+        bgui.Adornee = head
+        bgui.Parent = char
+        espData.Billboard = bgui
 
-    local textLabel = Instance.new("TextLabel", bgui)
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.Font = Enum.Font.GothamBold
-    textLabel.TextSize = 16
-    textLabel.TextStrokeTransparency = 0.5
+        local textLabel = Instance.new("TextLabel", bgui)
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.TextSize = 16
+        textLabel.TextStrokeTransparency = 0.5
 
-    espData.Connection = RunService.RenderStepped:Connect(function()
-        if not char.Parent or not root.Parent or not _G.ESP_Enabled then
-            RemoveESP(player)
-            return
-        end
-        local wave = (math.sin(tick() * 2.5) + 1) / 2
-        local monoColor = Color3.new(wave, wave, wave)
-        highlight.OutlineColor = monoColor
-        textLabel.TextColor3 = monoColor
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local dist = math.floor((root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude)
-            textLabel.Text = string.format("%s [%d m]", player.Name, dist)
-        else
-            textLabel.Text = player.Name
-        end
-    end)
-    ActiveESP[player] = espData
+        espData.Connection = RunService.RenderStepped:Connect(function()
+            if not char or not char.Parent or not root or not root.Parent or not _G.ESP_Enabled then
+                RemoveESP(player)
+                return
+            end
+            local wave = (math.sin(tick() * 2.5) + 1) / 2
+            local monoColor = Color3.new(wave, wave, wave)
+            highlight.OutlineColor = monoColor
+            textLabel.TextColor3 = monoColor
+            
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = math.floor((root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude)
+                textLabel.Text = string.format("%s [%d m]", player.Name, dist)
+            else
+                textLabel.Text = player.Name
+            end
+        end)
+        
+        ActiveESP[player] = espData
+    end
+    
+    if char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") then
+        setupESP()
+    else
+        char.ChildAdded:Connect(function(child)
+            if child.Name == "HumanoidRootPart" or child.Name == "Head" then
+                if char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Head") then
+                    setupESP()
+                end
+            end
+        end)
+    end
 end
 
--- Удаление шляпы и имени
 local function RemoveHatEffects(char)
     if not char then return end
     local oldObjects = {"ZandarHat", "ZandarAura", "ZandarName"}
@@ -122,12 +137,19 @@ local function RemoveHatEffects(char)
     end
 end
 
--- Создание шляпы и имени
 local function CreateHatEffects(char)
     if not char or not _G.Hat_Enabled then return end
     RemoveHatEffects(char)
-    local head = char:WaitForChild("Head", 5)
-    if not head then return end
+    
+    local head = char:FindFirstChild("Head")
+    if not head then
+        char.ChildAdded:Connect(function(child)
+            if child.Name == "Head" then
+                CreateHatEffects(char)
+            end
+        end)
+        return
+    end
 
     local hatPart = Instance.new("Part")
     hatPart.Name = "ZandarHat"
@@ -186,76 +208,72 @@ local function CreateHatEffects(char)
     end)
 end
 
--- === ПОСТОЯННОЕ ОБНОВЛЕНИЕ СКОРОСТИ ===
-task.spawn(function()
-    while task.wait(2) do
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Humanoid") then
-                char.Humanoid.WalkSpeed = DesiredWalkSpeed
-            end
-        end)
-    end
-end)
-
 -- === СИСТЕМА ПОЛЁТА ===
-local bodyVelocity = nil
-local flyConnection = nil
 
 local function startFly()
-    if flyConnection then return end
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    
     local humanoid = char:FindFirstChild("Humanoid")
     if not humanoid then return end
-
-    -- Создаём BodyVelocity для плавного полёта
+    
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+    end
+    
     bodyVelocity = Instance.new("BodyVelocity")
-    bodyVelocity.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
     bodyVelocity.Velocity = Vector3.zero
     bodyVelocity.Parent = char.HumanoidRootPart
-
-    humanoid.PlatformStand = true  -- убирает анимации падения
-
+    
+    humanoid.PlatformStand = true
+    
+    if flyConnection then
+        flyConnection:Disconnect()
+    end
+    
     local camera = Workspace.CurrentCamera
-
+    
     flyConnection = RunService.RenderStepped:Connect(function()
         if not FlyEnabled or not char.Parent or not bodyVelocity then
-            stopFly()
             return
         end
-
+        
         local moveDirection = Vector3.zero
-        local verticalInput = 0
-
-        -- Определяем направление движения
-        if UserInputService.TouchEnabled then  -- мобильное устройство
-            local humanoid = char:FindFirstChild("Humanoid")
-            if humanoid then
-                moveDirection = humanoid.MoveDirection  -- уже относительно камеры на мобилках
+        
+        -- Обработка ввода с клавиатуры (WASD)
+        if not UserInputService.TouchEnabled then
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
+                moveDirection = moveDirection + camera.CFrame.LookVector
             end
-        else  -- ПК: WASD
-            local forward = 0
-            local strafe = 0
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then forward = forward + 1 end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then forward = forward - 1 end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then strafe = strafe - 1 end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then strafe = strafe + 1 end
-
-            if forward ~= 0 or strafe ~= 0 then
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
+                moveDirection = moveDirection - camera.CFrame.LookVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
+                moveDirection = moveDirection - camera.CFrame.RightVector
+            end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
+                moveDirection = moveDirection + camera.CFrame.RightVector
+            end
+        else
+            -- Мобильное управление через джойстик
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid and humanoid.MoveDirection.Magnitude > 0 then
                 local camCF = camera.CFrame
-                moveDirection = (camCF.LookVector * forward + camCF.RightVector * strafe).Unit
+                moveDirection = camCF.LookVector * humanoid.MoveDirection.Z + camCF.RightVector * humanoid.MoveDirection.X
             end
         end
-
-        -- Вертикаль по наклону камеры
-        local lookVector = camera.CFrame.LookVector
-        verticalInput = lookVector.Y * 2  -- коэффициент чувствительности
-
-        -- Итоговая скорость
+        
+        -- Вертикальное движение по наклону камеры
+        local verticalInput = camera.CFrame.LookVector.Y * 2
+        
+        if moveDirection.Magnitude > 0 then
+            moveDirection = moveDirection.Unit
+        end
+        
         local velocity = moveDirection * FlySpeed
         velocity = velocity + Vector3.new(0, verticalInput * FlySpeed, 0)
-
+        
         bodyVelocity.Velocity = velocity
     end)
 end
@@ -280,36 +298,38 @@ local function stopFly()
     end)
 end
 
--- Обработка клавиш +/- для скорости полёта
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.Plus or input.KeyCode == Enum.KeyCode.KeypadPlus then
-        FlySpeed = math.min(FlySpeed + 10, 500)
-        if FlySpeedSlider then FlySpeedSlider:SetValue(FlySpeed) end
-        if FlySpeedLabel then FlySpeedLabel.Text = "Fly Speed: " .. FlySpeed .. " stud/s" end
-    elseif input.KeyCode == Enum.KeyCode.Minus or input.KeyCode == Enum.KeyCode.KeypadMinus then
-        FlySpeed = math.max(FlySpeed - 10, 10)
-        if FlySpeedSlider then FlySpeedSlider:SetValue(FlySpeed) end
-        if FlySpeedLabel then FlySpeedLabel.Text = "Fly Speed: " .. FlySpeed .. " stud/s" end
+-- === ПОСТОЯННОЕ ОБНОВЛЕНИЕ СКОРОСТИ ===
+task.spawn(function()
+    while task.wait(2) do
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = DesiredWalkSpeed
+            end
+        end)
     end
 end)
 
--- === ИНТЕРФЕЙС ===
+-- === СОЗДАНИЕ ИНТЕРФЕЙСА ===
 
 local MainTab = Window:AddTab("Main")
 MainTab:AddSection("Player Modifiers")
 
--- Слайдер скорости (сохраняет значение для цикла)
 MainTab:AddSlider("Speed", {Min=16, Max=500, Default=16, Suffix=" stud/s"}, function(v)
     DesiredWalkSpeed = v
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = v
+    end
 end)
 
--- Ввод произвольной скорости (текстовое поле + кнопка)
 MainTab:AddSection("Custom Speed")
-local customSpeedInput = MainTab:AddTextbox("Speed value", "Enter any number", function(text)
+MainTab:AddTextbox("Speed value", "Enter any number", function(text)
     local num = tonumber(text)
     if num and num > 0 then
         DesiredWalkSpeed = num
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            LocalPlayer.Character.Humanoid.WalkSpeed = num
+        end
         Window:Notify({
             Title = "Speed",
             Message = "Speed set to " .. num .. " stud/s",
@@ -349,43 +369,44 @@ MainTab:AddToggle("Enable Fly", false, function(state)
     end
 end)
 
--- Слайдер скорости полёта
-FlySpeedSlider = MainTab:AddSlider("Fly Speed", {Min=10, Max=500, Default=50, Suffix=" stud/s"}, function(v)
+local FlySpeedLabel = MainTab:AddLabel("Current Fly Speed: 50 stud/s")
+
+MainTab:AddSlider("Fly Speed", {Min=10, Max=500, Default=50, Suffix=" stud/s"}, function(v)
     FlySpeed = v
-    if FlySpeedLabel then FlySpeedLabel.Text = "Fly Speed: " .. v .. " stud/s" end
+    FlySpeedLabel:SetText("Current Fly Speed: " .. v .. " stud/s")
 end)
 
--- Лейбл для отображения текущей скорости полёта
-FlySpeedLabel = MainTab:AddLabel("Fly Speed: 50 stud/s")
-
--- Кнопки ±
-MainTab:AddButton("+ Fly Speed", function()
+MainTab:AddButton("+10 Fly Speed", function()
     FlySpeed = math.min(FlySpeed + 10, 500)
-    FlySpeedSlider:SetValue(FlySpeed)
-    FlySpeedLabel.Text = "Fly Speed: " .. FlySpeed .. " stud/s"
+    FlySpeedLabel:SetText("Current Fly Speed: " .. FlySpeed .. " stud/s")
 end)
 
-MainTab:AddButton("- Fly Speed", function()
+MainTab:AddButton("-10 Fly Speed", function()
     FlySpeed = math.max(FlySpeed - 10, 10)
-    FlySpeedSlider:SetValue(FlySpeed)
-    FlySpeedLabel.Text = "Fly Speed: " .. FlySpeed .. " stud/s"
+    FlySpeedLabel:SetText("Current Fly Speed: " .. FlySpeed .. " stud/s")
 end)
 
--- Вкладка Players (без изменений, но оставлена для полноты)
+-- === ВКЛАДКА ИГРОКОВ ===
 local PlayersTab = Window:AddTab("Players")
 PlayersTab:AddSection("Visuals")
+
 PlayersTab:AddToggle("Player ESP (Mono)", false, function(state)
     _G.ESP_Enabled = state
     if state then
         for _, p in ipairs(Players:GetPlayers()) do
-            if p.Character then CreateESP(p) end
+            if p ~= LocalPlayer then
+                CreateESP(p)
+            end
         end
     else
-        for p, _ in pairs(ActiveESP) do RemoveESP(p) end
+        for p, _ in pairs(ActiveESP) do
+            RemoveESP(p)
+        end
     end
 end)
 
 PlayersTab:AddSection("Target Control")
+
 local PlayerDropdown = PlayersTab:AddDropdown("Select Target", GetPlayerNames(), function(v)
     SelectedPlayer = Players:FindFirstChild(v)
 end)
@@ -417,7 +438,6 @@ LocalPlayer.CharacterAdded:Connect(function(char)
         task.wait(0.5)
         CreateHatEffects(char)
     end
-    -- Если полёт был включен, перезапускаем его для нового персонажа
     if FlyEnabled then
         stopFly()
         task.wait(0.1)
@@ -427,7 +447,7 @@ end)
 
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function(char)
-        if _G.ESP_Enabled then
+        if _G.ESP_Enabled and player ~= LocalPlayer then
             task.wait(0.5)
             CreateESP(player)
         end
@@ -444,6 +464,7 @@ Players.PlayerRemoving:Connect(function(player)
     end
 end)
 
+-- Автообновление списка игроков
 task.spawn(function()
     while task.wait(3) do
         pcall(function()
@@ -452,9 +473,21 @@ task.spawn(function()
     end
 end)
 
+-- Клавиши для управления скоростью полёта
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Equals then -- Клавиша +
+        FlySpeed = math.min(FlySpeed + 10, 500)
+        FlySpeedLabel:SetText("Current Fly Speed: " .. FlySpeed .. " stud/s")
+    elseif input.KeyCode == Enum.KeyCode.Minus then -- Клавиша -
+        FlySpeed = math.max(FlySpeed - 10, 10)
+        FlySpeedLabel:SetText("Current Fly Speed: " .. FlySpeed .. " stud/s")
+    end
+end)
+
 Window:Notify({
     Title   = "Zandar UI",
-    Message = "Script loaded successfully! Fly and speed features added.",
+    Message = "Script loaded successfully!",
     Type    = "Success",
     Duration = 4,
 })
