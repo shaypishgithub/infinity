@@ -1,4 +1,5 @@
 
+
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -11,7 +12,9 @@ local LocalPlayer = Players.LocalPlayer
 local Mouse       = LocalPlayer:GetMouse()
 local Camera      = workspace.CurrentCamera
 
-
+-- ╔══════════════════════════════════════════════════════╗
+-- ║             MONOCHROME GLASS THEME                   ║
+-- ╚══════════════════════════════════════════════════════╝
 
 local T = {
     Background      = Color3.fromRGB(6,  6,  8),
@@ -220,10 +223,12 @@ end
 
 local ZandarUI = {}
 ZandarUI.__index = ZandarUI
-ZandarUI.Version = "3.1.0"
+ZandarUI.Version = "3.2.0"
 
 function ZandarUI.Destroy()
     if CoreGui:FindFirstChild("ZandarUI") then CoreGui:FindFirstChild("ZandarUI"):Destroy() end
+    local blur = Lighting:FindFirstChild("ZandarUI_Blur")
+    if blur then blur:Destroy() end
 end
 
 function ZandarUI.new(config)
@@ -246,6 +251,7 @@ function ZandarUI.new(config)
 
     -- ── Blur + dim overlay ──────────────────────────────
     local blur = Instance.new("BlurEffect")
+    blur.Name   = "ZandarUI_Blur"
     blur.Size   = 0
     blur.Parent = Lighting
     self._blur  = blur
@@ -258,6 +264,7 @@ function ZandarUI.new(config)
     Overlay.BorderSizePixel  = 0
     Overlay.ZIndex           = 0
     Overlay.Parent           = ScreenGui
+    self._overlay = Overlay
     SmoothTween(Overlay, 0.5, { BackgroundTransparency = 0.55 })
 
     -- ── Adaptive window size ─────────────────────────────
@@ -369,7 +376,7 @@ function ZandarUI.new(config)
 
     MakeDraggable(Window, Header)
 
-    -- ── Close button ────────────────────────────────────
+    -- ── Close button (только скрывает) ──────────────────
     local HeaderClose = Instance.new("TextButton")
     HeaderClose.Size             = UDim2.new(0, 22, 0, 22)
     HeaderClose.Position         = UDim2.new(1, -14, 0.5, -11)
@@ -414,10 +421,174 @@ function ZandarUI.new(config)
         QuickTween(hcBar2, 0.15, { BackgroundColor3 = T.TextMuted })
     end)
 
+    -- Функция скрытия/показа окна
+    local function ToggleUI(open)
+        self._open = open
+        if open then
+            Window.Visible = true
+            ElasticTween(Window, 0.5, { Size = UDim2.new(0, WIN_W, 0, WIN_H) })
+            SmoothTween(Overlay, 0.4, { BackgroundTransparency = 0.55 })
+            SmoothTween(blur, 0.4, { Size = T.BlurSize })
+        else
+            SmoothTween(Window, 0.35, { Size = UDim2.new(0, 0, 0, 0) })
+            SmoothTween(Overlay, 0.35, { BackgroundTransparency = 1 })
+            SmoothTween(blur, 0.35, { Size = 0 })
+            task.delay(0.35, function()
+                if not self._open then Window.Visible = false end
+            end)
+        end
+    end
+    self._toggleUI = ToggleUI
+
     HeaderClose.MouseButton1Click:Connect(function()
-        ZandarUI.Destroy()
-        if blur and blur.Parent then blur:Destroy() end
+        ToggleUI(false)
     end)
+
+    -- ╔══════════════════════════════════════════════════╗
+    -- ║       ROUND FAB BUTTON (HAMBURGER ↔ X)          ║
+    -- ╚══════════════════════════════════════════════════╝
+
+    local FAB_SIZE = 48
+    local FAB = Instance.new("Frame")
+    FAB.Name             = "FAB"
+    FAB.Size             = UDim2.new(0, FAB_SIZE, 0, FAB_SIZE)
+    FAB.AnchorPoint      = Vector2.new(1, 1)
+    FAB.Position         = UDim2.new(1, -20, 1, -20)
+    FAB.BackgroundColor3 = T.SurfaceGlass
+    FAB.BackgroundTransparency = 0.2
+    FAB.BorderSizePixel  = 0
+    FAB.ZIndex           = 300
+    FAB.Parent           = ScreenGui
+    Instance.new("UICorner", FAB).CornerRadius = UDim.new(1, 0)
+
+    local fabStroke = Instance.new("UIStroke")
+    fabStroke.Color           = T.BorderGlow
+    fabStroke.Transparency    = 0.35
+    fabStroke.Thickness       = 1.5
+    fabStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    fabStroke.Parent          = FAB
+
+    -- Свечение за кнопкой
+    local fabGlow = Instance.new("ImageLabel")
+    fabGlow.Size             = UDim2.new(1, 30, 1, 30)
+    fabGlow.AnchorPoint      = Vector2.new(0.5, 0.5)
+    fabGlow.Position         = UDim2.new(0.5, 0, 0.5, 0)
+    fabGlow.BackgroundTransparency = 1
+    fabGlow.Image            = "rbxassetid://7669168585"
+    fabGlow.ImageColor3      = T.Accent
+    fabGlow.ImageTransparency = 0.6
+    fabGlow.ZIndex           = -1
+    fabGlow.Parent           = FAB
+
+    -- Пульсирующая анимация свечения
+    task.spawn(function()
+        while FAB.Parent do
+            SmoothTween(fabGlow, 1.8, { ImageTransparency = 0.75 })
+            SmoothTween(fabGlow, 1.8, { ImageTransparency = 0.5 })
+            task.wait(0.1)
+        end
+    end)
+
+    -- Гамбургер линии (3 полоски)
+    local barWidth = 18
+    local barHeight = 2
+    local barSpacing = 6
+
+    local topBar = Instance.new("Frame")
+    topBar.Size             = UDim2.new(0, barWidth, 0, barHeight)
+    topBar.AnchorPoint      = Vector2.new(0.5, 0.5)
+    topBar.Position         = UDim2.new(0.5, 0, 0.5, -barSpacing)
+    topBar.BackgroundColor3 = T.Text
+    topBar.BorderSizePixel  = 0
+    topBar.ZIndex           = 301
+    topBar.Parent           = FAB
+    Instance.new("UICorner", topBar).CornerRadius = UDim.new(1, 0)
+
+    local midBar = Instance.new("Frame")
+    midBar.Size             = UDim2.new(0, barWidth, 0, barHeight)
+    midBar.AnchorPoint      = Vector2.new(0.5, 0.5)
+    midBar.Position         = UDim2.new(0.5, 0, 0.5, 0)
+    midBar.BackgroundColor3 = T.Text
+    midBar.BorderSizePixel  = 0
+    midBar.ZIndex           = 301
+    midBar.Parent           = FAB
+    Instance.new("UICorner", midBar).CornerRadius = UDim.new(1, 0)
+
+    local botBar = Instance.new("Frame")
+    botBar.Size             = UDim2.new(0, barWidth, 0, barHeight)
+    botBar.AnchorPoint      = Vector2.new(0.5, 0.5)
+    botBar.Position         = UDim2.new(0.5, 0, 0.5, barSpacing)
+    botBar.BackgroundColor3 = T.Text
+    botBar.BorderSizePixel  = 0
+    botBar.ZIndex           = 301
+    botBar.Parent           = FAB
+    Instance.new("UICorner", botBar).CornerRadius = UDim.new(1, 0)
+
+    -- Кнопка-хитбокс для FAB
+    local FABBtn = Instance.new("TextButton")
+    FABBtn.Size             = UDim2.new(1, 0, 1, 0)
+    FABBtn.BackgroundTransparency = 1
+    FABBtn.Text             = ""
+    FABBtn.ZIndex           = 302
+    FABBtn.Parent           = FAB
+
+    -- Анимация морфинга гамбургер → X
+    local function MorphToX()
+        -- Верхняя линия → верхняя часть X
+        QuickTween(topBar, 0.25, { Rotation = 45, Position = UDim2.new(0.5, 0, 0.5, 0) })
+        -- Средняя линия → исчезает
+        QuickTween(midBar, 0.15, { Size = UDim2.new(0, 0, 0, barHeight) })
+        -- Нижняя линия → нижняя часть X
+        QuickTween(botBar, 0.25, { Rotation = -45, Position = UDim2.new(0.5, 0, 0.5, 0) })
+        
+        -- Меняем цвет на красноватый при открытом
+        QuickTween(topBar, 0.25, { BackgroundColor3 = Color3.fromRGB(220, 130, 130) })
+        QuickTween(botBar, 0.25, { BackgroundColor3 = Color3.fromRGB(220, 130, 130) })
+        QuickTween(fabStroke, 0.25, { Color = Color3.fromRGB(220, 130, 130), Transparency = 0.25 })
+    end
+
+    -- Анимация морфинга X → гамбургер
+    local function MorphToHamburger()
+        QuickTween(topBar, 0.25, { Rotation = 0, Position = UDim2.new(0.5, 0, 0.5, -barSpacing) })
+        QuickTween(midBar, 0.25, { Size = UDim2.new(0, barWidth, 0, barHeight) })
+        QuickTween(botBar, 0.25, { Rotation = 0, Position = UDim2.new(0.5, 0, 0.5, barSpacing) })
+        
+        -- Возвращаем обычный цвет
+        QuickTween(topBar, 0.25, { BackgroundColor3 = T.Text })
+        QuickTween(botBar, 0.25, { BackgroundColor3 = T.Text })
+        QuickTween(fabStroke, 0.25, { Color = T.BorderGlow, Transparency = 0.35 })
+    end
+
+    -- Ховер эффекты
+    FABBtn.MouseEnter:Connect(function()
+        QuickTween(FAB, 0.2, { BackgroundTransparency = 0, BackgroundColor3 = T.SurfaceLight })
+        QuickTween(fabStroke, 0.2, { Transparency = 0.15 })
+        QuickTween(fabGlow, 0.2, { ImageTransparency = 0.3 })
+        SpringTween(FAB, 0.3, { Size = UDim2.new(0, FAB_SIZE + 4, 0, FAB_SIZE + 4) })
+    end)
+
+    FABBtn.MouseLeave:Connect(function()
+        QuickTween(FAB, 0.2, { BackgroundTransparency = 0.2, BackgroundColor3 = T.SurfaceGlass })
+        QuickTween(fabStroke, 0.2, { Transparency = self._open and 0.25 or 0.35 })
+        QuickTween(fabGlow, 0.2, { ImageTransparency = 0.6 })
+        QuickTween(FAB, 0.2, { Size = UDim2.new(0, FAB_SIZE, 0, FAB_SIZE) })
+    end)
+
+    -- Клик по FAB
+    FABBtn.MouseButton1Click:Connect(function()
+        RippleEffect(FAB)
+        local newState = not self._open
+        ToggleUI(newState)
+        
+        if newState then
+            MorphToX()
+        else
+            MorphToHamburger()
+        end
+    end)
+
+    -- Делаем FAB перетаскиваемым
+    MakeDraggable(FAB, FABBtn, 10)
 
     -- ── Tab Rail ──────────────────────────────────────────
     local RAIL_W = 140
@@ -879,7 +1050,6 @@ function ZandarUI.new(config)
             return api
         end
 
-        -- ══════════════ НОВЫЙ ЭЛЕМЕНТ: ЧИСЛОВОЕ ПОЛЕ ВВОДА ══════════════
         function Tab:AddNumberInput(text, default, min, max, callback)
             local val = default or min or 0
             min = min or 0
@@ -895,7 +1065,6 @@ function ZandarUI.new(config)
             inputContainer.ZIndex = 5
             inputContainer.Parent = card
 
-            -- Кнопка минус
             local minusBtn = Instance.new("TextButton")
             minusBtn.Size = UDim2.new(0, 25, 1, 0)
             minusBtn.Position = UDim2.new(0, 0, 0, 0)
@@ -911,62 +1080,39 @@ function ZandarUI.new(config)
             Instance.new("UICorner", minusBtn).CornerRadius = UDim.new(0, 6)
 
             local minusStroke = Instance.new("UIStroke")
-            minusStroke.Color = T.Border
-            minusStroke.Transparency = 0.5
-            minusStroke.Thickness = 1
+            minusStroke.Color = T.Border; minusStroke.Transparency = 0.5; minusStroke.Thickness = 1
             minusStroke.Parent = minusBtn
 
-            -- Поле ввода
             local inputBg = Instance.new("Frame")
             inputBg.Size = UDim2.new(1, -52, 1, 0)
             inputBg.Position = UDim2.new(0, 26, 0, 0)
-            inputBg.BackgroundColor3 = T.InputBg
-            inputBg.BackgroundTransparency = 0.2
-            inputBg.BorderSizePixel = 0
-            inputBg.ZIndex = 5
-            inputBg.Parent = inputContainer
+            inputBg.BackgroundColor3 = T.InputBg; inputBg.BackgroundTransparency = 0.2
+            inputBg.BorderSizePixel = 0; inputBg.ZIndex = 5; inputBg.Parent = inputContainer
             Instance.new("UICorner", inputBg).CornerRadius = UDim.new(0, 6)
 
             local inputStroke = Instance.new("UIStroke")
-            inputStroke.Color = T.Border
-            inputStroke.Transparency = 0.5
-            inputStroke.Thickness = 1
+            inputStroke.Color = T.Border; inputStroke.Transparency = 0.5; inputStroke.Thickness = 1
             inputStroke.Parent = inputBg
 
             local box = Instance.new("TextBox")
-            box.Size = UDim2.new(1, -10, 1, 0)
-            box.Position = UDim2.new(0, 5, 0, 0)
-            box.BackgroundTransparency = 1
-            box.Text = tostring(val)
-            box.PlaceholderText = "0"
-            box.PlaceholderColor3 = T.TextDisabled
-            box.TextColor3 = T.AccentBright
-            box.TextSize = 13
-            box.Font = Enum.Font.GothamBold
+            box.Size = UDim2.new(1, -10, 1, 0); box.Position = UDim2.new(0, 5, 0, 0)
+            box.BackgroundTransparency = 1; box.Text = tostring(val)
+            box.PlaceholderText = "0"; box.PlaceholderColor3 = T.TextDisabled
+            box.TextColor3 = T.AccentBright; box.TextSize = 13; box.Font = Enum.Font.GothamBold
             box.TextXAlignment = Enum.TextXAlignment.Center
-            box.ClearTextOnFocus = false
-            box.ZIndex = 6
-            box.Parent = inputBg
+            box.ClearTextOnFocus = false; box.ZIndex = 6; box.Parent = inputBg
 
-            -- Кнопка плюс
             local plusBtn = Instance.new("TextButton")
             plusBtn.Size = UDim2.new(0, 25, 1, 0)
             plusBtn.Position = UDim2.new(1, -25, 0, 0)
-            plusBtn.BackgroundColor3 = T.SurfaceGlass
-            plusBtn.BackgroundTransparency = 0.3
-            plusBtn.BorderSizePixel = 0
-            plusBtn.Text = "+"
-            plusBtn.TextColor3 = T.Text
-            plusBtn.TextSize = 16
-            plusBtn.Font = Enum.Font.GothamBold
-            plusBtn.ZIndex = 6
-            plusBtn.Parent = inputContainer
+            plusBtn.BackgroundColor3 = T.SurfaceGlass; plusBtn.BackgroundTransparency = 0.3
+            plusBtn.BorderSizePixel = 0; plusBtn.Text = "+"; plusBtn.TextColor3 = T.Text
+            plusBtn.TextSize = 16; plusBtn.Font = Enum.Font.GothamBold
+            plusBtn.ZIndex = 6; plusBtn.Parent = inputContainer
             Instance.new("UICorner", plusBtn).CornerRadius = UDim.new(0, 6)
 
             local plusStroke = Instance.new("UIStroke")
-            plusStroke.Color = T.Border
-            plusStroke.Transparency = 0.5
-            plusStroke.Thickness = 1
+            plusStroke.Color = T.Border; plusStroke.Transparency = 0.5; plusStroke.Thickness = 1
             plusStroke.Parent = plusBtn
 
             local function ApplyValue(newVal)
@@ -980,18 +1126,10 @@ function ZandarUI.new(config)
 
             minusBtn.MouseButton1Click:Connect(function()
                 ApplyValue(val - 1)
-                QuickTween(minusBtn, 0.1, { BackgroundColor3 = T.SurfaceLight })
-                task.delay(0.1, function()
-                    QuickTween(minusBtn, 0.1, { BackgroundColor3 = T.SurfaceGlass })
-                end)
             end)
 
             plusBtn.MouseButton1Click:Connect(function()
                 ApplyValue(val + 1)
-                QuickTween(plusBtn, 0.1, { BackgroundColor3 = T.SurfaceLight })
-                task.delay(0.1, function()
-                    QuickTween(plusBtn, 0.1, { BackgroundColor3 = T.SurfaceGlass })
-                end)
             end)
 
             box.Focused:Connect(function()
@@ -1067,17 +1205,13 @@ function ZandarUI.new(config)
             arrow.BackgroundTransparency = 1; arrow.Text = "▾"; arrow.TextColor3 = T.TextMuted
             arrow.TextSize = 14; arrow.Font = Enum.Font.GothamBold; arrow.ZIndex = 5; arrow.Parent = card
 
-            -- Панель dropdown с высоким z-index
             local dropPanel = Instance.new("Frame")
             dropPanel.Size = UDim2.new(1, 0, 0, 0)
             dropPanel.Position = UDim2.new(0, 0, 1, 4)
-            dropPanel.BackgroundColor3 = T.Surface
-            dropPanel.BackgroundTransparency = 0.05
-            dropPanel.BorderSizePixel = 0
-            dropPanel.ClipsDescendants = true
-            dropPanel.ZIndex = 100
-            dropPanel.Visible = false
-            dropPanel.Parent = ScreenGui -- Прикрепляем к ScreenGui для правильного z-index
+            dropPanel.BackgroundColor3 = T.Surface; dropPanel.BackgroundTransparency = 0.05
+            dropPanel.BorderSizePixel = 0; dropPanel.ClipsDescendants = true
+            dropPanel.ZIndex = 100; dropPanel.Visible = false
+            dropPanel.Parent = ScreenGui
             Instance.new("UICorner", dropPanel).CornerRadius = UDim.new(0, 10)
 
             local dpStroke = Instance.new("UIStroke")
@@ -1102,15 +1236,11 @@ function ZandarUI.new(config)
             local function CreateOptionButton(opt, index)
                 local optBtn = Instance.new("TextButton")
                 optBtn.Size = UDim2.new(1, 0, 0, 30)
-                optBtn.BackgroundColor3 = T.SurfaceGlass
-                optBtn.BackgroundTransparency = 0.55
-                optBtn.BorderSizePixel = 0
-                optBtn.Text = opt
+                optBtn.BackgroundColor3 = T.SurfaceGlass; optBtn.BackgroundTransparency = 0.55
+                optBtn.BorderSizePixel = 0; optBtn.Text = opt
                 optBtn.TextColor3 = opt == selected and T.AccentBright or T.Text
-                optBtn.TextSize = 12
-                optBtn.Font = Enum.Font.Gotham
-                optBtn.ZIndex = 101
-                optBtn.LayoutOrder = index
+                optBtn.TextSize = 12; optBtn.Font = Enum.Font.Gotham
+                optBtn.ZIndex = 101; optBtn.LayoutOrder = index
                 optBtn.Parent = dropPanel
                 Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 7)
 
@@ -1121,14 +1251,11 @@ function ZandarUI.new(config)
                     QuickTween(optBtn, 0.12, { BackgroundColor3 = T.SurfaceGlass, BackgroundTransparency = 0.55, TextColor3 = opt == selected and T.AccentBright or T.Text })
                 end)
                 optBtn.MouseButton1Click:Connect(function()
-                    selected = opt
-                    selLbl.Text = opt
-                    isOpen = false
+                    selected = opt; selLbl.Text = opt; isOpen = false
                     dropPanel.Visible = false
                     QuickTween(arrow, 0.2, { Rotation = 0 })
                     QuickTween(stroke, 0.2, { Color = T.Border, Transparency = 0.55 })
                     if callback then callback(opt) end
-                    -- Обновляем цвета всех кнопок
                     for _, child in ipairs(dropPanel:GetChildren()) do
                         if child:IsA("TextButton") then
                             child.TextColor3 = child.Text == selected and T.AccentBright or T.Text
@@ -1138,7 +1265,6 @@ function ZandarUI.new(config)
                 return optBtn
             end
 
-            -- Создаем начальные кнопки
             for i, opt in ipairs(optionsList) do
                 CreateOptionButton(opt, i)
             end
@@ -1174,7 +1300,6 @@ function ZandarUI.new(config)
                 end
             end)
 
-            -- Закрытие при клике вне dropdown
             UserInputService.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 and isOpen then
                     local mousePos = input.Position
@@ -1200,7 +1325,6 @@ function ZandarUI.new(config)
                 end
             end)
 
-            -- Обновление позиции при скролле
             Page:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
                 if isOpen then PositionDropdown() end
             end)
@@ -1208,27 +1332,18 @@ function ZandarUI.new(config)
             local api = {}
             
             function api:Refresh(newOptions, keepSelection)
-                -- Удаляем старые кнопки
                 for _, child in ipairs(dropPanel:GetChildren()) do
-                    if child:IsA("TextButton") then
-                        child:Destroy()
-                    end
+                    if child:IsA("TextButton") then child:Destroy() end
                 end
-                
                 optionsList = newOptions or optionsList
                 UpdateTargetHeight()
-                
                 if not keepSelection or not table.find(optionsList, selected) then
                     selected = optionsList[1] or ""
                     selLbl.Text = selected
                 end
-                
-                -- Создаем новые кнопки
                 for i, opt in ipairs(optionsList) do
                     CreateOptionButton(opt, i)
                 end
-                
-                -- Обновляем размер если открыт
                 if isOpen then
                     PositionDropdown()
                     dropPanel.Size = UDim2.new(0, card.AbsoluteSize.X, 0, targetH)
@@ -1238,10 +1353,8 @@ function ZandarUI.new(config)
             function api:Set(v)
                 for _, o in ipairs(optionsList) do
                     if o == v then
-                        selected = v
-                        selLbl.Text = v
+                        selected = v; selLbl.Text = v
                         if callback then callback(v) end
-                        -- Обновляем цвета кнопок
                         for _, child in ipairs(dropPanel:GetChildren()) do
                             if child:IsA("TextButton") then
                                 child.TextColor3 = child.Text == selected and T.AccentBright or T.Text
@@ -1253,7 +1366,6 @@ function ZandarUI.new(config)
             end
             
             function api:Get() return selected end
-            
             return api
         end
 
@@ -1277,8 +1389,8 @@ function ZandarUI.new(config)
             local panel = Instance.new("Frame")
             panel.Size = UDim2.new(1, 0, 0, 0); panel.Position = UDim2.new(0, 0, 1, 4)
             panel.BackgroundColor3 = T.Surface; panel.BackgroundTransparency = 0.08
-            panel.BorderSizePixel = 0; panel.ClipsDescendants = true; panel.ZIndex = 100; panel.Parent = ScreenGui
-            panel.Visible = false
+            panel.BorderSizePixel = 0; panel.ClipsDescendants = true; panel.ZIndex = 100
+            panel.Visible = false; panel.Parent = ScreenGui
             Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 10)
 
             local panStroke = Instance.new("UIStroke")
@@ -1315,7 +1427,7 @@ function ZandarUI.new(config)
             hexLbl.TextSize = 10; hexLbl.Font = Enum.Font.Gotham; hexLbl.TextXAlignment = Enum.TextXAlignment.Left
             hexLbl.ZIndex = 101; hexLbl.Parent = panel
 
-            local hue, sat, val2 = Color3.toHSV(color)
+            local hue = Color3.toHSV(color)
             local draggingHue = false
 
             local function UpdateColor()
@@ -1482,11 +1594,8 @@ function ZandarUI.new(config)
         msgLbl.ZIndex = 201
         msgLbl.Parent = notif
 
-        -- Анимация появления
-        local targetSize = UDim2.new(0, 280, 0, 50)
-        QuickTween(notif, 0.4, { Size = targetSize })
+        QuickTween(notif, 0.4, { Size = UDim2.new(0, 280, 0, 50) })
 
-        -- Авто-удаление
         task.delay(duration, function()
             if notif and notif.Parent then
                 QuickTween(notif, 0.3, { BackgroundTransparency = 1 })
@@ -1506,19 +1615,12 @@ function ZandarUI.new(config)
         UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             if input.KeyCode == config.ToggleKey then
-                self._open = not self._open
-                if self._open then
-                    Window.Visible = true
-                    ElasticTween(Window, 0.4, { Size = UDim2.new(0, WIN_W, 0, WIN_H) })
-                    SmoothTween(Overlay, 0.3, { BackgroundTransparency = 0.55 })
-                    SmoothTween(blur, 0.3, { Size = T.BlurSize })
+                local newState = not self._open
+                ToggleUI(newState)
+                if newState then
+                    MorphToX()
                 else
-                    SmoothTween(Window, 0.3, { Size = UDim2.new(0, 0, 0, 0) })
-                    SmoothTween(Overlay, 0.3, { BackgroundTransparency = 1 })
-                    SmoothTween(blur, 0.3, { Size = 0 })
-                    task.delay(0.3, function()
-                        if not self._open then Window.Visible = false end
-                    end)
+                    MorphToHamburger()
                 end
             end
         end)
