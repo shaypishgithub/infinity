@@ -1,24 +1,3 @@
---[[
-    ███████╗ █████╗ ███╗   ██╗██████╗  █████╗ ██████╗     ██╗   ██╗██╗
-    ╚══███╔╝██╔══██╗████╗  ██║██╔══██╗██╔══██╗██╔══██╗    ██║   ██║██║
-      ███╔╝ ███████║██╔██╗ ██║██║  ██║███████║██████╔╝    ██║   ██║██║
-     ███╔╝  ██╔══██║██║╚██╗██║██║  ██║██╔══██║██╔══██╗    ██║   ██║██║
-    ███████╗██║  ██║██║ ╚████║██████╔╝██║  ██║██║  ██║    ╚██████╔╝██║
-    ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═════╝ ╚═╝
-
-    ZandarUI v3.1.0 — Monochrome Glass GUI Library for Roblox
-    Author  : Zandar
-    Style   : Black/White Glassmorphism, round FAB open/close, shimmer text
-
-    CHANGES FROM v3.0:
-    - Added Refresh() method to Dropdown for dynamic option updates
-    - Fixed dropdown z-index issues
-    - Improved dropdown click handling
-]]
-
--- ╔══════════════════════════════════════════════════════╗
--- ║                  SERVICES & CORE                     ║
--- ╚══════════════════════════════════════════════════════╝
 
 local Players          = game:GetService("Players")
 local TweenService     = game:GetService("TweenService")
@@ -32,9 +11,7 @@ local LocalPlayer = Players.LocalPlayer
 local Mouse       = LocalPlayer:GetMouse()
 local Camera      = workspace.CurrentCamera
 
--- ╔══════════════════════════════════════════════════════╗
--- ║             MONOCHROME GLASS THEME                   ║
--- ╚══════════════════════════════════════════════════════╝
+
 
 local T = {
     Background      = Color3.fromRGB(6,  6,  8),
