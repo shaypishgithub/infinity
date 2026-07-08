@@ -6,42 +6,14 @@
     ███████╗██║  ██║██║ ╚████║██████╔╝██║  ██║██║  ██║    ╚██████╔╝██║
     ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝     ╚═════╝ ╚═╝
 
-    ZandarUI v3.0.0 — Monochrome Glass GUI Library for Roblox
+    ZandarUI v3.1.0 — Monochrome Glass GUI Library for Roblox
     Author  : Zandar
     Style   : Black/White Glassmorphism, round FAB open/close, shimmer text
 
-    WHAT CHANGED FROM v2:
-    - Window centering/dragging rewritten from scratch. AnchorPoint stays
-      (0.5, 0.5) and Position.Scale is ALWAYS (0.5, 0.5) — only the Offset
-      changes (drag delta, screen-clamp). No more double-offset bug.
-    - Window size adapts to the screen (phone / PC) and re-fits live.
-    - New round floating button (bottom-right) opens/closes the main
-      window, morphing from a hamburger icon into an X.
-    - Title / section text and separator lines have an animated
-      grey → white shimmer that sweeps continuously.
-    - Small floating glass "orbs" drift behind the window for atmosphere.
-
-    USAGE (same API as before):
-        local ZandarUI = loadstring(game:HttpGet(
-            "https://raw.githubusercontent.com/ZandarDev/ZandarUI/main/ZandarUI.lua"
-        ))()
-
-        local Window = ZandarUI.new({
-            Title       = "My Hub",
-            Subtitle    = "v3.0",
-            ToggleKey   = Enum.KeyCode.RightShift,
-        })
-
-        local Tab = Window:AddTab("Main", "rbxassetid://...")
-        Tab:AddButton("Click Me", function() print("clicked") end)
-        Tab:AddToggle("God Mode", false, function(v) print(v) end)
-        Tab:AddSlider("Speed", { Min=16, Max=500, Default=16 }, function(v) print(v) end)
-        Tab:AddTextBox("Player Name", "Enter name...", function(v) print(v) end)
-        Tab:AddDropdown("Team", {"Red","Blue","Green"}, function(v) print(v) end)
-        Tab:AddColorPicker("Color", Color3.new(1,0,0), function(v) print(v) end)
-        Tab:AddLabel("Hello World!")
-        Tab:AddSeparator()
-        Window:Notify({ Title="Hello", Message="Welcome!", Duration=4, Type="Info" })
+    CHANGES FROM v3.0:
+    - Added Refresh() method to Dropdown for dynamic option updates
+    - Fixed dropdown z-index issues
+    - Improved dropdown click handling
 ]]
 
 -- ╔══════════════════════════════════════════════════════╗
@@ -122,7 +94,6 @@ local function ElasticTween(obj, t, props)
     return Tween(obj, TweenInfo.new(t, Enum.EasingStyle.Elastic, Enum.EasingDirection.Out), props)
 end
 
--- Continuous grey → white shimmer sweep on a UIGradient (title text, lines, ...)
 local function AnimateShimmer(gradient, speed)
     speed = speed or 2.2
     task.spawn(function()
@@ -149,9 +120,6 @@ local function ShimmerText(label)
     return g
 end
 
--- Drag: AnchorPoint stays fixed, Position.Scale never changes — only
--- Offset moves. This is the ONLY correct way to drag an anchor-centered
--- frame without it jumping or drifting off-screen.
 local function MakeDraggable(frame, handle, boundsPadding, onDragStateChanged)
     handle = handle or frame
     boundsPadding = boundsPadding or 0
@@ -275,7 +243,7 @@ end
 
 local ZandarUI = {}
 ZandarUI.__index = ZandarUI
-ZandarUI.Version = "3.0.1"
+ZandarUI.Version = "3.1.0"
 
 function ZandarUI.Destroy()
     if CoreGui:FindFirstChild("ZandarUI") then CoreGui:FindFirstChild("ZandarUI"):Destroy() end
@@ -325,9 +293,6 @@ function ZandarUI.new(config)
     local WIN_W, WIN_H = GetWindowSize()
 
     -- ── Main Window ──────────────────────────────────────
-    -- AnchorPoint (0.5,0.5) + Position (0.5,0, 0.5,0) = perfectly centered.
-    -- Dragging only ever edits the Offset part (see MakeDraggable) so the
-    -- window can never "fly off" or lose its centering again.
     local Window = Instance.new("Frame")
     Window.Name             = "Window"
     Window.AnchorPoint      = Vector2.new(0.5, 0.5)
@@ -359,7 +324,6 @@ function ZandarUI.new(config)
         end
     end)
 
-    -- OPEN ANIMATION
     ElasticTween(Window, 0.6, { Size = UDim2.new(0, WIN_W, 0, WIN_H) })
 
     -- ── Header ──────────────────────────────────────────
@@ -428,9 +392,7 @@ function ZandarUI.new(config)
 
     MakeDraggable(Window, Header)
 
-    -- ── Round Close button in header (drawn with an X made of two
-    --    rotated bars, NOT a unicode glyph — glyphs like "✕" fall back
-    --    to a missing-character "tofu" box on some fonts/platforms) ───
+    -- ── Close button ────────────────────────────────────
     local HeaderClose = Instance.new("TextButton")
     HeaderClose.Size             = UDim2.new(0, 22, 0, 22)
     HeaderClose.Position         = UDim2.new(1, -14, 0.5, -11)
@@ -473,6 +435,11 @@ function ZandarUI.new(config)
         QuickTween(HeaderClose, 0.15, { BackgroundColor3 = T.SurfaceGlass, BackgroundTransparency = 0.3 })
         QuickTween(hcBar1, 0.15, { BackgroundColor3 = T.TextMuted })
         QuickTween(hcBar2, 0.15, { BackgroundColor3 = T.TextMuted })
+    end)
+
+    HeaderClose.MouseButton1Click:Connect(function()
+        ZandarUI.Destroy()
+        if blur and blur.Parent then blur:Destroy() end
     end)
 
     -- ── Tab Rail ──────────────────────────────────────────
@@ -775,7 +742,6 @@ function ZandarUI.new(config)
             lbl.TextXAlignment   = Enum.TextXAlignment.Left
             lbl.ZIndex           = 5
             lbl.Parent           = card
-            ShimmerText(lbl)
 
             local arrow = Instance.new("TextLabel")
             arrow.Size             = UDim2.new(0, 18, 1, 0)
@@ -813,7 +779,6 @@ function ZandarUI.new(config)
             local state = default or false
             local card  = MakeCard(44)
             local lbl = CreateLabel(card, text, UDim2.new(1, -72, 1, 0), UDim2.new(0, 12, 0, 0), Enum.Font.GothamMedium, T.Text, 5)
-            ShimmerText(lbl)
 
             local track = Instance.new("Frame")
             track.Size             = UDim2.new(0, 42, 0, 22)
@@ -871,7 +836,6 @@ function ZandarUI.new(config)
             topRow.BackgroundTransparency = 1; topRow.ZIndex = 5; topRow.Parent = card
 
             local lbl = CreateLabel(topRow, text, UDim2.new(0.65, 0, 1, 0), UDim2.new(0, 0, 0, 0), Enum.Font.GothamMedium, T.Text, 5)
-            ShimmerText(lbl)
 
             local valLbl = Instance.new("TextLabel")
             valLbl.Size = UDim2.new(0.35, 0, 1, 0); valLbl.Position = UDim2.new(0.65, 0, 0, 0)
@@ -938,10 +902,139 @@ function ZandarUI.new(config)
             return api
         end
 
+        -- ══════════════ НОВЫЙ ЭЛЕМЕНТ: ЧИСЛОВОЕ ПОЛЕ ВВОДА ══════════════
+        function Tab:AddNumberInput(text, default, min, max, callback)
+            local val = default or min or 0
+            min = min or 0
+            max = max or 9999
+            
+            local card = MakeCard(58)
+            local lbl = CreateLabel(card, text, UDim2.new(1, -16, 0, 18), UDim2.new(0, 12, 0, 7), Enum.Font.GothamMedium, T.Text, 5)
+
+            local inputContainer = Instance.new("Frame")
+            inputContainer.Size = UDim2.new(1, -24, 0, 25)
+            inputContainer.Position = UDim2.new(0, 12, 0, 28)
+            inputContainer.BackgroundTransparency = 1
+            inputContainer.ZIndex = 5
+            inputContainer.Parent = card
+
+            -- Кнопка минус
+            local minusBtn = Instance.new("TextButton")
+            minusBtn.Size = UDim2.new(0, 25, 1, 0)
+            minusBtn.Position = UDim2.new(0, 0, 0, 0)
+            minusBtn.BackgroundColor3 = T.SurfaceGlass
+            minusBtn.BackgroundTransparency = 0.3
+            minusBtn.BorderSizePixel = 0
+            minusBtn.Text = "-"
+            minusBtn.TextColor3 = T.Text
+            minusBtn.TextSize = 16
+            minusBtn.Font = Enum.Font.GothamBold
+            minusBtn.ZIndex = 6
+            minusBtn.Parent = inputContainer
+            Instance.new("UICorner", minusBtn).CornerRadius = UDim.new(0, 6)
+
+            local minusStroke = Instance.new("UIStroke")
+            minusStroke.Color = T.Border
+            minusStroke.Transparency = 0.5
+            minusStroke.Thickness = 1
+            minusStroke.Parent = minusBtn
+
+            -- Поле ввода
+            local inputBg = Instance.new("Frame")
+            inputBg.Size = UDim2.new(1, -52, 1, 0)
+            inputBg.Position = UDim2.new(0, 26, 0, 0)
+            inputBg.BackgroundColor3 = T.InputBg
+            inputBg.BackgroundTransparency = 0.2
+            inputBg.BorderSizePixel = 0
+            inputBg.ZIndex = 5
+            inputBg.Parent = inputContainer
+            Instance.new("UICorner", inputBg).CornerRadius = UDim.new(0, 6)
+
+            local inputStroke = Instance.new("UIStroke")
+            inputStroke.Color = T.Border
+            inputStroke.Transparency = 0.5
+            inputStroke.Thickness = 1
+            inputStroke.Parent = inputBg
+
+            local box = Instance.new("TextBox")
+            box.Size = UDim2.new(1, -10, 1, 0)
+            box.Position = UDim2.new(0, 5, 0, 0)
+            box.BackgroundTransparency = 1
+            box.Text = tostring(val)
+            box.PlaceholderText = "0"
+            box.PlaceholderColor3 = T.TextDisabled
+            box.TextColor3 = T.AccentBright
+            box.TextSize = 13
+            box.Font = Enum.Font.GothamBold
+            box.TextXAlignment = Enum.TextXAlignment.Center
+            box.ClearTextOnFocus = false
+            box.ZIndex = 6
+            box.Parent = inputBg
+
+            -- Кнопка плюс
+            local plusBtn = Instance.new("TextButton")
+            plusBtn.Size = UDim2.new(0, 25, 1, 0)
+            plusBtn.Position = UDim2.new(1, -25, 0, 0)
+            plusBtn.BackgroundColor3 = T.SurfaceGlass
+            plusBtn.BackgroundTransparency = 0.3
+            plusBtn.BorderSizePixel = 0
+            plusBtn.Text = "+"
+            plusBtn.TextColor3 = T.Text
+            plusBtn.TextSize = 16
+            plusBtn.Font = Enum.Font.GothamBold
+            plusBtn.ZIndex = 6
+            plusBtn.Parent = inputContainer
+            Instance.new("UICorner", plusBtn).CornerRadius = UDim.new(0, 6)
+
+            local plusStroke = Instance.new("UIStroke")
+            plusStroke.Color = T.Border
+            plusStroke.Transparency = 0.5
+            plusStroke.Thickness = 1
+            plusStroke.Parent = plusBtn
+
+            local function ApplyValue(newVal)
+                newVal = tonumber(newVal)
+                if not newVal then newVal = min end
+                newVal = math.clamp(math.floor(newVal), min, max)
+                val = newVal
+                box.Text = tostring(val)
+                if callback then callback(val) end
+            end
+
+            minusBtn.MouseButton1Click:Connect(function()
+                ApplyValue(val - 1)
+                QuickTween(minusBtn, 0.1, { BackgroundColor3 = T.SurfaceLight })
+                task.delay(0.1, function()
+                    QuickTween(minusBtn, 0.1, { BackgroundColor3 = T.SurfaceGlass })
+                end)
+            end)
+
+            plusBtn.MouseButton1Click:Connect(function()
+                ApplyValue(val + 1)
+                QuickTween(plusBtn, 0.1, { BackgroundColor3 = T.SurfaceLight })
+                task.delay(0.1, function()
+                    QuickTween(plusBtn, 0.1, { BackgroundColor3 = T.SurfaceGlass })
+                end)
+            end)
+
+            box.Focused:Connect(function()
+                QuickTween(inputStroke, 0.15, { Color = T.BorderGlow, Transparency = 0.2 })
+            end)
+
+            box.FocusLost:Connect(function(enter)
+                QuickTween(inputStroke, 0.15, { Color = T.Border, Transparency = 0.5 })
+                ApplyValue(box.Text)
+            end)
+
+            local api = {}
+            function api:Set(v) ApplyValue(v) end
+            function api:Get() return val end
+            return api
+        end
+
         function Tab:AddTextBox(text, placeholder, callback)
             local card = MakeCard(58)
             local lbl = CreateLabel(card, text, UDim2.new(1, -16, 0, 18), UDim2.new(0, 12, 0, 7), Enum.Font.GothamMedium, T.Text, 5)
-            ShimmerText(lbl)
 
             local inputBg = Instance.new("Frame")
             inputBg.Size = UDim2.new(1, -24, 0, 25); inputBg.Position = UDim2.new(0, 12, 0, 28)
@@ -978,13 +1071,13 @@ function ZandarUI.new(config)
         end
 
         function Tab:AddDropdown(text, options, callback)
-            local selected = options[1]
-            local open = false
+            local selected = options and options[1] or ""
+            local isOpen = false
+            local optionsList = options or {}
             local card, stroke = MakeCard(44)
             card.ClipsDescendants = false
 
             local lbl = CreateLabel(card, text, UDim2.new(0.5, 0, 1, 0), UDim2.new(0, 12, 0, 0), Enum.Font.GothamMedium, T.Text, 5)
-            ShimmerText(lbl)
 
             local selLbl = Instance.new("TextLabel")
             selLbl.Size = UDim2.new(0.4, -28, 1, 0); selLbl.Position = UDim2.new(0.5, 0, 0, 0)
@@ -997,33 +1090,50 @@ function ZandarUI.new(config)
             arrow.BackgroundTransparency = 1; arrow.Text = "▾"; arrow.TextColor3 = T.TextMuted
             arrow.TextSize = 14; arrow.Font = Enum.Font.GothamBold; arrow.ZIndex = 5; arrow.Parent = card
 
+            -- Панель dropdown с высоким z-index
             local dropPanel = Instance.new("Frame")
-            dropPanel.Size = UDim2.new(1, 0, 0, 0); dropPanel.Position = UDim2.new(0, 0, 1, 4)
-            dropPanel.BackgroundColor3 = T.Surface; dropPanel.BackgroundTransparency = 0.08
-            dropPanel.BorderSizePixel = 0; dropPanel.ClipsDescendants = true; dropPanel.ZIndex = 20
-            dropPanel.Parent = card
+            dropPanel.Size = UDim2.new(1, 0, 0, 0)
+            dropPanel.Position = UDim2.new(0, 0, 1, 4)
+            dropPanel.BackgroundColor3 = T.Surface
+            dropPanel.BackgroundTransparency = 0.05
+            dropPanel.BorderSizePixel = 0
+            dropPanel.ClipsDescendants = true
+            dropPanel.ZIndex = 100
+            dropPanel.Visible = false
+            dropPanel.Parent = ScreenGui -- Прикрепляем к ScreenGui для правильного z-index
             Instance.new("UICorner", dropPanel).CornerRadius = UDim.new(0, 10)
 
             local dpStroke = Instance.new("UIStroke")
-            dpStroke.Color = T.Border; dpStroke.Transparency = 0.4; dpStroke.Thickness = 1
+            dpStroke.Color = T.Border; dpStroke.Transparency = 0.3; dpStroke.Thickness = 1
             dpStroke.Parent = dropPanel
 
             local dList = Instance.new("UIListLayout")
             dList.Padding = UDim.new(0, 2); dList.SortOrder = Enum.SortOrder.LayoutOrder; dList.Parent = dropPanel
 
             local dPad = Instance.new("UIPadding")
-            dPad.PaddingTop = UDim.new(0,4); dPad.PaddingBottom = UDim.new(0,4)
-            dPad.PaddingLeft = UDim.new(0,4); dPad.PaddingRight = UDim.new(0,4)
+            dPad.PaddingTop = UDim.new(0, 4); dPad.PaddingBottom = UDim.new(0, 4)
+            dPad.PaddingLeft = UDim.new(0, 4); dPad.PaddingRight = UDim.new(0, 4)
             dPad.Parent = dropPanel
 
-            local targetH = #options * 32 + 8
+            local targetH = 0
 
-            for i, opt in ipairs(options) do
+            local function UpdateTargetHeight()
+                targetH = #optionsList * 32 + 8
+            end
+            UpdateTargetHeight()
+
+            local function CreateOptionButton(opt, index)
                 local optBtn = Instance.new("TextButton")
-                optBtn.Size = UDim2.new(1, 0, 0, 30); optBtn.BackgroundColor3 = T.SurfaceGlass
-                optBtn.BackgroundTransparency = 0.55; optBtn.BorderSizePixel = 0
-                optBtn.Text = opt; optBtn.TextColor3 = T.Text; optBtn.TextSize = 12
-                optBtn.Font = Enum.Font.Gotham; optBtn.ZIndex = 21; optBtn.LayoutOrder = i
+                optBtn.Size = UDim2.new(1, 0, 0, 30)
+                optBtn.BackgroundColor3 = T.SurfaceGlass
+                optBtn.BackgroundTransparency = 0.55
+                optBtn.BorderSizePixel = 0
+                optBtn.Text = opt
+                optBtn.TextColor3 = opt == selected and T.AccentBright or T.Text
+                optBtn.TextSize = 12
+                optBtn.Font = Enum.Font.Gotham
+                optBtn.ZIndex = 101
+                optBtn.LayoutOrder = index
                 optBtn.Parent = dropPanel
                 Instance.new("UICorner", optBtn).CornerRadius = UDim.new(0, 7)
 
@@ -1031,14 +1141,38 @@ function ZandarUI.new(config)
                     QuickTween(optBtn, 0.12, { BackgroundColor3 = T.SurfaceLight, BackgroundTransparency = 0.25, TextColor3 = T.AccentBright })
                 end)
                 optBtn.MouseLeave:Connect(function()
-                    QuickTween(optBtn, 0.12, { BackgroundColor3 = T.SurfaceGlass, BackgroundTransparency = 0.55, TextColor3 = T.Text })
+                    QuickTween(optBtn, 0.12, { BackgroundColor3 = T.SurfaceGlass, BackgroundTransparency = 0.55, TextColor3 = opt == selected and T.AccentBright or T.Text })
                 end)
                 optBtn.MouseButton1Click:Connect(function()
-                    selected = opt; selLbl.Text = opt; open = false
-                    QuickTween(dropPanel, 0.22, { Size = UDim2.new(1, 0, 0, 0) })
+                    selected = opt
+                    selLbl.Text = opt
+                    isOpen = false
+                    dropPanel.Visible = false
                     QuickTween(arrow, 0.2, { Rotation = 0 })
+                    QuickTween(stroke, 0.2, { Color = T.Border, Transparency = 0.55 })
                     if callback then callback(opt) end
+                    -- Обновляем цвета всех кнопок
+                    for _, child in ipairs(dropPanel:GetChildren()) do
+                        if child:IsA("TextButton") then
+                            child.TextColor3 = child.Text == selected and T.AccentBright or T.Text
+                        end
+                    end
                 end)
+                return optBtn
+            end
+
+            -- Создаем начальные кнопки
+            for i, opt in ipairs(optionsList) do
+                CreateOptionButton(opt, i)
+            end
+
+            local function PositionDropdown()
+                if card and card.Parent then
+                    local absPos = card.AbsolutePosition
+                    local absSize = card.AbsoluteSize
+                    dropPanel.Position = UDim2.new(0, absPos.X, 0, absPos.Y + absSize.Y + 4)
+                    dropPanel.Size = UDim2.new(0, absSize.X, 0, isOpen and targetH or 0)
+                end
             end
 
             local togBtn = Instance.new("TextButton")
@@ -1046,19 +1180,103 @@ function ZandarUI.new(config)
             togBtn.Text = ""; togBtn.ZIndex = 6; togBtn.Parent = card
 
             togBtn.MouseButton1Click:Connect(function()
-                open = not open
-                QuickTween(dropPanel, 0.25, { Size = UDim2.new(1, 0, 0, open and targetH or 0) })
-                QuickTween(arrow, 0.2, { Rotation = open and 180 or 0 })
-                QuickTween(stroke, 0.2, { Color = open and T.BorderGlow or T.Border, Transparency = open and 0.3 or 0.55 })
+                isOpen = not isOpen
+                if isOpen then
+                    PositionDropdown()
+                    dropPanel.Visible = true
+                    QuickTween(dropPanel, 0.25, { Size = UDim2.new(0, card.AbsoluteSize.X, 0, targetH) })
+                    QuickTween(arrow, 0.2, { Rotation = 180 })
+                    QuickTween(stroke, 0.2, { Color = T.BorderGlow, Transparency = 0.3 })
+                else
+                    QuickTween(dropPanel, 0.2, { Size = UDim2.new(0, card.AbsoluteSize.X, 0, 0) })
+                    QuickTween(arrow, 0.2, { Rotation = 0 })
+                    QuickTween(stroke, 0.2, { Color = T.Border, Transparency = 0.55 })
+                    task.delay(0.2, function()
+                        if not isOpen then dropPanel.Visible = false end
+                    end)
+                end
+            end)
+
+            -- Закрытие при клике вне dropdown
+            UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and isOpen then
+                    local mousePos = input.Position
+                    local panelPos = dropPanel.AbsolutePosition
+                    local panelSize = dropPanel.AbsoluteSize
+                    local cardPos = card.AbsolutePosition
+                    local cardSize = card.AbsoluteSize
+                    
+                    local inPanel = mousePos.X >= panelPos.X and mousePos.X <= panelPos.X + panelSize.X
+                                   and mousePos.Y >= panelPos.Y and mousePos.Y <= panelPos.Y + panelSize.Y
+                    local inCard = mousePos.X >= cardPos.X and mousePos.X <= cardPos.X + cardSize.X
+                                  and mousePos.Y >= cardPos.Y and mousePos.Y <= cardPos.Y + cardSize.Y
+                    
+                    if not inPanel and not inCard then
+                        isOpen = false
+                        QuickTween(dropPanel, 0.2, { Size = UDim2.new(0, card.AbsoluteSize.X, 0, 0) })
+                        QuickTween(arrow, 0.2, { Rotation = 0 })
+                        QuickTween(stroke, 0.2, { Color = T.Border, Transparency = 0.55 })
+                        task.delay(0.2, function()
+                            if not isOpen then dropPanel.Visible = false end
+                        end)
+                    end
+                end
+            end)
+
+            -- Обновление позиции при скролле
+            Page:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+                if isOpen then PositionDropdown() end
             end)
 
             local api = {}
-            function api:Set(v)
-                for _, o in ipairs(options) do
-                    if o == v then selected = v; selLbl.Text = v; if callback then callback(v) end; break end
+            
+            function api:Refresh(newOptions, keepSelection)
+                -- Удаляем старые кнопки
+                for _, child in ipairs(dropPanel:GetChildren()) do
+                    if child:IsA("TextButton") then
+                        child:Destroy()
+                    end
+                end
+                
+                optionsList = newOptions or optionsList
+                UpdateTargetHeight()
+                
+                if not keepSelection or not table.find(optionsList, selected) then
+                    selected = optionsList[1] or ""
+                    selLbl.Text = selected
+                end
+                
+                -- Создаем новые кнопки
+                for i, opt in ipairs(optionsList) do
+                    CreateOptionButton(opt, i)
+                end
+                
+                -- Обновляем размер если открыт
+                if isOpen then
+                    PositionDropdown()
+                    dropPanel.Size = UDim2.new(0, card.AbsoluteSize.X, 0, targetH)
                 end
             end
+            
+            function api:Set(v)
+                for _, o in ipairs(optionsList) do
+                    if o == v then
+                        selected = v
+                        selLbl.Text = v
+                        if callback then callback(v) end
+                        -- Обновляем цвета кнопок
+                        for _, child in ipairs(dropPanel:GetChildren()) do
+                            if child:IsA("TextButton") then
+                                child.TextColor3 = child.Text == selected and T.AccentBright or T.Text
+                            end
+                        end
+                        break
+                    end
+                end
+            end
+            
             function api:Get() return selected end
+            
             return api
         end
 
@@ -1069,7 +1287,6 @@ function ZandarUI.new(config)
             card.ClipsDescendants = false
 
             local lbl = CreateLabel(card, text, UDim2.new(1, -70, 1, 0), UDim2.new(0, 12, 0, 0), Enum.Font.GothamMedium, T.Text, 5)
-            ShimmerText(lbl)
 
             local preview = Instance.new("Frame")
             preview.Size = UDim2.new(0, 22, 0, 22); preview.Position = UDim2.new(1, -34, 0.5, -11)
@@ -1083,7 +1300,8 @@ function ZandarUI.new(config)
             local panel = Instance.new("Frame")
             panel.Size = UDim2.new(1, 0, 0, 0); panel.Position = UDim2.new(0, 0, 1, 4)
             panel.BackgroundColor3 = T.Surface; panel.BackgroundTransparency = 0.08
-            panel.BorderSizePixel = 0; panel.ClipsDescendants = true; panel.ZIndex = 20; panel.Parent = card
+            panel.BorderSizePixel = 0; panel.ClipsDescendants = true; panel.ZIndex = 100; panel.Parent = ScreenGui
+            panel.Visible = false
             Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 10)
 
             local panStroke = Instance.new("UIStroke")
@@ -1092,7 +1310,7 @@ function ZandarUI.new(config)
 
             local hueBar = Instance.new("Frame")
             hueBar.Size = UDim2.new(1, -20, 0, 14); hueBar.Position = UDim2.new(0, 10, 0, 10)
-            hueBar.BackgroundColor3 = Color3.new(1, 1, 1); hueBar.BorderSizePixel = 0; hueBar.ZIndex = 21
+            hueBar.BackgroundColor3 = Color3.new(1, 1, 1); hueBar.BorderSizePixel = 0; hueBar.ZIndex = 101
             hueBar.Parent = panel
             Instance.new("UICorner", hueBar).CornerRadius = UDim.new(1, 0)
 
@@ -1111,56 +1329,106 @@ function ZandarUI.new(config)
             local hueKnob = Instance.new("Frame")
             hueKnob.Size = UDim2.new(0, 9, 1, 4); hueKnob.AnchorPoint = Vector2.new(0.5, 0.5)
             hueKnob.Position = UDim2.new(0, 0, 0.5, 0); hueKnob.BackgroundColor3 = Color3.new(1, 1, 1)
-            hueKnob.BorderSizePixel = 0; hueKnob.ZIndex = 22; hueKnob.Parent = hueBar
+            hueKnob.BorderSizePixel = 0; hueKnob.ZIndex = 102; hueKnob.Parent = hueBar
             Instance.new("UICorner", hueKnob).CornerRadius = UDim.new(0, 3)
 
             local hexLbl = Instance.new("TextLabel")
             hexLbl.Size = UDim2.new(1, -20, 0, 14); hexLbl.Position = UDim2.new(0, 10, 0, 30)
             hexLbl.BackgroundTransparency = 1; hexLbl.Text = "Hue slider"; hexLbl.TextColor3 = T.TextMuted
             hexLbl.TextSize = 10; hexLbl.Font = Enum.Font.Gotham; hexLbl.TextXAlignment = Enum.TextXAlignment.Left
-            hexLbl.ZIndex = 21; hexLbl.Parent = panel
+            hexLbl.ZIndex = 101; hexLbl.Parent = panel
 
             local hue, sat, val2 = Color3.toHSV(color)
             local draggingHue = false
 
             local function UpdateColor()
-                color = Color3.fromHSV(hue, sat, val2)
+                color = Color3.fromHSV(hue, 1, 1)
                 preview.BackgroundColor3 = color
+                hexLbl.Text = string.format("H: %.0f°", hue * 360)
+            end
+
+            UpdateColor()
+
+            local function UpdateHue(input)
+                local rel = math.clamp((input.Position.X - hueBar.AbsolutePosition.X) / hueBar.AbsoluteSize.X, 0, 1)
+                hue = rel
+                QuickTween(hueKnob, 0.04, { Position = UDim2.new(rel, 0, 0.5, 0) })
+                UpdateColor()
                 if callback then callback(color) end
             end
 
             hueBar.InputBegan:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
-                    draggingHue = true
-                    local rel = math.clamp((inp.Position.X - hueBar.AbsolutePosition.X) / hueBar.AbsoluteSize.X, 0, 1)
-                    hue = rel; hueKnob.Position = UDim2.new(rel, 0, 0.5, 0); UpdateColor()
+                    draggingHue = true; UpdateHue(inp)
                 end
             end)
             UserInputService.InputChanged:Connect(function(inp)
-                if draggingHue and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then
-                    local rel = math.clamp((inp.Position.X - hueBar.AbsolutePosition.X) / hueBar.AbsoluteSize.X, 0, 1)
-                    hue = rel; hueKnob.Position = UDim2.new(rel, 0, 0.5, 0); UpdateColor()
-                end
+                if draggingHue and (inp.UserInputType == Enum.UserInputType.MouseMovement or inp.UserInputType == Enum.UserInputType.Touch) then UpdateHue(inp) end
             end)
             UserInputService.InputEnded:Connect(function(inp)
                 if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then draggingHue = false end
             end)
 
-            local openBtn = Instance.new("TextButton")
-            openBtn.Size = UDim2.new(1, 0, 1, 0); openBtn.BackgroundTransparency = 1
-            openBtn.Text = ""; openBtn.ZIndex = 6; openBtn.Parent = card
+            local togBtn = Instance.new("TextButton")
+            togBtn.Size = UDim2.new(1, 0, 1, 0); togBtn.BackgroundTransparency = 1
+            togBtn.Text = ""; togBtn.ZIndex = 6; togBtn.Parent = card
 
-            openBtn.MouseButton1Click:Connect(function()
+            local function PositionPanel()
+                if card and card.Parent then
+                    local absPos = card.AbsolutePosition
+                    local absSize = card.AbsoluteSize
+                    panel.Position = UDim2.new(0, absPos.X, 0, absPos.Y + absSize.Y + 4)
+                    panel.Size = UDim2.new(0, absSize.X, 0, open and 55 or 0)
+                end
+            end
+
+            togBtn.MouseButton1Click:Connect(function()
                 open = not open
-                QuickTween(panel, 0.25, { Size = UDim2.new(1, 0, 0, open and 50 or 0) })
+                if open then
+                    PositionPanel()
+                    panel.Visible = true
+                    QuickTween(panel, 0.25, { Size = UDim2.new(0, card.AbsoluteSize.X, 0, 55) })
+                    QuickTween(pvStroke, 0.2, { Color = T.BorderGlow, Transparency = 0.2 })
+                else
+                    QuickTween(panel, 0.2, { Size = UDim2.new(0, card.AbsoluteSize.X, 0, 0) })
+                    QuickTween(pvStroke, 0.2, { Color = T.Border, Transparency = 0.4 })
+                    task.delay(0.2, function()
+                        if not open then panel.Visible = false end
+                    end)
+                end
+            end)
+
+            UserInputService.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 and open then
+                    local mousePos = input.Position
+                    local panelPos = panel.AbsolutePosition
+                    local panelSize = panel.AbsoluteSize
+                    local cardPos = card.AbsolutePosition
+                    local cardSize = card.AbsoluteSize
+                    
+                    local inPanel = mousePos.X >= panelPos.X and mousePos.X <= panelPos.X + panelSize.X
+                                   and mousePos.Y >= panelPos.Y and mousePos.Y <= panelPos.Y + panelSize.Y
+                    local inCard = mousePos.X >= cardPos.X and mousePos.X <= cardPos.X + cardSize.X
+                                  and mousePos.Y >= cardPos.Y and mousePos.Y <= cardPos.Y + cardSize.Y
+                    
+                    if not inPanel and not inCard then
+                        open = false
+                        QuickTween(panel, 0.2, { Size = UDim2.new(0, card.AbsoluteSize.X, 0, 0) })
+                        QuickTween(pvStroke, 0.2, { Color = T.Border, Transparency = 0.4 })
+                        task.delay(0.2, function()
+                            if not open then panel.Visible = false end
+                        end)
+                    end
+                end
             end)
 
             local api = {}
-            function api:Set(c)
-                color = c; preview.BackgroundColor3 = c
-                hue, sat, val2 = Color3.toHSV(c)
-                hueKnob.Position = UDim2.new(hue, 0, 0.5, 0)
-                if callback then callback(c) end
+            function api:Set(c) 
+                color = c
+                preview.BackgroundColor3 = color
+                hue = Color3.toHSV(color)
+                QuickTween(hueKnob, 0.1, { Position = UDim2.new(hue, 0, 0.5, 0) })
+                if callback then callback(color) end
             end
             function api:Get() return color end
             return api
@@ -1170,217 +1438,116 @@ function ZandarUI.new(config)
     end
 
     -- ╔══════════════════════════════════════════════════╗
-    -- ║               NOTIFICATION                       ║
+    -- ║                 NOTIFICATION SYSTEM               ║
     -- ╚══════════════════════════════════════════════════╝
 
-    function self:Notify(options)
-        options = options or {}
-        local title = options.Title or "Notification"
-        local msg   = options.Message or ""
-        local dur   = options.Duration or 4
-        local ntype = options.Type or "Info"
+    function self:Notify(config)
+        config = config or {}
+        local title = config.Title or "Notification"
+        local message = config.Message or ""
+        local duration = config.Duration or 3
+        local notifType = config.Type or "Info"
 
-        local ntypeColors = { Info = T.Info, Success = T.Success, Warning = T.Warning, Error = T.Error }
-        local acol = ntypeColors[ntype] or T.Info
-
-        local W = 290
-        local holder = ScreenGui:FindFirstChild("NotifHolder")
-        if not holder then
-            holder = Instance.new("Frame")
-            holder.Name = "NotifHolder"
-            holder.Size = UDim2.new(0, W, 1, 0)
-            holder.Position = UDim2.new(1, -(W + 14), 0, 0)
-            holder.BackgroundTransparency = 1; holder.BorderSizePixel = 0; holder.ZIndex = 100
-            holder.Parent = ScreenGui
-
-            local nList = Instance.new("UIListLayout")
-            nList.VerticalAlignment = Enum.VerticalAlignment.Bottom
-            nList.Padding = UDim.new(0, 6); nList.SortOrder = Enum.SortOrder.LayoutOrder; nList.Parent = holder
-
-            local nPad = Instance.new("UIPadding")
-            nPad.PaddingBottom = UDim.new(0, 14); nPad.Parent = holder
-        end
+        local typeColors = {
+            Info = T.Info,
+            Success = T.Success,
+            Warning = T.Warning,
+            Error = T.Error,
+        }
+        local typeColor = typeColors[notifType] or T.Info
 
         local notif = Instance.new("Frame")
-        notif.Size = UDim2.new(1, 0, 0, 68); notif.BackgroundColor3 = T.Surface
-        notif.BackgroundTransparency = 0.1; notif.BorderSizePixel = 0; notif.ZIndex = 101
-        notif.ClipsDescendants = true; notif.Parent = holder
+        notif.Size = UDim2.new(0, 280, 0, 0)
+        notif.Position = UDim2.new(1, -20, 1, -20)
+        notif.AnchorPoint = Vector2.new(1, 1)
+        notif.BackgroundColor3 = T.Surface
+        notif.BackgroundTransparency = 0.08
+        notif.BorderSizePixel = 0
+        notif.ZIndex = 200
+        notif.Parent = ScreenGui
         Instance.new("UICorner", notif).CornerRadius = UDim.new(0, 12)
 
         local nStroke = Instance.new("UIStroke")
-        nStroke.Color = T.Border; nStroke.Transparency = 0.45; nStroke.Thickness = 1
+        nStroke.Color = typeColor; nStroke.Transparency = 0.3; nStroke.Thickness = 1
         nStroke.Parent = notif
 
-        local accent = Instance.new("Frame")
-        accent.Size = UDim2.new(0, 3, 0.75, 0); accent.Position = UDim2.new(0, 0, 0.125, 0)
-        accent.BackgroundColor3 = acol; accent.BorderSizePixel = 0; accent.ZIndex = 102; accent.Parent = notif
-        Instance.new("UICorner", accent).CornerRadius = UDim.new(1, 0)
+        local accentLine = Instance.new("Frame")
+        accentLine.Size = UDim2.new(0, 3, 1, -16)
+        accentLine.Position = UDim2.new(0, 8, 0, 8)
+        accentLine.BackgroundColor3 = typeColor
+        accentLine.BorderSizePixel = 0
+        accentLine.ZIndex = 201
+        accentLine.Parent = notif
+        Instance.new("UICorner", accentLine).CornerRadius = UDim.new(1, 0)
 
-        local tLbl = Instance.new("TextLabel")
-        tLbl.Size = UDim2.new(1, -20, 0, 20); tLbl.Position = UDim2.new(0, 14, 0, 8)
-        tLbl.BackgroundTransparency = 1; tLbl.Text = title; tLbl.TextColor3 = T.AccentBright
-        tLbl.TextSize = 13; tLbl.Font = Enum.Font.GothamBold; tLbl.TextXAlignment = Enum.TextXAlignment.Left
-        tLbl.ZIndex = 102; tLbl.Parent = notif
+        local titleLbl = Instance.new("TextLabel")
+        titleLbl.Size = UDim2.new(1, -30, 0, 20)
+        titleLbl.Position = UDim2.new(0, 18, 0, 8)
+        titleLbl.BackgroundTransparency = 1
+        titleLbl.Text = title
+        titleLbl.TextColor3 = T.AccentBright
+        titleLbl.TextSize = 13
+        titleLbl.Font = Enum.Font.GothamBold
+        titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+        titleLbl.ZIndex = 201
+        titleLbl.Parent = notif
 
-        local mLbl = Instance.new("TextLabel")
-        mLbl.Size = UDim2.new(1, -20, 0, 30); mLbl.Position = UDim2.new(0, 14, 0, 30)
-        mLbl.BackgroundTransparency = 1; mLbl.Text = msg; mLbl.TextColor3 = T.TextMuted
-        mLbl.TextSize = 11; mLbl.Font = Enum.Font.Gotham; mLbl.TextXAlignment = Enum.TextXAlignment.Left
-        mLbl.TextWrapped = true; mLbl.ZIndex = 102; mLbl.Parent = notif
+        local msgLbl = Instance.new("TextLabel")
+        msgLbl.Size = UDim2.new(1, -30, 0, 16)
+        msgLbl.Position = UDim2.new(0, 18, 0, 26)
+        msgLbl.BackgroundTransparency = 1
+        msgLbl.Text = message
+        msgLbl.TextColor3 = T.TextMuted
+        msgLbl.TextSize = 11
+        msgLbl.Font = Enum.Font.Gotham
+        msgLbl.TextXAlignment = Enum.TextXAlignment.Left
+        msgLbl.TextWrapped = true
+        msgLbl.ZIndex = 201
+        msgLbl.Parent = notif
 
-        local prog = Instance.new("Frame")
-        prog.Size = UDim2.new(1, 0, 0, 2); prog.Position = UDim2.new(0, 0, 1, -2)
-        prog.BackgroundColor3 = T.Accent; prog.BorderSizePixel = 0; prog.ZIndex = 103; prog.Parent = notif
+        -- Анимация появления
+        local targetSize = UDim2.new(0, 280, 0, 50)
+        QuickTween(notif, 0.4, { Size = targetSize })
 
-        local progGrad = Instance.new("UIGradient")
-        progGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(90, 90, 105)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(225, 225, 240)),
-        })
-        progGrad.Parent = prog
-
-        notif.Position = UDim2.new(1.1, 0, 0, 0)
-        SpringTween(notif, 0.4, { Position = UDim2.new(0, 0, 0, 0) })
-        TweenService:Create(prog, TweenInfo.new(dur, Enum.EasingStyle.Linear), { Size = UDim2.new(0, 0, 0, 2) }):Play()
-
-        task.delay(dur, function()
-            QuickTween(notif, 0.28, { Position = UDim2.new(1.1, 0, 0, 0), BackgroundTransparency = 1 })
-            task.delay(0.32, function() notif:Destroy() end)
+        -- Авто-удаление
+        task.delay(duration, function()
+            if notif and notif.Parent then
+                QuickTween(notif, 0.3, { BackgroundTransparency = 1 })
+                QuickTween(nStroke, 0.3, { Transparency = 1 })
+                task.delay(0.3, function()
+                    if notif and notif.Parent then notif:Destroy() end
+                end)
+            end
         end)
     end
 
     -- ╔══════════════════════════════════════════════════╗
-    -- ║      ROUND FLOATING OPEN/CLOSE BUTTON (FAB)      ║
+    -- ║                  TOGGLE KEYBIND                  ║
     -- ╚══════════════════════════════════════════════════╝
 
-    local FAB_SIZE = 56
-    local Fab = Instance.new("TextButton")
-    Fab.Name             = "ZandarFab"
-    Fab.Size             = UDim2.new(0, FAB_SIZE, 0, FAB_SIZE)
-    Fab.AnchorPoint      = Vector2.new(1, 1)
-    Fab.Position         = UDim2.new(1, -22, 1, -22)
-    Fab.BackgroundColor3 = T.Background
-    Fab.BackgroundTransparency = 0.05
-    Fab.BorderSizePixel  = 0
-    Fab.Text             = ""
-    Fab.AutoButtonColor  = false
-    Fab.ClipsDescendants = true
-    Fab.ZIndex           = 50
-    Fab.Parent           = ScreenGui
-    Instance.new("UICorner", Fab).CornerRadius = UDim.new(1, 0)
-
-    local fabStroke = Instance.new("UIStroke")
-    fabStroke.Color = T.BorderGlow
-    fabStroke.Transparency = 0.3
-    fabStroke.Thickness = 1.4
-    fabStroke.Parent = Fab
-
-    task.spawn(function()
-        local up = true
-        while Fab.Parent do
-            SmoothTween(fabStroke, 2, { Transparency = up and 0.15 or 0.55 })
-            up = not up
-            task.wait(2)
-        end
-    end)
-
-    -- Two bars that morph hamburger (≡ minus middle) ⇄ X
-    local bar1 = Instance.new("Frame")
-    bar1.Size             = UDim2.new(0, 20, 0, 2)
-    bar1.AnchorPoint      = Vector2.new(0.5, 0.5)
-    bar1.Position         = UDim2.new(0.5, 0, 0.5, -5)
-    bar1.BackgroundColor3 = T.AccentBright
-    bar1.BorderSizePixel  = 0
-    bar1.ZIndex           = 52
-    bar1.Parent           = Fab
-    Instance.new("UICorner", bar1).CornerRadius = UDim.new(1, 0)
-
-    local bar2 = bar1:Clone()
-    bar2.Position = UDim2.new(0.5, 0, 0.5, 5)
-    bar2.Parent   = Fab
-
-    local function SetFabIcon(isOpenState)
-        if isOpenState then
-            -- morph into X
-            QuickTween(bar1, 0.28, { Position = UDim2.new(0.5, 0, 0.5, 0), Rotation = 45 })
-            QuickTween(bar2, 0.28, { Position = UDim2.new(0.5, 0, 0.5, 0), Rotation = -45 })
-        else
-            -- morph back into two bars
-            QuickTween(bar1, 0.28, { Position = UDim2.new(0.5, 0, 0.5, -5), Rotation = 0 })
-            QuickTween(bar2, 0.28, { Position = UDim2.new(0.5, 0, 0.5, 5), Rotation = 0 })
-        end
-    end
-    SetFabIcon(true) -- window starts open -> icon starts as X
-
-    local fabHitArea = Instance.new("TextButton")
-    fabHitArea.Size = UDim2.new(1, 0, 1, 0)
-    fabHitArea.BackgroundTransparency = 1
-    fabHitArea.Text = ""
-    fabHitArea.ZIndex = 53
-    fabHitArea.Parent = Fab
-
-    fabHitArea.MouseEnter:Connect(function()
-        QuickTween(Fab, 0.15, { BackgroundTransparency = 0 })
-        QuickTween(fabStroke, 0.15, { Color = T.AccentBright, Transparency = 0.1 })
-    end)
-    fabHitArea.MouseLeave:Connect(function()
-        QuickTween(Fab, 0.15, { BackgroundTransparency = 0.05 })
-    end)
-
-    local function SetOpen(isOpen)
-        self._open = isOpen
-        SetFabIcon(isOpen)
-
-        if isOpen then
-            Window.Visible = true
-            ElasticTween(Window, 0.55, { Size = UDim2.new(0, WIN_W, 0, WIN_H) })
-            SmoothTween(Overlay, 0.4, { BackgroundTransparency = 0.55 })
-            SmoothTween(blur, 0.4, { Size = T.BlurSize })
-        else
-            QuickTween(Window, 0.3, { Size = UDim2.new(0, 0, 0, 0) })
-            SmoothTween(Overlay, 0.35, { BackgroundTransparency = 1 })
-            SmoothTween(blur, 0.35, { Size = 0 })
-            task.delay(0.32, function()
-                if not self._open then Window.Visible = false end
-            end)
-        end
-    end
-    self._setOpen = SetOpen
-
-    -- FAB is draggable (bounds-clamped to the screen). A click only
-    -- toggles open/closed if the pointer didn't actually move — this way
-    -- dragging the button around never accidentally opens/closes the menu.
-    MakeDraggable(Fab, fabHitArea, 6, function(didMove)
-        if not didMove then
-            RippleEffect(Fab)
-            SetOpen(not self._open)
-        end
-    end)
-
-    HeaderClose.MouseButton1Click:Connect(function()
-        RippleEffect(HeaderClose)
-        SetOpen(false)
-    end)
-
-    -- ── Keybind toggle ────────────────────────────────────
-    local togKey = config.ToggleKey or Enum.KeyCode.RightShift
-    UserInputService.InputBegan:Connect(function(inp, gpe)
-        if gpe then return end
-        if inp.KeyCode == togKey then
-            SetOpen(not self._open)
-        end
-    end)
-
-    -- ── Live re-fit on screen size change (rotation / resize) ─────
-    if Camera then
-        Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-            local newW, newH = GetWindowSize()
-            WIN_W, WIN_H = newW, newH
-            if self._open then
-                QuickTween(Window, 0.25, { Size = UDim2.new(0, WIN_W, 0, WIN_H) })
+    if config.ToggleKey then
+        UserInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.KeyCode == config.ToggleKey then
+                self._open = not self._open
+                if self._open then
+                    Window.Visible = true
+                    ElasticTween(Window, 0.4, { Size = UDim2.new(0, WIN_W, 0, WIN_H) })
+                    SmoothTween(Overlay, 0.3, { BackgroundTransparency = 0.55 })
+                    SmoothTween(blur, 0.3, { Size = T.BlurSize })
+                else
+                    SmoothTween(Window, 0.3, { Size = UDim2.new(0, 0, 0, 0) })
+                    SmoothTween(Overlay, 0.3, { BackgroundTransparency = 1 })
+                    SmoothTween(blur, 0.3, { Size = 0 })
+                    task.delay(0.3, function()
+                        if not self._open then Window.Visible = false end
+                    end)
+                end
             end
         end)
     end
 
     return self
 end
+
+return ZandarUI
