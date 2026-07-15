@@ -1,611 +1,243 @@
--- ══════════════════════════════════════════════════════════════════
---  gui.lua  —  UI Construction  v2
--- ══════════════════════════════════════════════════════════════════
 return function(deps)
-    local TweenService       = deps.TweenService
-    local UserInputService   = deps.UserInputService
-    local CoreGui            = deps.CoreGui
+    local TweenService = deps.TweenService
+    local UserInputService = deps.UserInputService
+    local CoreGui = deps.CoreGui
     local MarketplaceService = deps.MarketplaceService
-    local playerGui          = deps.playerGui
-    local platformName       = deps.platformName
-    local T                  = deps.T
-    local regA               = deps.regA
-    local HubData            = deps.HubData
+    local playerGui = deps.playerGui
+    local T = deps.T
+    local ThemeColors = deps.ThemeColors
+    local Settings = deps.Settings
 
-    local createNotification = function() end
+    local TW = {
+        Fast = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        Normal = TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+        Slow = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+        Spring = TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+    }
 
-    local CORNER   = 14
-    local CORNER_S = 8
-    local TWEEN_F  = TweenInfo.new(0.18, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out)
-    local TWEEN_M  = TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local function Tw(obj, props, info)
+        if not obj or not obj.Parent then return nil end
+        return TweenService:Create(obj, info or TW.Normal, props)
+    end
 
-    local function mkCorner(parent, r)
+    local function MkCorner(parent, radius)
         local c = Instance.new("UICorner")
-        c.CornerRadius = UDim.new(0, r or CORNER)
+        c.CornerRadius = UDim.new(0, radius or 12)
         c.Parent = parent
         return c
     end
 
-    local function mkStroke(parent, thickness, color, alpha)
+    local function MkStroke(parent, thick, color, trans, mode)
         local s = Instance.new("UIStroke")
-        s.Thickness       = thickness or 1
-        s.Color           = color or Color3.new(1,1,1)
-        s.Transparency    = alpha or 0.85
-        s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        s.Parent          = parent
+        s.Thickness = thick or 1; s.Color = color or ThemeColors.StrokeNeon
+        s.Transparency = trans or 0.3; s.ApplyStrokeMode = mode or Enum.ApplyStrokeMode.Border
+        s.Parent = parent
         return s
     end
 
-    local function mkGradient(parent, keypoints, rotation)
-        local g = Instance.new("UIGradient")
-        g.Transparency = NumberSequence.new(keypoints)
-        g.Rotation     = rotation or 0
-        g.Parent       = parent
-        return g
+    local function MkNeonGlow(parent, color, size)
+        local glow = Instance.new("Frame")
+        glow.Name = "NeonGlow"
+        glow.Size = UDim2.new(1, size or 8, 1, size or 8)
+        glow.Position = UDim2.new(0, -(size or 4), 0, -(size or 4))
+        glow.BackgroundColor3 = color or ThemeColors.NeonPrimary
+        glow.BackgroundTransparency = 0.75; glow.BorderSizePixel = 0
+        glow.ZIndex = parent.ZIndex - 1; glow.Parent = parent.Parent
+        MkCorner(glow, 16)
+        return glow
     end
 
-    local function mkGlassSheen(parent, zIdx)
-        local sh = Instance.new("Frame")
-        sh.Name                   = "GlassSheen"
-        sh.BackgroundColor3       = Color3.new(1,1,1)
-        sh.BackgroundTransparency = 0.93
-        sh.BorderSizePixel        = 0
-        sh.Size                   = UDim2.new(1,0,0.55,0)
-        sh.ZIndex                 = zIdx or 10
-        sh.Parent                 = parent
-        local r = CORNER
-        local ec = parent:FindFirstChildWhichIsA("UICorner")
-        if ec then r = ec.CornerRadius.Offset end
-        mkCorner(sh, r)
-        mkGradient(sh, {
-            NumberSequenceKeypoint.new(0,   0.20),
-            NumberSequenceKeypoint.new(0.5, 0.80),
-            NumberSequenceKeypoint.new(1,   1.00),
-        }, 90)
-        return sh
+    local function MkGlassPanel(parent, size, pos, zIndex, radius, bgTrans)
+        local f = Instance.new("Frame")
+        f.Name = "GlassPanel"; f.Size = size or UDim2.new(1, 0, 1, 0)
+        f.Position = pos or UDim2.new(0, 0, 0, 0)
+        f.BackgroundColor3 = ThemeColors.GlassDark; f.BackgroundTransparency = bgTrans or 0.15
+        f.BorderSizePixel = 0; f.ZIndex = zIndex or 4; f.Parent = parent
+        MkCorner(f, radius or 14); MkStroke(f, 1, ThemeColors.StrokeNeon, 0.5)
+        
+        local sheen = Instance.new("Frame")
+        sheen.Name = "GlassSheen"; sheen.Size = UDim2.new(1, 0, 0.45, 0)
+        sheen.BackgroundColor3 = Color3.new(1, 1, 1); sheen.BackgroundTransparency = 0.92
+        sheen.BorderSizePixel = 0; sheen.ZIndex = f.ZIndex + 1; sheen.Parent = f
+        MkCorner(sheen, radius or 14)
+        local grad = Instance.new("UIGradient")
+        grad.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0, 0.15), NumberSequenceKeypoint.new(0.5, 0.7), NumberSequenceKeypoint.new(1, 1)})
+        grad.Rotation = 90; grad.Parent = sheen
+        return f
     end
 
-    local function countScripts()
-        local n = 0
-        for _, cat in pairs(HubData) do
-            if type(cat) == "table" then n = n + #cat end
-        end
-        return n
-    end
-
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name           = "MegaHack_GUI"
-    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    screenGui.IgnoreGuiInset = true
-    screenGui.ResetOnSpawn   = false
-
-    local function protectGui(g)
-        local ok = pcall(function()
-            if get_hidden_gui then
-                g.Parent = get_hidden_gui()
-            elseif gethui then
-                g.Parent = gethui()
-            elseif syn and typeof(syn) == "table" and syn.protect_gui then
-                syn.protect_gui(g); g.Parent = CoreGui
-            else
-                g.Parent = CoreGui
-            end
-        end)
-        if not ok then g.Parent = CoreGui end
-    end
-    protectGui(screenGui)
-
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name                   = "MainFrame"
-    mainFrame.BackgroundColor3       = T.BgBase
-    mainFrame.BackgroundTransparency = 0.06
-    mainFrame.BorderSizePixel        = 0
-    mainFrame.AnchorPoint            = Vector2.new(0.5, 0.5)
-    mainFrame.Position               = UDim2.new(0.5,0,0.5,0)
-    mainFrame.Size                   = UDim2.new(0,590,0,400)
-    mainFrame.ZIndex                 = 2
-    mainFrame.Parent                 = screenGui
-    mkCorner(mainFrame, CORNER)
-    mkStroke(mainFrame, 1, Color3.new(1,1,1), 0.78)
-    mkGlassSheen(mainFrame, 3)
-
-    local accentBar = Instance.new("Frame")
-    accentBar.Name                   = "AccentBar"
-    accentBar.BackgroundColor3       = T.Accent
-    accentBar.BackgroundTransparency = 0.35
-    accentBar.BorderSizePixel        = 0
-    accentBar.Size                   = UDim2.new(0.38,0,0,2)
-    accentBar.Position               = UDim2.new(0.31,0,1,-3)
-    accentBar.ZIndex                 = 4
-    accentBar.Parent                 = mainFrame
-    mkCorner(accentBar, 2)
-    regA(accentBar)
-
-    local headerFrame = Instance.new("Frame")
-    headerFrame.Name                   = "HeaderFrame"
-    headerFrame.BackgroundTransparency = 1
-    headerFrame.Size                   = UDim2.new(1,0,0,52)
-    headerFrame.ZIndex                 = 5
-    headerFrame.Parent                 = mainFrame
-
-    local headerLine = Instance.new("Frame")
-    headerLine.BackgroundColor3       = Color3.new(1,1,1)
-    headerLine.BackgroundTransparency = 0.88
-    headerLine.BorderSizePixel        = 0
-    headerLine.Size                   = UDim2.new(1,-24,0,1)
-    headerLine.Position               = UDim2.new(0,12,1,0)
-    headerLine.ZIndex                 = 6
-    headerLine.Parent                 = headerFrame
-
-    local logoIcon = Instance.new("ImageLabel")
-    logoIcon.BackgroundTransparency = 1
-    logoIcon.Image    = "rbxassetid://7072717762"
-    logoIcon.Size     = UDim2.new(0,20,0,20)
-    logoIcon.Position = UDim2.new(0,16,0.5,-10)
-    logoIcon.ZIndex   = 8
-    logoIcon.Parent   = headerFrame
-
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text           = "MEGAHACK"
-    titleLabel.Font           = Enum.Font.GothamBold
-    titleLabel.TextSize       = 15
-    titleLabel.TextColor3     = T.TextMain
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Size           = UDim2.new(0,110,0,22)
-    titleLabel.Position       = UDim2.new(0,44,0.5,-11)
-    titleLabel.ZIndex         = 8
-    titleLabel.Parent         = headerFrame
-    titleLabel:SetAttribute("TextRole","main")
-
-    local versionBadge = Instance.new("Frame")
-    versionBadge.BackgroundColor3       = T.Accent
-    versionBadge.BackgroundTransparency = 0.18
-    versionBadge.BorderSizePixel        = 0
-    versionBadge.Size                   = UDim2.new(0,38,0,17)
-    versionBadge.Position               = UDim2.new(0,148,0.5,-8)
-    versionBadge.ZIndex                 = 8
-    versionBadge.Parent                 = headerFrame
-    mkCorner(versionBadge, 6)
-    regA(versionBadge)
-
-    local versionText = Instance.new("TextLabel")
-    versionText.BackgroundTransparency = 1
-    versionText.Text       = "v2.0"
-    versionText.Font       = Enum.Font.GothamBold
-    versionText.TextSize   = 10
-    versionText.TextColor3 = T.TextMain
-    versionText.Size       = UDim2.new(1,0,1,0)
-    versionText.ZIndex     = 9
-    versionText.Parent     = versionBadge
-    versionText:SetAttribute("TextRole","main")
-
-    local scriptCountLabel = Instance.new("TextLabel")
-    scriptCountLabel.BackgroundTransparency = 1
-    scriptCountLabel.Text           = countScripts() .. " scripts"
-    scriptCountLabel.Font           = Enum.Font.Gotham
-    scriptCountLabel.TextSize       = 11
-    scriptCountLabel.TextColor3     = T.TextSub
-    scriptCountLabel.TextXAlignment = Enum.TextXAlignment.Right
-    scriptCountLabel.Size           = UDim2.new(0,110,0,18)
-    scriptCountLabel.Position       = UDim2.new(1,-168,0.5,-9)
-    scriptCountLabel.ZIndex         = 8
-    scriptCountLabel.Parent         = headerFrame
-
-    local ok_g, gname = pcall(function()
-        return MarketplaceService:GetProductInfo(game.PlaceId).Name
-    end)
-    local gameNameHeader = Instance.new("TextLabel")
-    gameNameHeader.BackgroundTransparency = 1
-    gameNameHeader.Text           = ok_g and gname or "Unknown Game"
-    gameNameHeader.Font           = Enum.Font.Gotham
-    gameNameHeader.TextSize       = 10
-    gameNameHeader.TextColor3     = T.TextMuted
-    gameNameHeader.TextXAlignment = Enum.TextXAlignment.Right
-    gameNameHeader.Size           = UDim2.new(0,140,0,14)
-    gameNameHeader.Position       = UDim2.new(1,-190,0.5,6)
-    gameNameHeader.ZIndex         = 8
-    gameNameHeader.Parent         = headerFrame
-
-    local closeBtn = Instance.new("TextButton")
-    closeBtn.Name                   = "CloseBtn"
-    closeBtn.BackgroundColor3       = Color3.fromRGB(195,55,55)
-    closeBtn.BackgroundTransparency = 0.38
-    closeBtn.BorderSizePixel        = 0
-    closeBtn.Size                   = UDim2.new(0,26,0,26)
-    closeBtn.Position               = UDim2.new(1,-38,0.5,-13)
-    closeBtn.Text                   = "×"
-    closeBtn.TextColor3             = T.TextMain
-    closeBtn.TextSize               = 20
-    closeBtn.Font                   = Enum.Font.Gotham
-    closeBtn.ZIndex                 = 10
-    closeBtn.Parent                 = headerFrame
-    mkCorner(closeBtn, 13)
-    closeBtn:SetAttribute("TextRole","main")
-    closeBtn.MouseEnter:Connect(function()
-        TweenService:Create(closeBtn, TWEEN_F, {BackgroundTransparency=0.08, BackgroundColor3=Color3.fromRGB(230,50,50)}):Play()
-    end)
-    closeBtn.MouseLeave:Connect(function()
-        TweenService:Create(closeBtn, TWEEN_F, {BackgroundTransparency=0.38, BackgroundColor3=Color3.fromRGB(195,55,55)}):Play()
-    end)
-
-    local sidebarFrame = Instance.new("Frame")
-    sidebarFrame.Name                   = "SidebarFrame"
-    sidebarFrame.BackgroundTransparency = 1
-    sidebarFrame.Size                   = UDim2.new(0,148,1,-52)
-    sidebarFrame.Position               = UDim2.new(0,0,0,52)
-    sidebarFrame.ZIndex                 = 3
-    sidebarFrame.Parent                 = mainFrame
-
-    local sidebarSep = Instance.new("Frame")
-    sidebarSep.BackgroundColor3       = Color3.new(1,1,1)
-    sidebarSep.BackgroundTransparency = 0.92
-    sidebarSep.BorderSizePixel        = 0
-    sidebarSep.Size                   = UDim2.new(0,1,1,-20)
-    sidebarSep.Position               = UDim2.new(1,-1,0,10)
-    sidebarSep.ZIndex                 = 4
-    sidebarSep.Parent                 = sidebarFrame
-
-    local catScroll = Instance.new("ScrollingFrame")
-    catScroll.BackgroundTransparency = 1
-    catScroll.BorderSizePixel        = 0
-    catScroll.Size                   = UDim2.new(1,-6,1,-12)
-    catScroll.Position               = UDim2.new(0,6,0,6)
-    catScroll.CanvasSize             = UDim2.new(0,0,0,0)
-    catScroll.ScrollBarThickness     = 0
-    catScroll.ZIndex                 = 5
-    catScroll.Parent                 = sidebarFrame
-
-    local catLayout = Instance.new("UIListLayout")
-    catLayout.Padding   = UDim.new(0,3)
-    catLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    catLayout.Parent    = catScroll
-
-    local catPad = Instance.new("UIPadding")
-    catPad.PaddingLeft   = UDim.new(0,6)
-    catPad.PaddingRight  = UDim.new(0,6)
-    catPad.PaddingTop    = UDim.new(0,4)
-    catPad.PaddingBottom = UDim.new(0,4)
-    catPad.Parent        = catScroll
-
-    catLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        catScroll.CanvasSize = UDim2.new(0,0,0, catLayout.AbsoluteContentSize.Y + 16)
-    end)
-
-    local contentFrame = Instance.new("Frame")
-    contentFrame.BackgroundTransparency = 1
-    contentFrame.BorderSizePixel        = 0
-    contentFrame.Size                   = UDim2.new(1,-160,1,-64)
-    contentFrame.Position               = UDim2.new(0,154,0,58)
-    contentFrame.ZIndex                 = 3
-    contentFrame.Parent                 = mainFrame
-
-    local scrollingFrame = Instance.new("ScrollingFrame")
-    scrollingFrame.BackgroundTransparency = 1
-    scrollingFrame.BorderSizePixel        = 0
-    scrollingFrame.Size                   = UDim2.new(1,0,1,0)
-    scrollingFrame.CanvasSize             = UDim2.new(0,0,0,0)
-    scrollingFrame.ScrollBarThickness     = 2
-    scrollingFrame.ScrollBarImageColor3   = T.Accent
-    scrollingFrame.ZIndex                 = 3
-    scrollingFrame.Parent                 = contentFrame
-    regA(scrollingFrame, "ScrollBarImageColor3")
-
-    local scrollLayout = Instance.new("UIListLayout")
-    scrollLayout.Padding   = UDim.new(0,5)
-    scrollLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    scrollLayout.Parent    = scrollingFrame
-
-    local scrollPad = Instance.new("UIPadding")
-    scrollPad.PaddingLeft   = UDim.new(0,2)
-    scrollPad.PaddingRight  = UDim.new(0,8)
-    scrollPad.PaddingTop    = UDim.new(0,2)
-    scrollPad.PaddingBottom = UDim.new(0,6)
-    scrollPad.Parent        = scrollingFrame
-
-    scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        scrollingFrame.CanvasSize = UDim2.new(0,0,0, scrollLayout.AbsoluteContentSize.Y + 14)
-    end)
-
-    local gamesPanel = Instance.new("ScrollingFrame")
-    gamesPanel.Name                   = "GamesPanel"
-    gamesPanel.BackgroundTransparency = 1
-    gamesPanel.BorderSizePixel        = 0
-    gamesPanel.Size                   = UDim2.new(1,0,1,0)
-    gamesPanel.CanvasSize             = UDim2.new(0,0,0,0)
-    gamesPanel.ScrollBarThickness     = 2
-    gamesPanel.ScrollBarImageColor3   = T.Accent
-    gamesPanel.Visible                = false
-    gamesPanel.ZIndex                 = 3
-    gamesPanel.Parent                 = contentFrame
-    regA(gamesPanel, "ScrollBarImageColor3")
-
-    local gamesGrid = Instance.new("UIGridLayout")
-    gamesGrid.CellSize    = UDim2.new(0,128,0,96)
-    gamesGrid.CellPadding = UDim2.new(0,8,0,8)
-    gamesGrid.SortOrder   = Enum.SortOrder.LayoutOrder
-    gamesGrid.Parent      = gamesPanel
-
-    local gamesPad = Instance.new("UIPadding")
-    gamesPad.PaddingLeft   = UDim.new(0,4)
-    gamesPad.PaddingTop    = UDim.new(0,6)
-    gamesPad.PaddingRight  = UDim.new(0,4)
-    gamesPad.PaddingBottom = UDim.new(0,6)
-    gamesPad.Parent        = gamesPanel
-
-    gamesGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        gamesPanel.CanvasSize = UDim2.new(0,0,0, gamesGrid.AbsoluteContentSize.Y + 20)
-    end)
-
-    local reopenButton = Instance.new("ImageButton")
-    reopenButton.Size                   = UDim2.new(0,46,0,46)
-    reopenButton.Position               = UDim2.new(0.5,-23,0.9,-23)
-    reopenButton.BackgroundColor3       = T.BgSide
-    reopenButton.BackgroundTransparency = 0.14
-    reopenButton.Image                  = "rbxassetid://74283928898866"
-    reopenButton.ImageTransparency      = 0.08
-    reopenButton.ImageColor3            = T.TextMain
-    reopenButton.Visible                = false
-    reopenButton.ZIndex                 = 12
-    reopenButton.Parent                 = screenGui
-    mkCorner(reopenButton, 23)
-
-    local reopenRing = mkStroke(reopenButton, 1.5, T.Accent, 0.28)
-    regA(reopenRing, "Color")
-
-    reopenButton.MouseEnter:Connect(function()
-        TweenService:Create(reopenButton, TWEEN_F, {BackgroundColor3=T.Accent, BackgroundTransparency=0.08}):Play()
-    end)
-    reopenButton.MouseLeave:Connect(function()
-        TweenService:Create(reopenButton, TWEEN_F, {BackgroundColor3=T.BgSide, BackgroundTransparency=0.14}):Play()
-    end)
-
-    local dummyPatch = Instance.new("Frame")
-    dummyPatch.Visible = false
-    dummyPatch.Parent  = mainFrame
-
-    local function createSectionHeader(text, parent)
-        local container = Instance.new("Frame")
-        container.BackgroundTransparency = 1
-        container.Size   = UDim2.new(1,0,0,26)
-        container.ZIndex = 4
-        container.Parent = parent
-
-        local pip = Instance.new("Frame")
-        pip.BackgroundColor3       = T.Accent
-        pip.BackgroundTransparency = 0
-        pip.BorderSizePixel        = 0
-        pip.Size                   = UDim2.new(0,3,0,14)
-        pip.Position               = UDim2.new(0,0,0.5,-7)
-        pip.ZIndex                 = 5
-        pip.Parent                 = container
-        mkCorner(pip, 2)
-        regA(pip)
-
+    local function MkNeonText(parent, text, size, pos, fontSize, color, zIndex)
         local lbl = Instance.new("TextLabel")
-        lbl.BackgroundTransparency = 1
-        lbl.Text           = string.upper(text)
-        lbl.Font           = Enum.Font.GothamBold
-        lbl.TextSize       = 10
-        lbl.TextColor3     = T.TextSub
-        lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Size           = UDim2.new(1,-12,1,0)
-        lbl.Position       = UDim2.new(0,10,0,0)
-        lbl.ZIndex         = 5
-        lbl.Parent         = container
-        return container
+        lbl.Size = size or UDim2.new(1, 0, 0, 20); lbl.Position = pos or UDim2.new(0, 0, 0, 0)
+        lbl.BackgroundTransparency = 1; lbl.Text = text or ""
+        lbl.Font = Enum.Font.GothamBold; lbl.TextSize = fontSize or 14
+        lbl.TextColor3 = color or ThemeColors.TextBright; lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.ZIndex = zIndex or 6; lbl.Parent = parent
+        return lbl
     end
 
-    local function createLabel(text, parent, size, position)
-        local label = Instance.new("TextLabel")
-        label.BackgroundTransparency = 1
-        label.Text             = text
-        label.Size             = size or UDim2.new(1,0,0,22)
-        label.Position         = position or UDim2.new(0,0,0,0)
-        label.TextSize         = 12
-        label.TextColor3       = T.TextMain
-        label.TextTransparency = 0.08
-        label.TextXAlignment   = Enum.TextXAlignment.Left
-        label.Font             = Enum.Font.Gotham
-        label.TextWrapped      = true
-        label.ZIndex           = 4
-        label.Parent           = parent
-        label:SetAttribute("TextRole","main")
-        return label
+    local function MkNeonButton(parent, text, size, pos, callback, accentColor, zIndex)
+        local btn = Instance.new("TextButton")
+        btn.Size = size or UDim2.new(0, 100, 0, 32); btn.Position = pos or UDim2.new(0, 0, 0, 0)
+        btn.BackgroundColor3 = accentColor or ThemeColors.NeonPrimary; btn.BackgroundTransparency = 0.35
+        btn.BorderSizePixel = 0; btn.Text = text or "Button"; btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12; btn.TextColor3 = Color3.new(1, 1, 1); btn.ZIndex = zIndex or 8; btn.Parent = parent
+        MkCorner(btn, 8); MkStroke(btn, 1.5, accentColor or ThemeColors.NeonPrimary, 0.2)
+        local glow = MkNeonGlow(btn, accentColor or ThemeColors.NeonPrimary, 6)
+        btn.MouseEnter:Connect(function() Tw(btn, {BackgroundTransparency = 0.15}, TW.Fast):Play() Tw(glow, {BackgroundTransparency = 0.55}, TW.Fast):Play() end)
+        btn.MouseLeave:Connect(function() Tw(btn, {BackgroundTransparency = 0.35}, TW.Fast):Play() Tw(glow, {BackgroundTransparency = 0.75}, TW.Fast):Play() end)
+        if callback then btn.MouseButton1Click:Connect(callback) end
+        return btn
     end
 
-    local function createButton(text, parent, callback, isCategoryButton)
-        if isCategoryButton then
-            local btn = Instance.new("TextButton")
-            btn.Size                   = UDim2.new(1,0,0,30)
-            btn.BackgroundColor3       = T.Accent
-            btn.BackgroundTransparency = 1
-            btn.BorderSizePixel        = 0
-            btn.Text                   = text
-            btn.TextColor3             = T.TextSub
-            btn.TextSize               = 11
-            btn.TextXAlignment         = Enum.TextXAlignment.Left
-            btn.Font                   = Enum.Font.GothamMedium
-            btn.ZIndex                 = 6
-            btn.Parent                 = parent
-            mkCorner(btn, CORNER_S)
-
-            local btnPad = Instance.new("UIPadding")
-            btnPad.PaddingLeft = UDim.new(0,12)
-            btnPad.Parent      = btn
-
-            btn.MouseEnter:Connect(function()
-                if btn:GetAttribute("Active") then return end
-                TweenService:Create(btn, TWEEN_F, {BackgroundTransparency=0.90, TextColor3=T.TextMain}):Play()
-            end)
-            btn.MouseLeave:Connect(function()
-                if btn:GetAttribute("Active") then return end
-                TweenService:Create(btn, TWEEN_F, {BackgroundTransparency=1, TextColor3=T.TextSub}):Play()
-            end)
-            btn.MouseButton1Click:Connect(function()
-                for _, child in ipairs(parent:GetChildren()) do
-                    if child:IsA("TextButton") then
-                        child:SetAttribute("Active", false)
-                        TweenService:Create(child, TWEEN_F, {BackgroundTransparency=1, TextColor3=T.TextSub}):Play()
-                    end
-                end
-                btn:SetAttribute("Active", true)
-                TweenService:Create(btn, TWEEN_F, {BackgroundTransparency=0.78, TextColor3=T.Accent}):Play()
-                callback()
-            end)
-            return btn
-        else
-            local btn = Instance.new("TextButton")
-            btn.Size                   = UDim2.new(1,0,0,36)
-            btn.BackgroundColor3       = T.BgPanel
-            btn.BackgroundTransparency = 0.38
-            btn.BorderSizePixel        = 0
-            btn.Text                   = ""
-            btn.ZIndex                 = 4
-            btn.Parent                 = parent
-            mkCorner(btn, CORNER_S)
-            local s = mkStroke(btn, 1, Color3.new(1,1,1), 0.90)
-
-            local leftBar = Instance.new("Frame")
-            leftBar.BackgroundColor3       = T.Accent
-            leftBar.BackgroundTransparency = 1
-            leftBar.BorderSizePixel        = 0
-            leftBar.Size                   = UDim2.new(0,2,1,-10)
-            leftBar.Position               = UDim2.new(0,0,0,5)
-            leftBar.ZIndex                 = 5
-            leftBar.Parent                 = btn
-            mkCorner(leftBar, 2)
-            regA(leftBar)
-
-            local label = Instance.new("TextLabel")
-            label.BackgroundTransparency = 1
-            label.Text           = text
-            label.Font           = Enum.Font.Gotham
-            label.TextSize       = 13
-            label.TextColor3     = T.TextMain
-            label.TextXAlignment = Enum.TextXAlignment.Left
-            label.Size           = UDim2.new(1,-24,1,0)
-            label.Position       = UDim2.new(0,14,0,0)
-            label.ZIndex         = 6
-            label.Parent         = btn
-            label:SetAttribute("TextRole","main")
-
-            btn.MouseEnter:Connect(function()
-                TweenService:Create(btn,     TWEEN_F, {BackgroundTransparency=0.18, BackgroundColor3=T.BgBtnHov}):Play()
-                TweenService:Create(s,       TWEEN_F, {Transparency=0.60}):Play()
-                TweenService:Create(leftBar, TWEEN_F, {BackgroundTransparency=0}):Play()
-            end)
-            btn.MouseLeave:Connect(function()
-                TweenService:Create(btn,     TWEEN_F, {BackgroundTransparency=0.38, BackgroundColor3=T.BgPanel}):Play()
-                TweenService:Create(s,       TWEEN_F, {Transparency=0.90}):Play()
-                TweenService:Create(leftBar, TWEEN_F, {BackgroundTransparency=1}):Play()
-            end)
-            btn.MouseButton1Click:Connect(function()
-                TweenService:Create(btn, TweenInfo.new(0.06), {BackgroundColor3=T.Accent, BackgroundTransparency=0.25}):Play()
-                task.delay(0.10, function()
-                    TweenService:Create(btn, TWEEN_F, {BackgroundColor3=T.BgBtnHov, BackgroundTransparency=0.18}):Play()
-                end)
-                callback()
-            end)
-            return btn
-        end
+    local function CreateSectionHeader(text, parent)
+        local header = Instance.new("Frame")
+        header.Size = UDim2.new(1, 0, 0, 28); header.BackgroundTransparency = 1; header.ZIndex = 5; header.Parent = parent
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, -12, 0, 20); lbl.Position = UDim2.new(0, 8, 0, 4)
+        lbl.BackgroundTransparency = 1; lbl.Text = text:upper(); lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 11; lbl.TextColor3 = Settings.colors.accent or ThemeColors.NeonPrimary
+        lbl.TextXAlignment = Enum.TextXAlignment.Left; lbl.ZIndex = 6; lbl.Parent = header
+        local line = Instance.new("Frame")
+        line.Size = UDim2.new(1, -16, 0, 1); line.Position = UDim2.new(0, 8, 1, -2)
+        line.BackgroundColor3 = Settings.colors.accent or ThemeColors.NeonPrimary
+        line.BackgroundTransparency = 0.6; line.BorderSizePixel = 0; line.ZIndex = 6; line.Parent = header
+        MkCorner(line, 1)
+        return header
     end
 
-    local function createGameCard(gameName, placeId, onClick)
-        local card = Instance.new("TextButton")
-        card.Name                   = "GameCard_" .. gameName
-        card.BackgroundColor3       = T.BgPanel
-        card.BackgroundTransparency = 0.30
-        card.BorderSizePixel        = 0
-        card.Text                   = ""
-        card.ZIndex                 = 4
-        card.Parent                 = gamesPanel
-        mkCorner(card, CORNER_S)
-        local cs = mkStroke(card, 1, Color3.new(1,1,1), 0.90)
+    -- === GUI CONSTRUCTION ===
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "MegaHack_v3"; ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.IgnoreGuiInset = true; ScreenGui.ResetOnSpawn = false
+    pcall(function() if gethui then ScreenGui.Parent = gethui() else ScreenGui.Parent = CoreGui end end)
+    if not ScreenGui.Parent then ScreenGui.Parent = playerGui end
 
-        local thumb = Instance.new("ImageLabel")
-        thumb.Name                   = "GameCardBg"
-        thumb.BackgroundColor3       = T.BgBtn
-        thumb.BackgroundTransparency = 0
-        thumb.BorderSizePixel        = 0
-        thumb.Size                   = UDim2.new(1,0,0,62)
-        thumb.Position               = UDim2.new(0,0,0,0)
-        thumb.Image                  = ""
-        thumb.ImageTransparency      = 1
-        thumb.ScaleType              = Enum.ScaleType.Crop
-        thumb.ZIndex                 = 5
-        thumb.Parent                 = card
-        mkCorner(thumb, CORNER_S)
+    local Shadow3D = Instance.new("Frame")
+    Shadow3D.Name = "Shadow3D"; Shadow3D.Size = UDim2.new(0, 640, 0, 440)
+    Shadow3D.Position = UDim2.new(Settings.unlockX, 8, Settings.unlockY, 8)
+    Shadow3D.AnchorPoint = Vector2.new(0.5, 0.5); Shadow3D.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    Shadow3D.BackgroundTransparency = 0.4; Shadow3D.BorderSizePixel = 0; Shadow3D.ZIndex = 1; Shadow3D.Parent = ScreenGui
+    MkCorner(Shadow3D, 18)
 
-        local overlay = Instance.new("Frame")
-        overlay.BackgroundColor3       = T.BgPanel
-        overlay.BackgroundTransparency = 0
-        overlay.BorderSizePixel        = 0
-        overlay.Size                   = UDim2.new(1,0,0.5,0)
-        overlay.Position               = UDim2.new(0,0,0.5,0)
-        overlay.ZIndex                 = 6
-        overlay.Parent                 = thumb
-        mkGradient(overlay, {
-            NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(1, 0),
-        }, 90)
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"; MainFrame.Size = UDim2.new(0, 630, 0, 430)
+    MainFrame.Position = UDim2.new(Settings.unlockX, 0, Settings.unlockY, 0)
+    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5); MainFrame.BackgroundColor3 = Settings.colors.bg
+    MainFrame.BackgroundTransparency = Settings.transparency; MainFrame.BorderSizePixel = 0
+    MainFrame.ZIndex = 2; MainFrame.Parent = ScreenGui
+    MkCorner(MainFrame, 16)
+    local MainStroke = MkStroke(MainFrame, 1.5, Settings.colors.stroke, 0.4)
 
-        local nameLbl = Instance.new("TextLabel")
-        nameLbl.BackgroundTransparency = 1
-        nameLbl.Text           = gameName
-        nameLbl.Font           = Enum.Font.GothamMedium
-        nameLbl.TextSize       = 10
-        nameLbl.TextColor3     = T.TextMain
-        nameLbl.TextXAlignment = Enum.TextXAlignment.Center
-        nameLbl.TextWrapped    = true
-        nameLbl.Size           = UDim2.new(1,-4,0,28)
-        nameLbl.Position       = UDim2.new(0,2,1,-28)
-        nameLbl.ZIndex         = 7
-        nameLbl.Parent         = card
-        nameLbl:SetAttribute("TextRole","main")
+    local HeaderBg = Instance.new("Frame")
+    HeaderBg.Name = "HeaderBg"; HeaderBg.Size = UDim2.new(1, 0, 0, 56)
+    HeaderBg.BackgroundColor3 = ThemeColors.GlassMid; HeaderBg.BackgroundTransparency = 0.2
+    HeaderBg.BorderSizePixel = 0; HeaderBg.ZIndex = 5; HeaderBg.Parent = MainFrame
+    MkCorner(HeaderBg, 16)
+    local HeaderLine = Instance.new("Frame")
+    HeaderLine.Size = UDim2.new(1, -24, 0, 1); HeaderLine.Position = UDim2.new(0, 12, 1, -1)
+    HeaderLine.BackgroundColor3 = Settings.colors.stroke; HeaderLine.BackgroundTransparency = 0.5
+    HeaderLine.BorderSizePixel = 0; HeaderLine.ZIndex = 6; HeaderLine.Parent = HeaderBg
 
-        card.MouseEnter:Connect(function()
-            TweenService:Create(card, TWEEN_F, {BackgroundTransparency=0.10, BackgroundColor3=T.BgBtnHov}):Play()
-            TweenService:Create(cs,   TWEEN_F, {Transparency=0.50, Color=T.Accent}):Play()
-        end)
-        card.MouseLeave:Connect(function()
-            TweenService:Create(card, TWEEN_F, {BackgroundTransparency=0.30, BackgroundColor3=T.BgPanel}):Play()
-            TweenService:Create(cs,   TWEEN_F, {Transparency=0.90, Color=Color3.new(1,1,1)}):Play()
-        end)
-        card.MouseButton1Click:Connect(function()
-            TweenService:Create(card, TweenInfo.new(0.06), {BackgroundColor3=T.Accent, BackgroundTransparency=0.2}):Play()
-            task.delay(0.10, function()
-                TweenService:Create(card, TWEEN_F, {BackgroundColor3=T.BgBtnHov, BackgroundTransparency=0.10}):Play()
-            end)
-            if onClick then onClick() end
-        end)
+    local LogoGlow = Instance.new("ImageLabel")
+    LogoGlow.Size = UDim2.new(0, 28, 0, 28); LogoGlow.Position = UDim2.new(0, 14, 0.5, -14)
+    LogoGlow.BackgroundColor3 = Settings.colors.accent; LogoGlow.BackgroundTransparency = 0.5
+    LogoGlow.Image = "rbxassetid://7072717762"; LogoGlow.ZIndex = 8; LogoGlow.Parent = HeaderBg
+    MkCorner(LogoGlow, 14); local LogoStroke = MkStroke(LogoGlow, 2, Settings.colors.accent, 0.2)
 
-        return card, thumb
-    end
+    local VerBadge = Instance.new("Frame")
+    VerBadge.Size = UDim2.new(0, 42, 0, 18); VerBadge.Position = UDim2.new(0, 160, 0.5, -9)
+    VerBadge.BackgroundColor3 = Settings.colors.accent; VerBadge.BackgroundTransparency = 0.3
+    VerBadge.BorderSizePixel = 0; VerBadge.ZIndex = 8; VerBadge.Parent = HeaderBg
+    MkCorner(VerBadge, 6)
+
+    local SidebarFrame = Instance.new("Frame")
+    SidebarFrame.Size = UDim2.new(0, 155, 1, -64); SidebarFrame.Position = UDim2.new(0, 0, 0, 56)
+    SidebarFrame.BackgroundTransparency = 1; SidebarFrame.ZIndex = 4; SidebarFrame.Parent = MainFrame
+    local SidebarSep = Instance.new("Frame")
+    SidebarSep.Size = UDim2.new(0, 1, 1, -20); SidebarSep.Position = UDim2.new(1, -1, 0, 10)
+    SidebarSep.BackgroundColor3 = Settings.colors.stroke; SidebarSep.BackgroundTransparency = 0.6
+    SidebarSep.BorderSizePixel = 0; SidebarSep.ZIndex = 5; SidebarSep.Parent = SidebarFrame
+
+    local CatScroll = Instance.new("ScrollingFrame")
+    CatScroll.BackgroundTransparency = 1; CatScroll.BorderSizePixel = 0
+    CatScroll.Size = UDim2.new(1, -8, 1, -12); CatScroll.Position = UDim2.new(0, 4, 0, 6)
+    CatScroll.CanvasSize = UDim2.new(0, 0, 0, 0); CatScroll.ScrollBarThickness = 0
+    CatScroll.ZIndex = 6; CatScroll.Parent = SidebarFrame
+    local CatLayout = Instance.new("UIListLayout")
+    CatLayout.Padding = UDim.new(0, 3); CatLayout.SortOrder = Enum.SortOrder.LayoutOrder; CatLayout.Parent = CatScroll
+    local CatPad = Instance.new("UIPadding")
+    CatPad.PaddingLeft = UDim.new(0, 4); CatPad.PaddingRight = UDim.new(0, 4)
+    CatPad.PaddingTop = UDim.new(0, 4); CatPad.PaddingBottom = UDim.new(0, 4); CatPad.Parent = CatScroll
+    CatLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        CatScroll.CanvasSize = UDim2.new(0, 0, 0, CatLayout.AbsoluteContentSize.Y + 12)
+    end)
+
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Size = UDim2.new(1, -163, 1, -68); ContentFrame.Position = UDim2.new(0, 159, 0, 60)
+    ContentFrame.BackgroundTransparency = 1; ContentFrame.ZIndex = 4; ContentFrame.Parent = MainFrame
+
+    local ScriptScroll = Instance.new("ScrollingFrame")
+    ScriptScroll.BackgroundTransparency = 1; ScriptScroll.BorderSizePixel = 0
+    ScriptScroll.Size = UDim2.new(1, 0, 1, 0); ScriptScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ScriptScroll.ScrollBarThickness = 3; ScriptScroll.ScrollBarImageColor3 = Settings.colors.accent
+    ScriptScroll.ZIndex = 5; ScriptScroll.Parent = ContentFrame
+    local ScriptLayout = Instance.new("UIListLayout")
+    ScriptLayout.Padding = UDim.new(0, 6); ScriptLayout.SortOrder = Enum.SortOrder.LayoutOrder; ScriptLayout.Parent = ScriptScroll
+    local ScriptPad = Instance.new("UIPadding")
+    ScriptPad.PaddingLeft = UDim.new(0, 4); ScriptPad.PaddingRight = UDim.new(0, 8)
+    ScriptPad.PaddingTop = UDim.new(0, 4); ScriptPad.PaddingBottom = UDim.new(0, 8); ScriptPad.Parent = ScriptScroll
+    ScriptLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        ScriptScroll.CanvasSize = UDim2.new(0, 0, 0, ScriptLayout.AbsoluteContentSize.Y + 16)
+    end)
+
+    local GamesPanel = Instance.new("ScrollingFrame")
+    GamesPanel.BackgroundTransparency = 1; GamesPanel.BorderSizePixel = 0
+    GamesPanel.Size = UDim2.new(1, 0, 1, 0); GamesPanel.CanvasSize = UDim2.new(0, 0, 0, 0)
+    GamesPanel.ScrollBarThickness = 3; GamesPanel.ScrollBarImageColor3 = Settings.colors.accent
+    GamesPanel.Visible = false; GamesPanel.ZIndex = 5; GamesPanel.Parent = ContentFrame
+    local GamesGrid = Instance.new("UIGridLayout")
+    GamesGrid.CellSize = UDim2.new(0, 120, 0, 100); GamesGrid.CellPadding = UDim2.new(0, 8, 0, 8)
+    GamesGrid.SortOrder = Enum.SortOrder.LayoutOrder; GamesGrid.Parent = GamesPanel
+    local GamesPad = Instance.new("UIPadding")
+    GamesPad.PaddingLeft = UDim.new(0, 4); GamesPad.PaddingTop = UDim.new(0, 4)
+    GamesPad.PaddingRight = UDim.new(0, 4); GamesPad.PaddingBottom = UDim.new(0, 4); GamesPad.Parent = GamesPanel
+    GamesGrid:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        GamesPanel.CanvasSize = UDim2.new(0, 0, 0, GamesGrid.AbsoluteContentSize.Y + 12)
+    end)
+
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0.5, -14)
+    CloseBtn.BackgroundColor3 = ThemeColors.Error; CloseBtn.BackgroundTransparency = 0.4
+    CloseBtn.BorderSizePixel = 0; CloseBtn.Text = "✕"; CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.TextSize = 18; CloseBtn.TextColor3 = Color3.new(1, 1, 1); CloseBtn.ZIndex = 10; CloseBtn.Parent = HeaderBg
+    MkCorner(CloseBtn, 14); MkStroke(CloseBtn, 1.5, ThemeColors.Error, 0.3)
+    local CloseGlow = MkNeonGlow(CloseBtn, ThemeColors.Error, 4)
+
+    local MinBtn = Instance.new("TextButton")
+    MinBtn.Size = UDim2.new(0, 28, 0, 28); MinBtn.Position = UDim2.new(1, -72, 0.5, -14)
+    MinBtn.BackgroundColor3 = ThemeColors.GlassLight; MinBtn.BackgroundTransparency = 0.3
+    MinBtn.BorderSizePixel = 0; MinBtn.Text = "—"; MinBtn.Font = Enum.Font.GothamBold
+    MinBtn.TextSize = 18; MinBtn.TextColor3 = ThemeColors.TextNormal; MinBtn.ZIndex = 10; MinBtn.Parent = HeaderBg
+    MkCorner(MinBtn, 14); MkStroke(MinBtn, 1, ThemeColors.StrokeSubtle, 0.5)
+
+    local ReopenBtn = Instance.new("TextButton")
+    ReopenBtn.Name = "ReopenBtn"; ReopenBtn.Size = UDim2.new(0, 44, 0, 44)
+    ReopenBtn.Position = UDim2.new(0, 16, 0.5, -22)
+    ReopenBtn.BackgroundColor3 = Settings.colors.accent; ReopenBtn.BackgroundTransparency = 0.25
+    ReopenBtn.BorderSizePixel = 0; ReopenBtn.Text = "MH"; ReopenBtn.Font = Enum.Font.GothamBold
+    ReopenBtn.TextSize = 14; ReopenBtn.TextColor3 = Color3.new(1, 1, 1); ReopenBtn.ZIndex = 50; ReopenBtn.Parent = ScreenGui
+    MkCorner(ReopenBtn, 22); local ReopenStroke = MkStroke(ReopenBtn, 2, Settings.colors.accent, 0.2)
+    local ReopenGlow = MkNeonGlow(ReopenBtn, Settings.colors.accent, 8)
 
     return {
-        screenGui      = screenGui,
-        mainFrame      = mainFrame,
-        headerFrame    = headerFrame,
-        headerPatch    = dummyPatch,
-        sidebarFrame   = sidebarFrame,
-        sidebarPatch   = dummyPatch,
-        sidebarBLCorner= dummyPatch,
-        catScroll      = catScroll,
-        contentFrame   = contentFrame,
-        scrollingFrame = scrollingFrame,
-        gamesPanel     = gamesPanel,
-        closeBtn       = closeBtn,
-        reopenButton   = reopenButton,
-        gameName       = ok_g and gname or "Unknown",
-
-        mkCorner            = mkCorner,
-        mkStroke            = mkStroke,
-        createButton        = createButton,
-        createLabel         = createLabel,
-        createSectionHeader = createSectionHeader,
-        createGameCard      = createGameCard,
-
-        setNotification = function(fn) createNotification = fn end,
+        ScreenGui = ScreenGui, MainFrame = MainFrame, Shadow3D = Shadow3D, MainStroke = MainStroke,
+        HeaderBg = HeaderBg, HeaderLine = HeaderLine, LogoGlow = LogoGlow, LogoStroke = LogoStroke, VerBadge = VerBadge,
+        SidebarFrame = SidebarFrame, SidebarSep = SidebarSep, CatScroll = CatScroll, CatLayout = CatLayout,
+        ContentFrame = ContentFrame, ScriptScroll = ScriptScroll, ScriptLayout = ScriptLayout,
+        GamesPanel = GamesPanel, GamesGrid = GamesGrid,
+        CloseBtn = CloseBtn, MinBtn = MinBtn, ReopenBtn = ReopenBtn, ReopenStroke = ReopenStroke, ReopenGlow = ReopenGlow,
+        Tw = Tw, TW = TW, MkCorner = MkCorner, MkStroke = MkStroke, MkNeonGlow = MkNeonGlow,
+        MkGlassPanel = MkGlassPanel, MkNeonText = MkNeonText, MkNeonButton = MkNeonButton, CreateSectionHeader = CreateSectionHeader
     }
 end
