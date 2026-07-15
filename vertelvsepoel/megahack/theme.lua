@@ -1,198 +1,103 @@
--- ══════════════════════════════════════════════════════════════════
---  theme.lua  —  Color system, RGB effects, save/load
---  FIXED: обводка карточек Home остаётся белой, остальные обводки меняются
--- ══════════════════════════════════════════════════════════════════
 return function(deps)
-    local TweenService       = deps.TweenService
-    local RunService         = deps.RunService
-    local HttpService        = deps.HttpService
-    local UserInputService   = deps.UserInputService
-    local playerGui          = deps.playerGui
-    local accentRegistry     = deps.accentRegistry
-    local createNotification = deps.createNotification or function() end
+    local RunService = deps.RunService
+    local HttpService = deps.HttpService
+    local SafeFile = deps.SafeFile
 
-    local mainFrame, scrollingFrame
-
-    local T = {
-        BgBase     = Color3.fromRGB(10,  10,  14),
-        BgSide     = Color3.fromRGB(15,  15,  21),
-        BgPanel    = Color3.fromRGB(21,  21,  29),
-        BgBtn      = Color3.fromRGB(27,  27,  37),
-        BgBtnHov   = Color3.fromRGB(35,  35,  49),
-        Accent     = Color3.fromRGB(150, 25,  25),
-        AccentHov  = Color3.fromRGB(185, 40,  40),
-        AccentGlow = Color3.fromRGB(210, 60,  60),
-        TextMain   = Color3.fromRGB(232, 232, 240),
-        TextSub    = Color3.fromRGB(148, 148, 160),
-        TextMuted  = Color3.fromRGB(82,  82,  96),
-        Stroke     = Color3.fromRGB(38,  38,  52),
-        StrokeBrt  = Color3.fromRGB(58,  58,  74),
-        Separator  = Color3.fromRGB(30,  30,  42),
+    local ThemeColors = {
+        VoidDeep = Color3.fromRGB(6, 6, 12), VoidMid = Color3.fromRGB(10, 10, 18), VoidLight = Color3.fromRGB(16, 16, 28),
+        GlassDark = Color3.fromRGB(18, 18, 32), GlassMid = Color3.fromRGB(24, 24, 42), GlassLight = Color3.fromRGB(32, 32, 54),
+        GlassHover = Color3.fromRGB(40, 40, 66), NeonPrimary = Color3.fromRGB(0, 200, 255), NeonSecondary = Color3.fromRGB(140, 80, 255),
+        TextBright = Color3.fromRGB(245, 245, 255), TextNormal = Color3.fromRGB(200, 200, 220), TextDim = Color3.fromRGB(120, 120, 150),
+        TextMuted = Color3.fromRGB(70, 70, 95), StrokeNeon = Color3.fromRGB(0, 180, 255), StrokeSubtle = Color3.fromRGB(40, 40, 70),
+        Success = Color3.fromRGB(0, 255, 140), Warning = Color3.fromRGB(255, 200, 0), Error = Color3.fromRGB(255, 60, 80),
     }
 
-    local rgbConnections = {}
+    local Settings = {
+        rgbMode = false, neonPulse = true, transparency = 0.05, unlockX = 0.5, unlockY = 0.5, accentHue = 0.52,
+        colors = { accent = Color3.fromRGB(0, 200, 255), bg = Color3.fromRGB(6, 6, 12), text = Color3.fromRGB(245, 245, 255), stroke = Color3.fromRGB(0, 180, 255) }
+    }
 
-    local function clearRgbConnections()
-        for _, c in pairs(rgbConnections) do
-            pcall(function() c:Disconnect() end)
-        end
-        rgbConnections = {}
-    end
+    local RGB_CONNS = {}
 
-    local function updateGuiColors(settings)
-        if not mainFrame then return end
-        clearRgbConnections()
-
-        local acc = settings.colors.accentColor
-        local bg  = settings.colors.bgColor
-        local tx  = settings.colors.textColor
-        local str = settings.colors.strokeColor
-
-        T.Accent     = acc
-        T.AccentHov  = Color3.new(math.min(acc.R*1.22,1), math.min(acc.G*1.22,1), math.min(acc.B*1.22,1))
-        T.AccentGlow = Color3.new(math.min(acc.R*1.40,1), math.min(acc.G*1.40,1), math.min(acc.B*1.40,1))
-        T.BgBase     = bg
-        T.BgSide     = Color3.new(math.min(bg.R+0.020,1), math.min(bg.G+0.020,1), math.min(bg.B+0.028,1))
-        T.BgPanel    = Color3.new(math.min(bg.R+0.043,1), math.min(bg.G+0.043,1), math.min(bg.B+0.060,1))
-        T.BgBtn      = Color3.new(math.min(bg.R+0.067,1), math.min(bg.G+0.067,1), math.min(bg.B+0.090,1))
-        T.BgBtnHov   = Color3.new(math.min(bg.R+0.098,1), math.min(bg.G+0.098,1), math.min(bg.B+0.137,1))
-        T.TextMain   = tx
-        T.Stroke     = str
-
-        if accentRegistry then
-            for _, entry in ipairs(accentRegistry) do
-                if entry.obj and entry.obj.Parent then
-                    local prop = entry.prop or "BackgroundColor3"
-                    pcall(function() entry.obj[prop] = acc end)
-                end
-            end
-        end
-
-        mainFrame.BackgroundColor3       = bg
-        mainFrame.BackgroundTransparency = settings.transparency or 0.04
-
-        if playerGui then
-            local sg = playerGui:FindFirstChild("MegaHack_GUI") or (mainFrame and mainFrame.Parent)
-            if sg then
-                for _, obj in ipairs(sg:GetChildren()) do
-                    if obj:IsA("ImageButton") then
-                        pcall(function() obj.BackgroundColor3 = T.BgSide end)
-                        for _, ch in ipairs(obj:GetDescendants()) do
-                            if ch:IsA("UIStroke") then
-                                pcall(function() ch.Color = acc end)
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        local closeBtnObj = mainFrame:FindFirstChild("CloseBtn", true)
-
-        for _, obj in pairs(mainFrame:GetDescendants()) do
-            if obj == closeBtnObj then continue end
-            if closeBtnObj and obj:IsDescendantOf(closeBtnObj) then continue end
-
-            if obj:IsA("UIStroke") then
-                local p = obj.Parent
-                local whiteStrokeCards = {"HomeCard","FpsCard","PingCard","ExecCard"}
-                local isWhite = p and table.find(whiteStrokeCards, p.Name)
-                if isWhite then
-                    obj.Color = Color3.new(1,1,1)
-                    obj.Transparency = 0.78
-                else
-                    if settings.rgbStroke then
-                        local conn; conn = RunService.Heartbeat:Connect(function()
-                            if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
-                            obj.Color = Color3.fromHSV((tick() % 5) / 5, 1, 1)
-                        end)
-                        table.insert(rgbConnections, conn)
-                    else
-                        obj.Color = str
-                    end
-                end
-
-            elseif obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                if settings.rgbAccent then
-                    local conn; conn = RunService.Heartbeat:Connect(function()
-                        if not obj:IsDescendantOf(mainFrame) then conn:Disconnect(); return end
-                        obj.TextColor3 = Color3.fromHSV((tick() % 5) / 5, 1, 1)
-                    end)
-                    table.insert(rgbConnections, conn)
-                else
-                    if obj:GetAttribute("TextRole") == "main" then
-                        obj.TextColor3 = tx
-                    end
-                end
-
-            elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
-                local name = obj.Name
-                if name == "SidebarFrame" then
-                    obj.BackgroundColor3 = T.BgSide
-                elseif name == "GameCardBg" then
-                    obj.BackgroundColor3 = T.BgPanel
-                elseif name == "HomeCard" or name == "FpsCard" or name == "PingCard" or name == "ExecCard" then
-                    obj.BackgroundColor3 = T.BgPanel
-                elseif name == "PlatBadge" then
-                    obj.BackgroundColor3 = acc
-                elseif obj:IsA("Frame")
-                    and obj.BackgroundTransparency < 0.99
-                    and obj.Name ~= "GlassSheen"
-                    and obj.Name ~= "AccentBar"
-                    and obj.Name ~= "HeaderFrame"
-                then
-                    local parent = obj.Parent
-                    if parent and (parent:IsA("ScrollingFrame") or parent:IsA("Frame")) then
-                        local sz = obj.AbsoluteSize
-                        if sz.X > 20 and sz.Y > 10 then
-                            obj.BackgroundColor3 = T.BgPanel
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    local function saveColorSettings(settings)
+    local function loadSettings()
         pcall(function()
-            if not isfolder("MegaHack") then makefolder("MegaHack") end
-            local col = settings.colors
-            writefile("MegaHack/colorSettings.json", HttpService:JSONEncode({
-                bgColor      = {col.bgColor.R,     col.bgColor.G,     col.bgColor.B},
-                textColor    = {col.textColor.R,   col.textColor.G,   col.textColor.B},
-                strokeColor  = {col.strokeColor.R, col.strokeColor.G, col.strokeColor.B},
-                accentColor  = {col.accentColor.R, col.accentColor.G, col.accentColor.B},
-                transparency = settings.transparency,
-                rgbAccent    = settings.rgbAccent,
-                rgbStroke    = settings.rgbStroke,
+            local raw = SafeFile.read("MegaHack/settings_v3.json")
+            if not raw then return end
+            local data = HttpService:JSONDecode(raw)
+            for k,v in pairs(data) do
+                if type(v) ~= "table" then Settings[k] = v
+                elseif k == "colors" then
+                    for ck, cv in pairs(v) do
+                        if type(cv) == "table" and #cv == 3 then Settings.colors[ck] = Color3.new(cv[1], cv[2], cv[3]) end
+                    end
+                end
+            end
+        end)
+    end
+
+    local function saveSettings()
+        pcall(function()
+            SafeFile.write("MegaHack/settings_v3.json", HttpService:JSONEncode({
+                rgbMode=Settings.rgbMode, neonPulse=Settings.neonPulse, transparency=Settings.transparency,
+                accentHue=Settings.accentHue, unlockX=Settings.unlockX, unlockY=Settings.unlockY,
+                colors = {
+                    accent={Settings.colors.accent.R, Settings.colors.accent.G, Settings.colors.accent.B},
+                    bg={Settings.colors.bg.R, Settings.colors.bg.G, Settings.colors.bg.B},
+                    text={Settings.colors.text.R, Settings.colors.text.G, Settings.colors.text.B},
+                    stroke={Settings.colors.stroke.R, Settings.colors.stroke.G, Settings.colors.stroke.B}
+                }
             }))
         end)
     end
 
-    local function loadColorSettings(settings)
-        pcall(function()
-            if not isfile("MegaHack/colorSettings.json") then return end
-            local data = HttpService:JSONDecode(readfile("MegaHack/colorSettings.json"))
-            if data.bgColor     then settings.colors.bgColor     = Color3.new(table.unpack(data.bgColor))     end
-            if data.textColor   then settings.colors.textColor   = Color3.new(table.unpack(data.textColor))   end
-            if data.strokeColor then settings.colors.strokeColor = Color3.new(table.unpack(data.strokeColor)) end
-            if data.accentColor then settings.colors.accentColor = Color3.new(table.unpack(data.accentColor)) end
-            if data.transparency ~= nil then settings.transparency = data.transparency end
-            if data.rgbAccent   ~= nil then settings.rgbAccent   = data.rgbAccent     end
-            if data.rgbStroke   ~= nil then settings.rgbStroke   = data.rgbStroke     end
-        end)
+    local function ApplyColors(guiRefs)
+        if not guiRefs then return end
+        local acc, bg, tx, st = Settings.colors.accent, Settings.colors.bg, Settings.colors.text, Settings.colors.stroke
+        guiRefs.MainFrame.BackgroundColor3 = bg
+        guiRefs.MainStroke.Color = st
+        guiRefs.HeaderLine.BackgroundColor3 = st
+        guiRefs.LogoGlow.BackgroundColor3 = acc
+        guiRefs.LogoStroke.Color = acc
+        guiRefs.VerBadge.BackgroundColor3 = acc
+        guiRefs.ScriptScroll.ScrollBarImageColor3 = acc
+        guiRefs.GamesPanel.ScrollBarImageColor3 = acc
+        guiRefs.SidebarSep.BackgroundColor3 = st
+        guiRefs.ReopenBtn.BackgroundColor3 = acc
+        guiRefs.ReopenStroke.Color = acc
+        guiRefs.ReopenGlow.BackgroundColor3 = acc
     end
 
-    return {
-        T                   = T,
-        updateGuiColors     = updateGuiColors,
-        saveColorSettings   = saveColorSettings,
-        loadColorSettings   = loadColorSettings,
-        clearRgbConnections = clearRgbConnections,
+    local function ClearRGB()
+        for _,c in pairs(RGB_CONNS) do pcall(function() c:Disconnect() end) end
+        RGB_CONNS = {}
+    end
 
-        setFrames = function(mf, sf)
-            mainFrame      = mf
-            scrollingFrame = sf
-        end,
+    local function StartRGB(guiRefs)
+        ClearRGB()
+        table.insert(RGB_CONNS, RunService.Heartbeat:Connect(function()
+            local color = Color3.fromHSV((tick() % 5) / 5, 1, 1)
+            if not guiRefs then return end
+            guiRefs.MainStroke.Color = color
+            guiRefs.HeaderLine.BackgroundColor3 = color
+            guiRefs.SidebarSep.BackgroundColor3 = color
+            guiRefs.LogoGlow.BackgroundColor3 = color
+            guiRefs.LogoStroke.Color = color
+            guiRefs.VerBadge.BackgroundColor3 = color
+            guiRefs.ScriptScroll.ScrollBarImageColor3 = color
+            guiRefs.GamesPanel.ScrollBarImageColor3 = color
+            guiRefs.ReopenBtn.BackgroundColor3 = color
+            guiRefs.ReopenStroke.Color = color
+        end))
+    end
+
+    loadSettings()
+
+    return {
+        ThemeColors = ThemeColors,
+        Settings = Settings,
+        saveSettings = saveSettings,
+        ApplyColors = ApplyColors,
+        StartRGB = StartRGB,
+        ClearRGB = ClearRGB
     }
 end
