@@ -1,8 +1,8 @@
--- ══════════════════════════════════════════════════════════════════
---  colorpicker.lua  —  Color Picker UI Module
---  FIXED: hexBox объявлен ДО updatePickerUI, channelNames объявлен
---         до цикла RGB sliders
--- ══════════════════════════════════════════════════════════════════
+═══════════════════════════════════════════════════════════════
+--  colorpicker.lua — Neon Glass Color Picker v3
+--  FULLY COMPLETE - no truncation
+═══════════════════════════════════════════════════════════════
+
 return function(deps)
     local TweenService       = deps.TweenService
     local UserInputService   = deps.UserInputService
@@ -16,6 +16,8 @@ return function(deps)
 
     local mkCorner = gui.mkCorner
     local mkStroke = gui.mkStroke
+    local mk3DShadow = gui.mk3DShadow
+    local mkGlassSheen = gui.mkGlassSheen
 
     local function createColorPicker(parent, colorPickerConnections)
         local selType          = "bgColor"
@@ -34,7 +36,7 @@ return function(deps)
 
         local container = Instance.new("Frame")
         container.BackgroundTransparency = 1
-        container.Size   = UDim2.new(1, 0, 0, 340)
+        container.Size   = UDim2.new(1, 0, 0, 350)
         container.ZIndex = 4
         container.Parent = parent
 
@@ -42,14 +44,15 @@ return function(deps)
         innerLayout.Padding   = UDim.new(0, 6)
         innerLayout.SortOrder = Enum.SortOrder.LayoutOrder
         innerLayout.Parent    = container
+
         innerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
             container.Size = UDim2.new(1, 0, 0, innerLayout.AbsoluteContentSize.Y + 4)
         end)
 
-        -- ── Type selector row ──────────────────────────────────────
+        -- ═══ TYPE SELECTOR ═══
         local typeRow = Instance.new("Frame")
         typeRow.BackgroundTransparency = 1
-        typeRow.Size        = UDim2.new(1, 0, 0, 28)
+        typeRow.Size        = UDim2.new(1, 0, 0, 30)
         typeRow.LayoutOrder = 1
         typeRow.ZIndex      = 4
         typeRow.Parent      = container
@@ -60,23 +63,28 @@ return function(deps)
         typeRowLayout.SortOrder     = Enum.SortOrder.LayoutOrder
         typeRowLayout.Parent        = typeRow
 
-        local typeBtnMap = {}
-        local typeItems  = {
-            {label = "BG Color", key = "bgColor"},
-            {label = "Text",     key = "textColor"},
-            {label = "Stroke",   key = "strokeColor"},
-            {label = "Accent",   key = "accentColor"},
+        local typeBtnMap  = {}
+        local typeItems   = {
+            { label = "BG",     key = "bgColor" },
+            { label = "Text",   key = "textColor" },
+            { label = "Stroke", key = "strokeColor" },
+            { label = "Accent", key = "accentColor" },
         }
-        local updatePickerUI  -- объявляем заранее, определяем ниже
+
+        local updatePickerUI -- forward declared
 
         local function refreshTypeBtns(activeKey)
             for _, td in ipairs(typeItems) do
                 local b = typeBtnMap[td.key]
                 if b then
                     if td.key == activeKey then
-                        b.BackgroundColor3 = T.Accent; b.BackgroundTransparency = 0.15; b.TextColor3 = T.TextMain
+                        b.BackgroundColor3 = T.Accent
+                        b.BackgroundTransparency = 0.2
+                        b.TextColor3 = Color3.new(1, 1, 1)
                     else
-                        b.BackgroundColor3 = T.BgBtn;  b.BackgroundTransparency = 0.3;  b.TextColor3 = T.TextSub
+                        b.BackgroundColor3 = T.BgBtn
+                        b.BackgroundTransparency = 0.25
+                        b.TextColor3 = T.TextSub
                     end
                 end
             end
@@ -86,7 +94,7 @@ return function(deps)
             local btn = Instance.new("TextButton")
             btn.Size                   = UDim2.new(1/4, -3, 1, 0)
             btn.BackgroundColor3       = T.BgBtn
-            btn.BackgroundTransparency = 0.3
+            btn.BackgroundTransparency = 0.25
             btn.BorderSizePixel        = 0
             btn.Text                   = td.label
             btn.TextColor3             = T.TextSub
@@ -95,17 +103,21 @@ return function(deps)
             btn.LayoutOrder            = i
             btn.ZIndex                 = 5
             btn.Parent                 = typeRow
-            mkCorner(btn, 5); mkStroke(btn, 1, T.Stroke, 0.35)
+            mkCorner(btn, 6)
+            mkStroke(btn, 1, T.StrokeBrt, 0.5)
             typeBtnMap[td.key] = btn
+
             btn.MouseButton1Click:Connect(function()
-                selType = td.key; syncFromType(); refreshTypeBtns(selType)
+                selType = td.key
+                syncFromType()
+                refreshTypeBtns(selType)
                 if updatePickerUI then updatePickerUI() end
             end)
         end
         refreshTypeBtns(selType)
 
-        -- ── SV Square + Right panel ────────────────────────────────
-        local sqSz    = 148
+        -- ═══ SV SQUARE + RIGHT PANEL ═══
+        local sqSz = 150
         local mainArea = Instance.new("Frame")
         mainArea.BackgroundTransparency = 1
         mainArea.Size        = UDim2.new(1, 0, 0, sqSz)
@@ -113,97 +125,123 @@ return function(deps)
         mainArea.ZIndex      = 4
         mainArea.Parent      = container
 
+        -- SV Base
         local svBase = Instance.new("Frame")
         svBase.Size             = UDim2.new(0, sqSz, 0, sqSz)
         svBase.BackgroundColor3 = Color3.fromHSV(curH, 1, 1)
         svBase.BorderSizePixel  = 0
         svBase.ZIndex           = 5
         svBase.Parent           = mainArea
-        mkCorner(svBase, 5); mkStroke(svBase, 1, T.Stroke, 0.3)
+        mkCorner(svBase, 8)
+        mkStroke(svBase, 1, T.StrokeBrt, 0.4)
+        mk3DShadow(svBase, 3, 3, 0, 0.5)
 
+        -- White gradient overlay
         local whiteOv = Instance.new("Frame")
-        whiteOv.Size = UDim2.new(1,0,1,0); whiteOv.BackgroundColor3 = Color3.new(1,1,1)
-        whiteOv.BorderSizePixel = 0; whiteOv.ZIndex = 6; whiteOv.Parent = svBase
-        mkCorner(whiteOv, 5)
+        whiteOv.Size                   = UDim2.new(1, 0, 1, 0)
+        whiteOv.BackgroundColor3       = Color3.new(1, 1, 1)
+        whiteOv.BorderSizePixel        = 0
+        whiteOv.ZIndex                 = 6
+        whiteOv.Parent                 = svBase
+        mkCorner(whiteOv, 8)
         local wg = Instance.new("UIGradient")
-        wg.Color = ColorSequence.new(Color3.new(1,1,1), Color3.new(1,1,1))
-        wg.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,1)})
+        wg.Color = ColorSequence.new(Color3.new(1, 1, 1), Color3.new(1, 1, 1))
+        wg.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1),
+        })
         wg.Parent = whiteOv
 
+        -- Black gradient overlay
         local blackOv = Instance.new("Frame")
-        blackOv.Size = UDim2.new(1,0,1,0); blackOv.BackgroundColor3 = Color3.new(0,0,0)
-        blackOv.BorderSizePixel = 0; blackOv.ZIndex = 7; blackOv.Parent = svBase
-        mkCorner(blackOv, 5)
+        blackOv.Size                   = UDim2.new(1, 0, 1, 0)
+        blackOv.BackgroundColor3       = Color3.new(0, 0, 0)
+        blackOv.BorderSizePixel        = 0
+        blackOv.ZIndex                 = 7
+        blackOv.Parent                 = svBase
+        mkCorner(blackOv, 8)
         local bg2 = Instance.new("UIGradient")
-        bg2.Color = ColorSequence.new(Color3.new(0,0,0), Color3.new(0,0,0))
-        bg2.Transparency = NumberSequence.new({NumberSequenceKeypoint.new(0,1), NumberSequenceKeypoint.new(1,0)})
-        bg2.Rotation = 90; bg2.Parent = blackOv
+        bg2.Color = ColorSequence.new(Color3.new(0, 0, 0), Color3.new(0, 0, 0))
+        bg2.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(1, 0),
+        })
+        bg2.Rotation = 90
+        bg2.Parent = blackOv
 
+        -- SV Cursor
         local svCursor = Instance.new("Frame")
-        svCursor.Size             = UDim2.new(0,10,0,10)
+        svCursor.Size             = UDim2.new(0, 12, 0, 12)
         svCursor.AnchorPoint      = Vector2.new(0.5, 0.5)
-        svCursor.Position         = UDim2.new(curS, 0, 1-curV, 0)
-        svCursor.BackgroundColor3 = Color3.new(1,1,1)
+        svCursor.Position         = UDim2.new(curS, 0, 1 - curV, 0)
+        svCursor.BackgroundColor3 = Color3.new(1, 1, 1)
         svCursor.BorderSizePixel  = 0
         svCursor.ZIndex           = 9
         svCursor.Parent           = svBase
-        mkCorner(svCursor, 5); mkStroke(svCursor, 2, Color3.new(0.1,0.1,0.1), 0)
+        mkCorner(svCursor, 6)
+        mkStroke(svCursor, 2, Color3.new(0, 0, 0), 0)
 
-        -- ── Right panel ────────────────────────────────────────────
+        -- ═══ RIGHT PANEL ═══
         local rightPanel = Instance.new("Frame")
         rightPanel.BackgroundTransparency = 1
-        rightPanel.Size     = UDim2.new(1, -(sqSz+8), 1, 0)
-        rightPanel.Position = UDim2.new(0, sqSz+8, 0, 0)
+        rightPanel.Size     = UDim2.new(1, -(sqSz + 10), 1, 0)
+        rightPanel.Position = UDim2.new(0, sqSz + 10, 0, 0)
         rightPanel.ZIndex   = 4
         rightPanel.Parent   = mainArea
 
+        -- Preview swatch with 3D
         local previewSwatch = Instance.new("Frame")
-        previewSwatch.Size             = UDim2.new(1,0,0,52)
-        previewSwatch.BackgroundColor3 = settings.colors[selType]
-        previewSwatch.BorderSizePixel  = 0
-        previewSwatch.ZIndex           = 5
-        previewSwatch.Parent           = rightPanel
-        mkCorner(previewSwatch, 6); mkStroke(previewSwatch, 1, T.Stroke, 0.3)
+        previewSwatch.Size                   = UDim2.new(1, 0, 0, 54)
+        previewSwatch.BackgroundColor3       = settings.colors[selType]
+        previewSwatch.BackgroundTransparency = 0
+        previewSwatch.BorderSizePixel        = 0
+        previewSwatch.ZIndex                 = 5
+        previewSwatch.Parent                 = rightPanel
+        mkCorner(previewSwatch, 8)
+        mkStroke(previewSwatch, 1, T.StrokeBrt, 0.4)
+        mk3DShadow(previewSwatch, 2, 2, 0, 0.5)
+        mkGlassSheen(previewSwatch, 7)
 
         local previewLbl = Instance.new("TextLabel")
         previewLbl.BackgroundTransparency = 1
-        previewLbl.Text            = "PREVIEW"
-        previewLbl.Font            = Enum.Font.GothamBold
-        previewLbl.TextSize        = 9
-        previewLbl.TextColor3      = Color3.new(1,1,1)
-        previewLbl.TextTransparency= 0.45
-        previewLbl.Size            = UDim2.new(1,0,1,0)
-        previewLbl.ZIndex          = 6
-        previewLbl.Parent          = previewSwatch
+        previewLbl.Text              = "PREVIEW"
+        previewLbl.Font              = Enum.Font.GothamBold
+        previewLbl.TextSize          = 9
+        previewLbl.TextColor3        = Color3.new(1, 1, 1)
+        previewLbl.TextTransparency  = 0.4
+        previewLbl.Size              = UDim2.new(1, 0, 1, 0)
+        previewLbl.ZIndex            = 8
+        previewLbl.Parent            = previewSwatch
 
+        -- Hex row
         local hexRow = Instance.new("Frame")
-        hexRow.Size                   = UDim2.new(1,0,0,26)
-        hexRow.Position               = UDim2.new(0,0,0,58)
-        hexRow.BackgroundColor3       = T.BgPanel
-        hexRow.BackgroundTransparency = 0.15
+        hexRow.Size                   = UDim2.new(1, 0, 0, 28)
+        hexRow.Position               = UDim2.new(0, 0, 0, 60)
+        hexRow.BackgroundColor3       = T.BgCard
+        hexRow.BackgroundTransparency = 0.2
         hexRow.BorderSizePixel        = 0
         hexRow.ZIndex                 = 5
         hexRow.Parent                 = rightPanel
-        mkCorner(hexRow, 5); mkStroke(hexRow, 1, T.Stroke, 0.3)
+        mkCorner(hexRow, 6)
+        mkStroke(hexRow, 1, T.StrokeBrt, 0.5)
 
         local hashLbl = Instance.new("TextLabel")
-        hashLbl.Size                  = UDim2.new(0,18,1,0)
-        hashLbl.Position              = UDim2.new(0,2,0,0)
-        hashLbl.BackgroundTransparency= 1
+        hashLbl.Size                  = UDim2.new(0, 18, 1, 0)
+        hashLbl.Position              = UDim2.new(0, 4, 0, 0)
+        hashLbl.BackgroundTransparency = 1
         hashLbl.Text                  = "#"
-        hashLbl.TextColor3            = T.TextSub
+        hashLbl.TextColor3            = T.Accent
         hashLbl.TextSize              = 12
         hashLbl.Font                  = Enum.Font.GothamBold
         hashLbl.ZIndex                = 6
         hashLbl.Parent                = hexRow
 
-        -- ВАЖНО: hexBox объявлен ДО updatePickerUI
         local hexBox = Instance.new("TextBox")
-        hexBox.Size                   = UDim2.new(1,-20,1,0)
-        hexBox.Position               = UDim2.new(0,20,0,0)
+        hexBox.Size                   = UDim2.new(1, -24, 1, 0)
+        hexBox.Position               = UDim2.new(0, 22, 0, 0)
         hexBox.BackgroundTransparency = 1
         hexBox.TextColor3             = T.TextMain
-        hexBox.TextSize               = 11
+        hexBox.TextSize               = 12
         hexBox.Font                   = Enum.Font.Code
         hexBox.PlaceholderText        = "RRGGBB"
         hexBox.PlaceholderColor3      = T.TextMuted
@@ -211,237 +249,319 @@ return function(deps)
         hexBox.ClearTextOnFocus       = false
         hexBox.ZIndex                 = 6
         hexBox.Parent                 = hexRow
-        hexBox:SetAttribute("TextRole","main")
+        hexBox:SetAttribute("TextRole", "main")
 
-        -- RGB readouts (текстовые R/G/B в rightPanel)
+        -- RGB readouts
         local rgbReadouts  = {}
-        local channelNames = {"R", "G", "B"}  -- объявлен ДО цикла RGB sliders
+        local channelNames = { "R", "G", "B" }
         for i, nm in ipairs(channelNames) do
             local lbl = Instance.new("TextLabel")
-            lbl.Size                  = UDim2.new(1,0,0,15)
-            lbl.Position              = UDim2.new(0,0,0, 90+(i-1)*18)
-            lbl.BackgroundTransparency= 1
-            lbl.Text                  = nm..": 0"
-            lbl.TextColor3            = T.TextSub
-            lbl.TextSize              = 11
-            lbl.Font                  = Enum.Font.GothamBold
-            lbl.TextXAlignment        = Enum.TextXAlignment.Left
-            lbl.ZIndex                = 5
-            lbl.Parent                = rightPanel
+            lbl.Size                   = UDim2.new(1, 0, 0, 16)
+            lbl.Position               = UDim2.new(0, 0, 0, 94 + (i - 1) * 18)
+            lbl.BackgroundTransparency = 1
+            lbl.Text                   = nm .. ": 0"
+            lbl.TextColor3             = T.TextSub
+            lbl.TextSize               = 11
+            lbl.Font                   = Enum.Font.GothamBold
+            lbl.TextXAlignment         = Enum.TextXAlignment.Left
+            lbl.ZIndex                 = 5
+            lbl.Parent                 = rightPanel
             rgbReadouts[i] = lbl
         end
 
-        -- ── Hue slider ─────────────────────────────────────────────
+        -- ═══ HUE SLIDER ═══
         local hueTrack = Instance.new("Frame")
-        hueTrack.Size             = UDim2.new(1,0,0,16)
-        hueTrack.BackgroundColor3 = Color3.new(1,0,0)
+        hueTrack.Size             = UDim2.new(1, 0, 0, 18)
+        hueTrack.BackgroundColor3 = Color3.new(1, 0, 0)
         hueTrack.BorderSizePixel  = 0
         hueTrack.LayoutOrder      = 3
         hueTrack.ZIndex           = 5
         hueTrack.Parent           = container
-        mkCorner(hueTrack, 4); mkStroke(hueTrack, 1, T.Stroke, 0.3)
+        mkCorner(hueTrack, 9)
+        mkStroke(hueTrack, 1, T.StrokeBrt, 0.4)
+        mk3DShadow(hueTrack, 2, 2, 0, 0.5)
 
+        -- Hue gradient
         local hueGrad = Instance.new("UIGradient")
         hueGrad.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0/6, Color3.fromHSV(0/6,1,1)),
-            ColorSequenceKeypoint.new(1/6, Color3.fromHSV(1/6,1,1)),
-            ColorSequenceKeypoint.new(2/6, Color3.fromHSV(2/6,1,1)),
-            ColorSequenceKeypoint.new(3/6, Color3.fromHSV(3/6,1,1)),
-            ColorSequenceKeypoint.new(4/6, Color3.fromHSV(4/6,1,1)),
-            ColorSequenceKeypoint.new(5/6, Color3.fromHSV(5/6,1,1)),
-            ColorSequenceKeypoint.new(6/6, Color3.fromHSV(6/6,1,1)),
+            ColorSequenceKeypoint.new(0,    Color3.fromHSV(0, 1, 1)),
+            ColorSequenceKeypoint.new(0.17, Color3.fromHSV(0.17, 1, 1)),
+            ColorSequenceKeypoint.new(0.33, Color3.fromHSV(0.33, 1, 1)),
+            ColorSequenceKeypoint.new(0.5,  Color3.fromHSV(0.5, 1, 1)),
+            ColorSequenceKeypoint.new(0.67, Color3.fromHSV(0.67, 1, 1)),
+            ColorSequenceKeypoint.new(0.83, Color3.fromHSV(0.83, 1, 1)),
+            ColorSequenceKeypoint.new(1,    Color3.fromHSV(1, 1, 1)),
         })
         hueGrad.Parent = hueTrack
 
+        -- Hue cursor
         local hueCursor = Instance.new("Frame")
-        hueCursor.Size             = UDim2.new(0,6,1,4)
-        hueCursor.AnchorPoint      = Vector2.new(0.5,0.5)
-        hueCursor.Position         = UDim2.new(curH,0,0.5,0)
-        hueCursor.BackgroundColor3 = Color3.new(1,1,1)
+        hueCursor.Size             = UDim2.new(0, 8, 0, 22)
+        hueCursor.AnchorPoint      = Vector2.new(0.5, 0.5)
+        hueCursor.Position         = UDim2.new(curH, 0, 0.5, 0)
+        hueCursor.BackgroundColor3 = Color3.new(1, 1, 1)
         hueCursor.BorderSizePixel  = 0
-        hueCursor.ZIndex           = 6
+        hueCursor.ZIndex           = 8
         hueCursor.Parent           = hueTrack
-        mkCorner(hueCursor, 3); mkStroke(hueCursor, 1, T.Stroke, 0)
+        mkCorner(hueCursor, 4)
+        mkStroke(hueCursor, 2, Color3.new(0, 0, 0), 0)
 
-        -- ── RGB sliders ────────────────────────────────────────────
-        local rgbTracks, rgbCursors, rgbValLbls = {}, {}, {}
-        local rgbPureCol = {Color3.new(1,0,0), Color3.new(0,1,0), Color3.new(0,0,1)}
-        for i, nm in ipairs(channelNames) do
-            local slot = Instance.new("Frame")
-            slot.BackgroundTransparency = 1
-            slot.Size       = UDim2.new(1,0,0,22)
-            slot.LayoutOrder= 3+i
-            slot.ZIndex     = 4
-            slot.Parent     = container
+        -- ═══ RGB SLIDERS ═══
+        local sliderData = {
+            { label = "R", value = curR, max = 255, color = Color3.fromRGB(255, 80, 80) },
+            { label = "G", value = curG, max = 255, color = Color3.fromRGB(80, 255, 80) },
+            { label = "B", value = curB, max = 255, color = Color3.fromRGB(80, 80, 255) },
+        }
 
-            local nmLbl = Instance.new("TextLabel")
-            nmLbl.Size                  = UDim2.new(0,14,1,0)
-            nmLbl.BackgroundTransparency= 1
-            nmLbl.Text                  = nm
-            nmLbl.TextColor3            = T.TextSub
-            nmLbl.TextSize              = 11
-            nmLbl.Font                  = Enum.Font.GothamBold
-            nmLbl.ZIndex                = 5
-            nmLbl.Parent                = slot
+        local rgbSliders = {}
+        for i, sd in ipairs(sliderData) do
+            local sliderFrame = Instance.new("Frame")
+            sliderFrame.Size                   = UDim2.new(1, 0, 0, 28)
+            sliderFrame.BackgroundTransparency = 1
+            sliderFrame.LayoutOrder            = 4 + i
+            sliderFrame.ZIndex                 = 4
+            sliderFrame.Parent                 = container
+
+            local sLabel = Instance.new("TextLabel")
+            sLabel.Size                   = UDim2.new(0, 18, 1, 0)
+            sLabel.BackgroundTransparency = 1
+            sLabel.Text                   = sd.label
+            sLabel.TextColor3             = sd.color
+            sLabel.TextSize               = 12
+            sLabel.Font                   = Enum.Font.GothamBold
+            sLabel.ZIndex                 = 5
+            sLabel.Parent                 = sliderFrame
 
             local track = Instance.new("Frame")
-            track.Size             = UDim2.new(1,-52,0,12)
-            track.Position         = UDim2.new(0,18,0.5,-6)
-            track.BackgroundColor3 = Color3.new(0,0,0)
-            track.BorderSizePixel  = 0
-            track.ZIndex           = 5
-            track.Parent           = slot
-            mkCorner(track, 4); mkStroke(track, 1, T.Stroke, 0.3)
-            local tg = Instance.new("UIGradient")
-            tg.Color = ColorSequence.new(Color3.new(0,0,0), rgbPureCol[i])
-            tg.Parent = track
+            track.Size                   = UDim2.new(1, -26, 0, 14)
+            track.Position               = UDim2.new(0, 22, 0.5, -7)
+            track.BackgroundColor3       = T.BgDeep
+            track.BackgroundTransparency = 0.2
+            track.BorderSizePixel        = 0
+            track.ZIndex                 = 5
+            track.Parent                 = sliderFrame
+            mkCorner(track, 7)
+            mkStroke(track, 1, T.StrokeBrt, 0.6)
 
-            local cur = Instance.new("Frame")
-            cur.Size             = UDim2.new(0,8,1,4)
-            cur.AnchorPoint      = Vector2.new(0.5,0.5)
-            cur.Position         = UDim2.new(0,0,0.5,0)
-            cur.BackgroundColor3 = Color3.new(1,1,1)
-            cur.BorderSizePixel  = 0
-            cur.ZIndex           = 6
-            cur.Parent           = track
-            mkCorner(cur, 4); mkStroke(cur, 1, T.Stroke, 0)
+            local fill = Instance.new("Frame")
+            fill.Size                   = UDim2.new(sd.value / sd.max, 0, 1, 0)
+            fill.BackgroundColor3       = sd.color
+            fill.BackgroundTransparency = 0.2
+            fill.BorderSizePixel        = 0
+            fill.ZIndex                 = 6
+            fill.Parent                 = track
+            mkCorner(fill, 7)
 
-            local valLbl = Instance.new("TextLabel")
-            valLbl.Size                  = UDim2.new(0,30,1,0)
-            valLbl.Position              = UDim2.new(1,-30,0,0)
-            valLbl.BackgroundTransparency= 1
-            valLbl.Text                  = "0"
-            valLbl.TextColor3            = T.TextMain
-            valLbl.TextSize              = 11
-            valLbl.Font                  = Enum.Font.Gotham
-            valLbl.TextXAlignment        = Enum.TextXAlignment.Right
-            valLbl.ZIndex                = 5
-            valLbl.Parent                = slot
-            valLbl:SetAttribute("TextRole","main")
+            local cursor = Instance.new("Frame")
+            cursor.Size             = UDim2.new(0, 10, 0, 18)
+            cursor.AnchorPoint      = Vector2.new(0.5, 0.5)
+            cursor.Position         = UDim2.new(sd.value / sd.max, 0, 0.5, 0)
+            cursor.BackgroundColor3 = Color3.new(1, 1, 1)
+            cursor.BorderSizePixel  = 0
+            cursor.ZIndex           = 8
+            cursor.Parent           = track
+            mkCorner(cursor, 5)
+            mkStroke(cursor, 1, sd.color, 0.3)
 
-            rgbTracks[i]=track; rgbCursors[i]=cur; rgbValLbls[i]=valLbl
+            rgbSliders[i] = {
+                frame = sliderFrame,
+                track = track,
+                fill  = fill,
+                cursor = cursor,
+                data  = sd,
+            }
         end
 
-        -- ── Apply button ───────────────────────────────────────────
+        -- ═══ APPLY BUTTON ═══
         local applyBtn = Instance.new("TextButton")
-        applyBtn.Size                   = UDim2.new(1,0,0,30)
+        applyBtn.Size                   = UDim2.new(1, 0, 0, 34)
         applyBtn.BackgroundColor3       = T.Accent
-        applyBtn.BackgroundTransparency = 0.15
+        applyBtn.BackgroundTransparency = 0.25
         applyBtn.BorderSizePixel        = 0
-        applyBtn.Text                   = "✔  Apply & Save"
-        applyBtn.TextColor3             = T.TextMain
-        applyBtn.TextSize               = 13
+        applyBtn.Text                   = "✦  APPLY COLORS"
+        applyBtn.TextColor3             = Color3.new(1, 1, 1)
         applyBtn.Font                   = Enum.Font.GothamBold
-        applyBtn.LayoutOrder            = 7
+        applyBtn.TextSize               = 12
+        applyBtn.LayoutOrder            = 8
         applyBtn.ZIndex                 = 5
         applyBtn.Parent                 = container
-        applyBtn:SetAttribute("TextRole","main")
-        mkCorner(applyBtn, 6); mkStroke(applyBtn, 1, T.Accent, 0.35)
+        mkCorner(applyBtn, 8)
+        mkStroke(applyBtn, 1, T.AccentGlow, 0.4)
+        mk3DShadow(applyBtn, 2, 2, 0, 0.4)
+
         applyBtn.MouseEnter:Connect(function()
-            TweenService:Create(applyBtn, TweenInfo.new(0.15), {BackgroundTransparency=0}):Play()
+            applyBtn.BackgroundTransparency = 0.1
         end)
         applyBtn.MouseLeave:Connect(function()
-            TweenService:Create(applyBtn, TweenInfo.new(0.15), {BackgroundTransparency=0.15}):Play()
+            applyBtn.BackgroundTransparency = 0.25
         end)
-
-        -- ── updatePickerUI — ОПРЕДЕЛЯЕТСЯ ЗДЕСЬ, после hexBox ─────
-        updatePickerUI = function()
-            local col = Color3.fromHSV(curH, curS, curV)
-            svBase.BackgroundColor3        = Color3.fromHSV(curH, 1, 1)
-            svCursor.Position              = UDim2.new(curS, 0, 1-curV, 0)
-            hueCursor.Position             = UDim2.new(curH, 0, 0.5, 0)
-            previewSwatch.BackgroundColor3 = col
-            curR = math.floor(col.R*255+0.5)
-            curG = math.floor(col.G*255+0.5)
-            curB = math.floor(col.B*255+0.5)
-            hexBox.Text = string.format("%02X%02X%02X", curR, curG, curB)
-            rgbReadouts[1].Text = "R: "..curR
-            rgbReadouts[2].Text = "G: "..curG
-            rgbReadouts[3].Text = "B: "..curB
-            local vals = {curR/255, curG/255, curB/255}
-            for i = 1, 3 do
-                rgbCursors[i].Position = UDim2.new(vals[i], 0, 0.5, 0)
-                rgbValLbls[i].Text     = tostring(math.floor(vals[i]*255+0.5))
-            end
-        end
-        updatePickerUI()
 
         applyBtn.MouseButton1Click:Connect(function()
-            settings.colors[selType] = Color3.fromHSV(curH, curS, curV)
-            updateGuiColors(); saveColorSettings()
-            createNotification("COLOR PICKER","Color applied & saved!",2,74283928898866)
-            TweenService:Create(applyBtn, TweenInfo.new(0.08), {BackgroundColor3=T.AccentGlow, BackgroundTransparency=0}):Play()
-            task.delay(0.18, function()
-                TweenService:Create(applyBtn, TweenInfo.new(0.2), {BackgroundColor3=T.Accent, BackgroundTransparency=0.15}):Play()
-            end)
+            settings.colors[selType] = Color3.fromRGB(curR, curG, curB)
+            updateGuiColors(settings)
+            saveColorSettings(settings)
+            createNotification("COLORS", "Applied " .. selType .. " change!", 2.5)
         end)
 
-        -- ── Input handling ─────────────────────────────────────────
-        local draggingSV, draggingHue, draggingRGB = false, false, 0
+        -- ═══ UPDATE PICKER UI ═══
+        function updatePickerUI()
+            local col = Color3.fromRGB(curR, curG, curB)
+            previewSwatch.BackgroundColor3 = col
+            svBase.BackgroundColor3 = Color3.fromHSV(curH, 1, 1)
+            svCursor.Position = UDim2.new(curS, 0, 1 - curV, 0)
+            hueCursor.Position = UDim2.new(curH, 0, 0.5, 0)
 
-        local c1 = svBase.InputBegan:Connect(function(inp)
-            if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
-                draggingSV=true
+            local hexStr = string.format("%02X%02X%02X", curR, curG, curB)
+            if hexBox:IsFocused() == false then
+                hexBox.Text = hexStr
             end
-        end)
-        local c2 = hueTrack.InputBegan:Connect(function(inp)
-            if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
-                draggingHue=true
+
+            rgbReadouts[1].Text = "R: " .. curR
+            rgbReadouts[2].Text = "G: " .. curG
+            rgbReadouts[3].Text = "B: " .. curB
+
+            -- Update RGB sliders
+            local vals = { curR, curG, curB }
+            for i, slider in ipairs(rgbSliders) do
+                local v = vals[i]
+                slider.fill.Size  = UDim2.new(v / 255, 0, 1, 0)
+                slider.cursor.Position = UDim2.new(v / 255, 0, 0.5, 0)
             end
-        end)
-        for i = 1, 3 do
-            local ci = rgbTracks[i].InputBegan:Connect(function(inp)
-                if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
-                    draggingRGB=i
-                end
-            end)
-            table.insert(colorPickerConnections, ci)
         end
-        table.insert(colorPickerConnections, c1)
-        table.insert(colorPickerConnections, c2)
 
-        local moveConn = UserInputService.InputChanged:Connect(function(inp)
-            if inp.UserInputType~=Enum.UserInputType.MouseMovement and inp.UserInputType~=Enum.UserInputType.Touch then return end
-            if draggingSV then
-                local ap=svBase.AbsolutePosition; local as=svBase.AbsoluteSize
-                curS=math.clamp((inp.Position.X-ap.X)/as.X,0,1)
-                curV=1-math.clamp((inp.Position.Y-ap.Y)/as.Y,0,1)
+        -- ═══ SV DRAGGING ═══
+        local svDragging = false
+        svBase.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                svDragging = true
+            end
+        end)
+
+        local function updateSV(input)
+            if not svDragging then return end
+            local relX = math.clamp((input.Position.X - svBase.AbsolutePosition.X) / svBase.AbsoluteSize.X, 0, 1)
+            local relY = math.clamp((input.Position.Y - svBase.AbsolutePosition.Y) / svBase.AbsoluteSize.Y, 0, 1)
+            curS = relX
+            curV = 1 - relY
+            local col = Color3.fromHSV(curH, curS, curV)
+            curR = math.floor(col.R * 255 + 0.5)
+            curG = math.floor(col.G * 255 + 0.5)
+            curB = math.floor(col.B * 255 + 0.5)
+            updatePickerUI()
+        end
+
+        svBase.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                updateSV(input)
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                updateSV(input)
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                svDragging = false
+            end
+        end)
+
+        -- ═══ HUE DRAGGING ═══
+        local hueDragging = false
+        hueTrack.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                hueDragging = true
+            end
+        end)
+
+        local function updateHue(input)
+            if not hueDragging then return end
+            local relX = math.clamp((input.Position.X - hueTrack.AbsolutePosition.X) / hueTrack.AbsoluteSize.X, 0, 1)
+            curH = relX
+            svBase.BackgroundColor3 = Color3.fromHSV(curH, 1, 1)
+            local col = Color3.fromHSV(curH, curS, curV)
+            curR = math.floor(col.R * 255 + 0.5)
+            curG = math.floor(col.G * 255 + 0.5)
+            curB = math.floor(col.B * 255 + 0.5)
+            updatePickerUI()
+        end
+
+        hueTrack.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                updateHue(input)
+            end
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                updateHue(input)
+            end
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                hueDragging = false
+            end
+        end)
+
+        -- ═══ RGB SLIDER DRAGGING ═══
+        for i, slider in ipairs(rgbSliders) do
+            local dragging = false
+            slider.track.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = true
+                end
+            end)
+
+            local function updateSlider(input)
+                if not dragging then return end
+                local relX = math.clamp((input.Position.X - slider.track.AbsolutePosition.X) / slider.track.AbsoluteSize.X, 0, 1)
+                local val = math.floor(relX * 255 + 0.5)
+                if i == 1 then curR = val
+                elseif i == 2 then curG = val
+                else curB = val end
+                curH, curS, curV = Color3.toHSV(Color3.fromRGB(curR, curG, curB))
                 updatePickerUI()
-            elseif draggingHue then
-                local ap=hueTrack.AbsolutePosition; local as=hueTrack.AbsoluteSize
-                curH=math.clamp((inp.Position.X-ap.X)/as.X,0,1); updatePickerUI()
-            elseif draggingRGB>0 then
-                local i2=draggingRGB
-                local ap=rgbTracks[i2].AbsolutePosition; local as=rgbTracks[i2].AbsoluteSize
-                local v=math.floor(math.clamp((inp.Position.X-ap.X)/as.X,0,1)*255+0.5)
-                if i2==1 then curR=v elseif i2==2 then curG=v else curB=v end
-                curH,curS,curV=Color3.toHSV(Color3.fromRGB(curR,curG,curB)); updatePickerUI()
             end
-        end)
-        table.insert(colorPickerConnections, moveConn)
 
-        local endConn = UserInputService.InputEnded:Connect(function(inp)
-            if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
-                draggingSV=false; draggingHue=false; draggingRGB=0
-            end
-        end)
-        table.insert(colorPickerConnections, endConn)
+            slider.track.InputChanged:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+                    updateSlider(input)
+                end
+            end)
 
-        hexBox.FocusLost:Connect(function(enterPressed)
-            if enterPressed then
-                local hex=hexBox.Text:gsub("[^%x]",""):upper()
-                if #hex==6 then
-                    local r=tonumber(hex:sub(1,2),16)
-                    local g=tonumber(hex:sub(3,4),16)
-                    local b=tonumber(hex:sub(5,6),16)
-                    if r and g and b then
-                        curR,curG,curB=r,g,b
-                        curH,curS,curV=Color3.toHSV(Color3.fromRGB(r,g,b))
-                        updatePickerUI()
-                    end
+            UserInputService.InputChanged:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseMovement then
+                    updateSlider(input)
+                end
+            end)
+
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                end
+            end)
+        end
+
+        -- ═══ HEX INPUT ═══
+        hexBox.FocusLost:Connect(function()
+            local txt = hexBox.Text:gsub("#", ""):gsub(" ", "")
+            if #txt == 6 then
+                local ok, r = pcall(tonumber, txt:sub(1, 2), 16)
+                local _, g = pcall(tonumber, txt:sub(3, 4), 16)
+                local _, b = pcall(tonumber, txt:sub(5, 6), 16)
+                if ok and r and g and b then
+                    curR, curG, curB = r, g, b
+                    curH, curS, curV = Color3.toHSV(Color3.fromRGB(r, g, b))
+                    updatePickerUI()
                 end
             end
         end)
+
+        -- Initial update
+        updatePickerUI()
 
         return container
     end
