@@ -1,47 +1,145 @@
+═══════════════════════════════════════════════════════════════
+--  games.lua — Games Virtual Tab + Lazy Icon Loader v3
+═══════════════════════════════════════════════════════════════
+
 return function(deps)
-    local gui = deps.gui
-    local ThemeColors = deps.ThemeColors
-    local Settings = deps.Settings
-    local GameIcons = deps.GameIcons
-    local sortedCats = deps.sortedCats
-    local SetTab = deps.SetTab
+    local TweenService = deps.TweenService
+    local RunService   = deps.RunService
+    local T            = deps.T
+    local gui          = deps.gui
+    local categoryMap  = deps.categoryMap
+    local gameIcons    = deps.gameIcons or {}
 
-    local MkGlassPanel = gui.MkGlassPanel
+    local gamesPanel     = gui.gamesPanel
+    local scrollingFrame = gui.scrollingFrame
+    local createGameCard = gui.createGameCard
 
-    return function(GamesPanel)
-        task.spawn(function()
-            for idx, catName in ipairs(sortedCats) do
-                local placeId = GameIcons[catName]
-                local card = MkGlassPanel(GamesPanel, nil, nil, 4, 10, 0.15)
-                card.Size = UDim2.new(0, 120, 0, 100)
-                
-                local iconFrame = Instance.new("Frame"); iconFrame.Size = UDim2.new(1, -12, 0, 60); iconFrame.Position = UDim2.new(0, 6, 0, 6)
-                iconFrame.BackgroundColor3 = ThemeColors.GlassMid; iconFrame.BackgroundTransparency = 0.3
-                iconFrame.BorderSizePixel = 0; iconFrame.ZIndex = 5; iconFrame.Parent = card; gui.MkCorner(iconFrame, 8)
-                
-                local thumb = Instance.new("ImageLabel"); thumb.Size = UDim2.new(1, -2, 1, -2); thumb.Position = UDim2.new(0, 1, 0, 1)
-                thumb.BackgroundColor3 = Color3.new(0,0,0); thumb.BackgroundTransparency = 1; thumb.ZIndex = 6; thumb.Parent = iconFrame; gui.MkCorner(thumb, 7)
-                
-                if placeId and placeId ~= 0 then
+    local iconQueue      = {}
+    local lazyLoaderConn = nil
+    local gamesPopulated = false
+
+    local function enqueueIcon(thumb, placeId)
+        if not placeId or placeId == 0 then return end
+        table.insert(iconQueue, { thumb = thumb, placeId = placeId, loaded = false })
+    end
+
+    local function startLazyLoader()
+        if lazyLoaderConn then
+            pcall(function() lazyLoaderConn:Disconnect() end)
+            lazyLoaderConn = nil
+        end
+
+        local acc            = 0
+        local BATCH_INTERVAL = 0.15
+        local BATCH_SIZE     = 4
+
+        lazyLoaderConn = RunService.Heartbeat:Connect(function(dt)
+            acc = acc + dt
+            if acc < BATCH_INTERVAL then return end
+            acc = 0
+
+            local loaded       = 0
+            local panelAbsPos  = gamesPanel.AbsolutePosition
+            local panelAbsSize = gamesPanel.AbsoluteSize
+            local scrollY      = gamesPanel.CanvasPosition.Y
+
+            for i = #iconQueue, 1, -1 do
+                local entry = iconQueue[i]
+                if entry.loaded or not entry.thumb or not entry.thumb.Parent then
+                    table.remove(iconQueue, i)
+                    continue
+                end
+
+                local cardAbsY = entry.thumb.AbsolutePosition.Y - panelAbsPos.Y + scrollY
+                local inView   = cardAbsY < (panelAbsSize.Y + 140) and cardAbsY > -140
+
+                if inView and loaded < BATCH_SIZE then
+                    entry.loaded = true
+                    loaded       = loaded + 1
+                    local thumb  = entry.thumb
+                    local pid    = entry.placeId
+
                     task.spawn(function()
-                        local url = string.format("rbxthumb://type=Asset&id=%s&w=150&h=150", tostring(placeId))
-                        if thumb and thumb.Parent then thumb.Image = url; gui.Tw(thumb, {ImageTransparency = 0}, gui.TW.Slow):Play() end
+                        local url = "https://assetgame.roblox.com/asset/?id=" .. tostring(pid)
+                        local ok  = pcall(function()
+                            thumb.Image = url
+                            TweenService:Create(thumb,
+                                TweenInfo.new(0.4, Enum.EasingStyle.Sine),
+                                { ImageTransparency = 0 }
+                            ):Play()
+                        end)
+                        if not ok and thumb.Parent then
+                            -- Fallback to rbxthumb
+                            thumb.Image = string.format("rbxthumb://type=Asset&id=%s&w=150&h=150", tostring(pid))
+                            thumb.ImageTransparency = 0
+                        end
                     end)
                 end
-                
-                local nameLabel = Instance.new("TextLabel"); nameLabel.Size = UDim2.new(1, -8, 0, 24); nameLabel.Position = UDim2.new(0, 4, 1, -26)
-                nameLabel.BackgroundTransparency = 1; nameLabel.Text = catName; nameLabel.Font = Enum.Font.GothamBold
-                nameLabel.TextSize = 10; nameLabel.TextColor3 = ThemeColors.TextNormal; nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
-                nameLabel.ZIndex = 6; nameLabel.Parent = card
-                
-                local clickBtn = Instance.new("TextButton"); clickBtn.Size = UDim2.new(1, 0, 1, 0)
-                clickBtn.BackgroundTransparency = 1; clickBtn.Text = ""; clickBtn.ZIndex = 10; clickBtn.Parent = card
-                clickBtn.MouseEnter:Connect(function() gui.Tw(card, {BackgroundTransparency = 0.05}, gui.TW.Fast):Play() end)
-                clickBtn.MouseLeave:Connect(function() gui.Tw(card, {BackgroundTransparency = 0.15}, gui.TW.Fast):Play() end)
-                clickBtn.MouseButton1Click:Connect(function() SetTab(catName) end)
-                
-                if idx % 6 == 0 then task.wait() end
+            end
+
+            if #iconQueue == 0 then
+                pcall(function() lazyLoaderConn:Disconnect() end)
+                lazyLoaderConn = nil
             end
         end)
     end
+
+    local function reset()
+        if lazyLoaderConn then
+            pcall(function() lazyLoaderConn:Disconnect() end)
+            lazyLoaderConn = nil
+        end
+        gamesPopulated = false
+        iconQueue = {}
+        for _, child in ipairs(gamesPanel:GetChildren()) do
+            if not child:IsA("UIGridLayout") and not child:IsA("UIPadding") then
+                child:Destroy()
+            end
+        end
+    end
+
+    local function showGames(callbacks)
+        scrollingFrame.Visible = false
+        gamesPanel.Visible     = true
+
+        if gamesPopulated then
+            startLazyLoader()
+            return
+        end
+
+        gamesPopulated = true
+        iconQueue = {}
+
+        local sortedCats = {}
+        for catName in pairs(categoryMap) do
+            table.insert(sortedCats, catName)
+        end
+        table.sort(sortedCats)
+
+        task.spawn(function()
+            for idx, catName in ipairs(sortedCats) do
+                local placeId = gameIcons[catName]
+                local _, thumb = createGameCard(catName, placeId, function()
+                    if callbacks and callbacks.onCategoryClick then
+                        callbacks.onCategoryClick(catName)
+                    end
+                end)
+
+                if placeId and placeId ~= 0 and thumb then
+                    enqueueIcon(thumb, placeId)
+                end
+
+                if idx % 8 == 0 then
+                    task.wait()
+                end
+            end
+            startLazyLoader()
+        end)
+    end
+
+    return {
+        showGames   = showGames,
+        reset       = reset,
+        startLoader = startLazyLoader,
+    }
 end
