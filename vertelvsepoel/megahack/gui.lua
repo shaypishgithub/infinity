@@ -1,6 +1,5 @@
 ═══════════════════════════════════════════════════════════════
---  gui.lua — 3D Glass Neon UI Construction v3
---  2026 Edition: Floating panels, neon borders, depth shadows
+--  gui.lua — Neon Glass UI Construction v3 (STABLE)
 ═══════════════════════════════════════════════════════════════
 
 return function(deps)
@@ -17,11 +16,7 @@ return function(deps)
     local CORNER   = 16
     local CORNER_S = 10
     local CORNER_XS = 6
-    local TWEEN_F  = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    local TWEEN_M  = TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     local TWEEN_S  = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-
-    -- ═══ GLASS HELPERS ═══
 
     local function mkCorner(parent, r)
         local c = Instance.new("UICorner")
@@ -34,43 +29,12 @@ return function(deps)
         local s = Instance.new("UIStroke")
         s.Thickness       = thickness or 1
         s.Color           = color or T.StrokeBrt
-        s.Transparency    = alpha or 0.6
+        s.Transparency    = alpha or 0.5
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         s.Parent          = parent
         return s
     end
 
-    -- 3D Shadow: creates offset dark copy behind element
-    local function mk3DShadow(parent, offsetX, offsetY, blur, alpha)
-        local shadow = Instance.new("Frame")
-        shadow.Name                   = "_3DShadow"
-        shadow.Size                   = parent.Size
-        shadow.Position               = parent.Position + UDim2.new(0, offsetX or 4, 0, offsetY or 4)
-        shadow.BackgroundColor3       = T.ShadowDeep
-        shadow.BackgroundTransparency = alpha or 0.3
-        shadow.BorderSizePixel        = 0
-        shadow.ZIndex                 = parent.ZIndex - 1
-        shadow.Parent                 = parent.Parent
-        mkCorner(shadow, CORNER)
-        return shadow
-    end
-
-    -- Neon Border Glow: creates glowing border effect
-    local function mkNeonBorder(parent, color, thickness)
-        local glow = Instance.new("Frame")
-        glow.Name                   = "_NeonBorder"
-        glow.Size                   = parent.Size + UDim2.new(0, (thickness or 4) * 2, 0, (thickness or 4) * 2)
-        glow.Position               = parent.Position - UDim2.new(0, thickness or 4, 0, thickness or 4)
-        glow.BackgroundColor3       = color or T.Accent
-        glow.BackgroundTransparency = 0.75
-        glow.BorderSizePixel        = 0
-        glow.ZIndex                 = parent.ZIndex - 2
-        glow.Parent                 = parent.Parent
-        mkCorner(glow, CORNER + (thickness or 4))
-        return glow
-    end
-
-    -- Glass Sheen: top-half white gradient overlay
     local function mkGlassSheen(parent, zIdx)
         local sh = Instance.new("Frame")
         sh.Name                   = "_GlassSheen"
@@ -96,22 +60,7 @@ return function(deps)
         return sh
     end
 
-    -- Neon Glow Line (horizontal)
-    local function mkNeonLine(parent, size, pos, color, zIdx)
-        local line = Instance.new("Frame")
-        line.Name                   = "NeonLine"
-        line.Size                   = size or UDim2.new(0.4, 0, 0, 2)
-        line.Position               = pos or UDim2.new(0.3, 0, 0, 0)
-        line.BackgroundColor3       = color or T.Accent
-        line.BackgroundTransparency = 0.2
-        line.BorderSizePixel        = 0
-        line.ZIndex                 = zIdx or 10
-        line.Parent                 = parent
-        mkCorner(line, 1)
-        return line
-    end
-
-    -- Floating card with 3D effect
+    -- Безопасная карточка (без создания сломанных 3D теней)
     local function mkGlassCard(parent, size, pos, bgCol, bgAlpha, zIdx, cardRadius)
         local card = Instance.new("Frame")
         card.Size                   = size or UDim2.new(1, 0, 0, 40)
@@ -121,15 +70,11 @@ return function(deps)
         card.BorderSizePixel        = 0
         card.ZIndex                 = zIdx or 4
         card.Parent                 = parent
-        local rad = cardRadius or CORNER_S
-        mkCorner(card, rad)
+        mkCorner(card, cardRadius or CORNER_S)
         mkStroke(card, 1, T.StrokeBrt, 0.55)
-        mk3DShadow(card, 3, 3, 0, 0.5)
         mkGlassSheen(card, zIdx + 2)
         return card
     end
-
-    -- ═══ SCREEN GUI ═══
 
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name           = "MegaHack_GUI"
@@ -137,24 +82,38 @@ return function(deps)
     screenGui.IgnoreGuiInset = true
     screenGui.ResetOnSpawn   = false
 
-    local function protectGui(g)
-        local ok = pcall(function()
-            if get_hidden_gui then
-                g.Parent = get_hidden_gui()
-            elseif gethui then
-                g.Parent = gethui()
-            elseif syn and typeof(syn) == "table" and syn.protect_gui then
-                syn.protect_gui(g)
-                g.Parent = CoreGui
-            else
-                g.Parent = CoreGui
-            end
-        end)
-        if not ok then g.Parent = CoreGui end
-    end
-    protectGui(screenGui)
+    pcall(function()
+        if get_hidden_gui then screenGui.Parent = get_hidden_gui()
+        elseif gethui then screenGui.Parent = gethui()
+        elseif syn and syn.protect_gui then syn.protect_gui(screenGui); screenGui.Parent = CoreGui
+        else screenGui.Parent = CoreGui end
+    end)
+    if not screenGui.Parent then screenGui.Parent = CoreGui end
 
-    -- ═══ MAIN FRAME with 3D + Neon ═══
+    -- 3D Тень ТОЛЬКО для главного окна (статичная)
+    local mainShadow = Instance.new("Frame")
+    mainShadow.Size                   = UDim2.new(0, 620, 0, 420)
+    mainShadow.AnchorPoint            = Vector2.new(0.5, 0.5)
+    mainShadow.Position               = UDim2.new(0.5, 6, 0.5, 6)
+    mainShadow.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+    mainShadow.BackgroundTransparency = 0.5
+    mainShadow.BorderSizePixel        = 0
+    mainShadow.ZIndex                 = 3
+    mainShadow.Parent                 = screenGui
+    mkCorner(mainShadow, CORNER)
+
+    -- Неоновое свечение ТОЛЬКО для главного окна
+    local mainGlow = Instance.new("Frame")
+    mainGlow.Size                   = UDim2.new(0, 628, 0, 428)
+    mainGlow.AnchorPoint            = Vector2.new(0.5, 0.5)
+    mainGlow.Position               = UDim2.new(0.5, 0, 0.5, 0)
+    mainGlow.BackgroundColor3       = T.Accent
+    mainGlow.BackgroundTransparency = 0.85
+    mainGlow.BorderSizePixel        = 0
+    mainGlow.ZIndex                 = 4
+    mainGlow.Parent                 = screenGui
+    mkCorner(mainGlow, CORNER + 4)
+    regA(mainGlow)
 
     local mainFrame = Instance.new("Frame")
     mainFrame.Name                   = "MainFrame"
@@ -168,13 +127,10 @@ return function(deps)
     mainFrame.Parent                 = screenGui
     mkCorner(mainFrame, CORNER)
     mkStroke(mainFrame, 1, T.StrokeBrt, 0.4)
-    mk3DShadow(mainFrame, 6, 6, 0, 0.4)
-    mkNeonBorder(mainFrame, T.Accent, 3)
     mkGlassSheen(mainFrame, 7)
 
-    -- Top neon glow bar
     local topNeonGlow = Instance.new("Frame")
-    topNeonGlow.Name                   = "_NeonGlowTop"
+    topNeonGlow.Name                   = "NeonLine"
     topNeonGlow.Size                   = UDim2.new(0.6, 0, 0, 2)
     topNeonGlow.Position               = UDim2.new(0.2, 0, 0, -1)
     topNeonGlow.BackgroundColor3       = T.Accent
@@ -185,9 +141,7 @@ return function(deps)
     mkCorner(topNeonGlow, 1)
     regA(topNeonGlow)
 
-    -- Bottom neon glow bar
     local bottomNeonGlow = Instance.new("Frame")
-    bottomNeonGlow.Name                   = "_NeonGlowBottom"
     bottomNeonGlow.Size                   = UDim2.new(0.4, 0, 0, 2)
     bottomNeonGlow.Position               = UDim2.new(0.3, 0, 1, -1)
     bottomNeonGlow.BackgroundColor3       = T.Accent2
@@ -197,8 +151,7 @@ return function(deps)
     bottomNeonGlow.Parent                 = mainFrame
     mkCorner(bottomNeonGlow, 1)
 
-    -- ═══ HEADER ═══
-
+    -- HEADER
     local headerFrame = Instance.new("Frame")
     headerFrame.Name                   = "HeaderFrame"
     headerFrame.BackgroundTransparency = 1
@@ -206,7 +159,6 @@ return function(deps)
     headerFrame.ZIndex                 = 6
     headerFrame.Parent                 = mainFrame
 
-    -- Header separator - neon line
     local headerLine = Instance.new("Frame")
     headerLine.BackgroundColor3       = T.Accent
     headerLine.BackgroundTransparency = 0.5
@@ -217,17 +169,6 @@ return function(deps)
     headerLine.Parent                 = headerFrame
     regA(headerLine)
 
-    -- Logo with glow
-    local logoGlow = Instance.new("ImageLabel")
-    logoGlow.BackgroundTransparency = 1
-    logoGlow.Image                 = "rbxassetid://7072717762"
-    logoGlow.ImageColor3           = T.Accent
-    logoGlow.ImageTransparency     = 0.5
-    logoGlow.Size                  = UDim2.new(0, 26, 0, 26)
-    logoGlow.Position              = UDim2.new(0, 13, 0.5, -13)
-    logoGlow.ZIndex                = 8
-    logoGlow.Parent                = headerFrame
-
     local logoIcon = Instance.new("ImageLabel")
     logoIcon.BackgroundTransparency = 1
     logoIcon.Image    = "rbxassetid://7072717762"
@@ -235,20 +176,6 @@ return function(deps)
     logoIcon.Position = UDim2.new(0, 15, 0.5, -11)
     logoIcon.ZIndex   = 9
     logoIcon.Parent   = headerFrame
-
-    -- Title with 3D text effect
-    local titleShadow = Instance.new("TextLabel")
-    titleShadow.BackgroundTransparency = 1
-    titleShadow.Text           = "MEGAHACK"
-    titleShadow.Font           = Enum.Font.GothamBold
-    titleShadow.TextSize       = 16
-    titleShadow.TextColor3     = Color3.new(T.Accent.R * 0.3, T.Accent.G * 0.3, T.Accent.B * 0.3)
-    titleShadow.TextTransparency = 0.3
-    titleShadow.TextXAlignment = Enum.TextXAlignment.Left
-    titleShadow.Size           = UDim2.new(0, 120, 0, 22)
-    titleShadow.Position       = UDim2.new(0, 44, 0.5, -9)
-    titleShadow.ZIndex         = 8
-    titleShadow.Parent         = headerFrame
 
     local titleLabel = Instance.new("TextLabel")
     titleLabel.BackgroundTransparency = 1
@@ -263,7 +190,6 @@ return function(deps)
     titleLabel.Parent         = headerFrame
     titleLabel:SetAttribute("TextRole", "main")
 
-    -- Version badge with neon
     local versionBadge = Instance.new("Frame")
     versionBadge.BackgroundColor3       = T.Accent
     versionBadge.BackgroundTransparency = 0.25
@@ -284,11 +210,8 @@ return function(deps)
     versionText.TextColor3 = Color3.new(1, 1, 1)
     versionText.Size       = UDim2.new(1, 0, 1, 0)
     versionText.ZIndex     = 10
-    versionText.Parent     = versionText
-    versionText:SetAttribute("TextRole", "main")
-    versionText.Parent     = versionBadge
+    versionText.Parent     = versionBadge -- ИСПРАВЛЕНО ЗДЕСЬ
 
-    -- Script count
     local function countScripts()
         local n = 0
         for _, cat in pairs(HubData) do
@@ -309,10 +232,7 @@ return function(deps)
     scriptCountLabel.ZIndex         = 9
     scriptCountLabel.Parent         = headerFrame
 
-    -- Game name
-    local ok_g, gname = pcall(function()
-        return MarketplaceService:GetProductInfo(game.PlaceId).Name
-    end)
+    local ok_g, gname = pcall(function() return MarketplaceService:GetProductInfo(game.PlaceId).Name end)
     local gameNameHeader = Instance.new("TextLabel")
     gameNameHeader.BackgroundTransparency = 1
     gameNameHeader.Text           = ok_g and gname or "Unknown Game"
@@ -325,7 +245,6 @@ return function(deps)
     gameNameHeader.ZIndex         = 9
     gameNameHeader.Parent         = headerFrame
 
-    -- Close button with neon hover
     local closeBtn = Instance.new("TextButton")
     closeBtn.Name                   = "CloseBtn"
     closeBtn.BackgroundColor3       = T.BgCard
@@ -344,22 +263,13 @@ return function(deps)
     closeBtn:SetAttribute("TextRole", "main")
 
     closeBtn.MouseEnter:Connect(function()
-        TweenService:Create(closeBtn, TWEEN_S, {
-            BackgroundColor3 = Color3.fromRGB(255, 40, 40),
-            BackgroundTransparency = 0.15,
-            TextColor3 = Color3.new(1, 1, 1)
-        }):Play()
+        TweenService:Create(closeBtn, TWEEN_S, {BackgroundColor3 = Color3.fromRGB(255, 40, 40), BackgroundTransparency = 0.15, TextColor3 = Color3.new(1,1,1)}):Play()
     end)
     closeBtn.MouseLeave:Connect(function()
-        TweenService:Create(closeBtn, TWEEN_S, {
-            BackgroundColor3 = T.BgCard,
-            BackgroundTransparency = 0.2,
-            TextColor3 = T.TextSub
-        }):Play()
+        TweenService:Create(closeBtn, TWEEN_S, {BackgroundColor3 = T.BgCard, BackgroundTransparency = 0.2, TextColor3 = T.TextSub}):Play()
     end)
 
-    -- ═══ SIDEBAR ═══
-
+    -- SIDEBAR
     local sidebarFrame = Instance.new("Frame")
     sidebarFrame.Name                   = "SidebarFrame"
     sidebarFrame.BackgroundColor3       = T.BgSide
@@ -371,7 +281,6 @@ return function(deps)
     mkCorner(sidebarFrame, CORNER)
     mkGlassSheen(sidebarFrame, 5)
 
-    -- Sidebar neon edge
     local sidebarEdge = Instance.new("Frame")
     sidebarEdge.BackgroundColor3       = T.Accent
     sidebarEdge.BackgroundTransparency = 0.6
@@ -408,17 +317,14 @@ return function(deps)
         catScroll.CanvasSize = UDim2.new(0, 0, 0, catLayout.AbsoluteContentSize.Y + 16)
     end)
 
-    -- ═══ CONTENT AREA ═══
-
+    -- CONTENT
     local contentFrame = Instance.new("Frame")
     contentFrame.BackgroundTransparency = 1
-    contentFrame.BorderSizePixel        = 0
     contentFrame.Size                   = UDim2.new(1, -168, 1, -68)
     contentFrame.Position               = UDim2.new(0, 160, 0, 62)
     contentFrame.ZIndex                 = 4
     contentFrame.Parent                 = mainFrame
 
-    -- Scripts scrolling frame
     local scrollingFrame = Instance.new("ScrollingFrame")
     scrollingFrame.BackgroundTransparency = 1
     scrollingFrame.BorderSizePixel        = 0
@@ -446,7 +352,6 @@ return function(deps)
         scrollingFrame.CanvasSize = UDim2.new(0, 0, 0, scrollLayout.AbsoluteContentSize.Y + 16)
     end)
 
-    -- Games panel (hidden by default)
     local gamesPanel = Instance.new("ScrollingFrame")
     gamesPanel.Name                   = "GamesPanel"
     gamesPanel.BackgroundTransparency = 1
@@ -477,8 +382,7 @@ return function(deps)
         gamesPanel.CanvasSize = UDim2.new(0, 0, 0, gamesGrid.AbsoluteContentSize.Y + 20)
     end)
 
-    -- ═══ REOPEN BUTTON (floating, neon) ═══
-
+    -- REOPEN BUTTON
     local reopenButton = Instance.new("TextButton")
     reopenButton.Name                   = "ReopenBtn"
     reopenButton.BackgroundColor3       = T.BgCard
@@ -486,34 +390,20 @@ return function(deps)
     reopenButton.BorderSizePixel        = 0
     reopenButton.Size                   = UDim2.new(0, 44, 0, 44)
     reopenButton.Position               = UDim2.new(0, 16, 0.5, -22)
-    reopenButton.Text                   = ""
+    reopenButton.Text                   = "⬡"
+    reopenButton.TextColor3             = T.Accent
+    reopenButton.Font                   = Enum.Font.GothamBold
+    reopenButton.TextSize               = 22
     reopenButton.ZIndex                 = 100
     reopenButton.Parent                 = screenGui
     reopenButton.Visible                = false
     mkCorner(reopenButton, 22)
     mkStroke(reopenButton, 1, T.Accent, 0.3)
-    mkNeonBorder(reopenButton, T.Accent, 2)
+    regA(reopenButton, "TextColor3")
 
-    local reopenIcon = Instance.new("TextLabel")
-    reopenIcon.BackgroundTransparency = 1
-    reopenIcon.Text           = "⬡"
-    reopenIcon.Font           = Enum.Font.GothamBold
-    reopenIcon.TextSize       = 22
-    reopenIcon.TextColor3     = T.Accent
-    reopenIcon.Size           = UDim2.new(1, 0, 1, 0)
-    reopenIcon.ZIndex         = 101
-    reopenIcon.Parent         = reopenButton
-    regA(reopenIcon, "TextColor3")
+    local gameName = ok_g and gname or "Unknown"
 
-    -- ═══ GAME NAME (for home tab) ═══
-
-    local gameName = "Unknown"
-    if ok_g and gname then
-        gameName = gname
-    end
-
-    -- ═══ HELPER FUNCTIONS ═══
-
+    -- HELPERS
     local function createSectionHeader(text, parent)
         local header = Instance.new("Frame")
         header.Size                   = UDim2.new(1, 0, 0, 28)
@@ -536,19 +426,6 @@ return function(deps)
         label.ZIndex         = 5
         label.Parent         = header
         regA(label, "TextColor3")
-
-        -- Small neon accent line
-        local accentDot = Instance.new("Frame")
-        accentDot.Size                   = UDim2.new(0, 3, 0, 12)
-        accentDot.Position               = UDim2.new(0, 8, 0.5, -6)
-        accentDot.BackgroundColor3       = T.Accent
-        accentDot.BackgroundTransparency = 0.3
-        accentDot.BorderSizePixel        = 0
-        accentDot.ZIndex                 = 6
-        accentDot.Parent                 = header
-        mkCorner(accentDot, 2)
-        regA(accentDot)
-
         return header
     end
 
@@ -558,18 +435,17 @@ return function(deps)
         btn.BackgroundColor3       = T.BgBtn
         btn.BackgroundTransparency = 0.15
         btn.BorderSizePixel        = 0
-        btn.Text                   = text
+        btn.Text                   = "      " .. text -- Отступ для акцентной линии
         btn.TextColor3             = T.TextMain
         btn.Font                   = Enum.Font.GothamBold
         btn.TextSize               = 12
         btn.TextXAlignment         = Enum.TextXAlignment.Left
         btn.ZIndex                 = zIdx or 5
         btn.Parent                 = parent
+        btn:SetAttribute("TextRole", "main") -- ИСПРАВЛЕНО: Атрибут на самой кнопке
         mkCorner(btn, CORNER_S)
         mkStroke(btn, 1, T.StrokeBrt, 0.6)
-        mk3DShadow(btn, 2, 2, 0, 0.55)
 
-        -- Left accent bar
         local accentBar = Instance.new("Frame")
         accentBar.Size                   = UDim2.new(0, 3, 1, -10)
         accentBar.Position               = UDim2.new(0, 8, 0, 5)
@@ -581,46 +457,17 @@ return function(deps)
         mkCorner(accentBar, 2)
         regA(accentBar)
 
-        -- Text padding
-        local txt = Instance.new("TextLabel")
-        txt.BackgroundTransparency = 1
-        txt.Text           = text
-        txt.Font           = Enum.Font.GothamBold
-        txt.TextSize       = 12
-        txt.TextColor3     = T.TextMain
-        txt.TextXAlignment = Enum.TextXAlignment.Left
-        txt.Size           = UDim2.new(1, -32, 1, 0)
-        txt.Position       = UDim2.new(0, 20, 0, 0)
-        txt.ZIndex         = 7
-        txt.Parent         = btn
-        txt:SetAttribute("TextRole", "main")
-
-        btn.Text = ""
-
         btn.MouseEnter:Connect(function()
-            TweenService:Create(btn, TWEEN_S, {
-                BackgroundTransparency = 0.05,
-                BackgroundColor3 = T.BgBtnHov
-            }):Play()
-            TweenService:Create(accentBar, TWEEN_S, {
-                BackgroundTransparency = 0.1
-            }):Play()
+            TweenService:Create(btn, TWEEN_S, {BackgroundTransparency = 0.05, BackgroundColor3 = T.BgBtnHov}):Play()
+            TweenService:Create(accentBar, TWEEN_S, {BackgroundTransparency = 0.1}):Play()
         end)
         btn.MouseLeave:Connect(function()
-            TweenService:Create(btn, TWEEN_S, {
-                BackgroundTransparency = 0.15,
-                BackgroundColor3 = T.BgBtn
-            }):Play()
-            TweenService:Create(accentBar, TWEEN_S, {
-                BackgroundTransparency = 0.4
-            }):Play()
+            TweenService:Create(btn, TWEEN_S, {BackgroundTransparency = 0.15, BackgroundColor3 = T.BgBtn}):Play()
+            TweenService:Create(accentBar, TWEEN_S, {BackgroundTransparency = 0.4}):Play()
         end)
 
-        if callback then
-            btn.MouseButton1Click:Connect(callback)
-        end
-
-        return btn, txt
+        if callback then btn.MouseButton1Click:Connect(callback) end
+        return btn
     end
 
     local function createLabel(text, parent, zIdx)
@@ -638,7 +485,7 @@ return function(deps)
         return lbl
     end
 
-    local function createGameCard(gameName, placeId, callback)
+    local function createGameCard(gName, placeId, callback)
         local card = Instance.new("Frame")
         card.Name                   = "GameCardBg"
         card.Size                   = UDim2.new(0, 132, 0, 100)
@@ -650,10 +497,6 @@ return function(deps)
         mkCorner(card, CORNER_S)
         mkStroke(card, 1, T.StrokeBrt, 0.6)
 
-        -- 3D Shadow
-        mk3DShadow(card, 2, 2, 0, 0.5)
-
-        -- Thumbnail
         local thumb = Instance.new("ImageLabel")
         thumb.Size                   = UDim2.new(1, -8, 0, 58)
         thumb.Position               = UDim2.new(0, 4, 0, 4)
@@ -666,10 +509,9 @@ return function(deps)
         thumb.Parent                 = card
         mkCorner(thumb, CORNER_XS)
 
-        -- Game name
         local nameLabel = Instance.new("TextLabel")
         nameLabel.BackgroundTransparency = 1
-        nameLabel.Text           = gameName
+        nameLabel.Text           = gName
         nameLabel.Font           = Enum.Font.GothamBold
         nameLabel.TextSize       = 10
         nameLabel.TextColor3     = T.TextMain
@@ -681,7 +523,6 @@ return function(deps)
         nameLabel.Parent         = card
         nameLabel:SetAttribute("TextRole", "main")
 
-        -- Neon hover
         local hoverGlow = Instance.new("UIStroke")
         hoverGlow.Thickness       = 2
         hoverGlow.Color           = T.Accent
@@ -705,76 +546,39 @@ return function(deps)
             TweenService:Create(hoverGlow, TWEEN_S, {Transparency = 1}):Play()
         end)
 
-        if callback then
-            btn.MouseButton1Click:Connect(callback)
-        end
-
+        if callback then btn.MouseButton1Click:Connect(callback) end
         return card, thumb
     end
 
-    -- ═══ DRAGGING ═══
-
+    -- DRAGGING
     local dragging, dragInput, dragStart, startPos
-
     headerFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
             dragStart = input.Position
             startPos = mainFrame.Position
-
             input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
             end)
         end
     end)
-
     headerFrame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-            dragInput = input
-        end
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
     end)
-
     UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             local delta = input.Position - dragStart
-            local newPos = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
-            )
-            -- Smooth tween
-            TweenService:Create(mainFrame, TWEEN_S, {Position = newPos}):Play()
+            TweenService:Create(mainFrame, TWEEN_S, {Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)}):Play()
         end
     end)
 
-    -- ═══ RETURN ALL REFS ═══
-
     return {
-        screenGui           = screenGui,
-        mainFrame           = mainFrame,
-        headerFrame         = headerFrame,
-        sidebarFrame        = sidebarFrame,
-        catScroll           = catScroll,
-        catLayout           = catLayout,
-        contentFrame        = contentFrame,
-        scrollingFrame      = scrollingFrame,
-        gamesPanel          = gamesPanel,
-        closeBtn            = closeBtn,
-        reopenButton        = reopenButton,
-        gameName            = gameName,
-
-        mkCorner            = mkCorner,
-        mkStroke            = mkStroke,
-        mk3DShadow          = mk3DShadow,
-        mkNeonBorder        = mkNeonBorder,
-        mkGlassSheen        = mkGlassSheen,
-        mkNeonLine          = mkNeonLine,
-        mkGlassCard         = mkGlassCard,
-
-        createSectionHeader = createSectionHeader,
-        createButton        = createButton,
-        createLabel         = createLabel,
-        createGameCard      = createGameCard,
+        screenGui = screenGui, mainFrame = mainFrame, headerFrame = headerFrame,
+        sidebarFrame = sidebarFrame, catScroll = catScroll, catLayout = catLayout,
+        contentFrame = contentFrame, scrollingFrame = scrollingFrame, gamesPanel = gamesPanel,
+        closeBtn = closeBtn, reopenButton = reopenButton, gameName = gameName,
+        mkCorner = mkCorner, mkStroke = mkStroke, mkGlassCard = mkGlassCard,
+        createSectionHeader = createSectionHeader, createButton = createButton,
+        createLabel = createLabel, createGameCard = createGameCard,
     }
 end
