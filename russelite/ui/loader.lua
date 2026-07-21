@@ -1,130 +1,262 @@
---// RussElite Bootstrapper
---// Renders a frosted glass loading screen and smoothly transitions into the main UI.
+-- RussElite Bootstrapper - loader.lua
+-- Futuristic Glassmorphism Loading Screen
 
-local TweenService = game:GetService("TweenService")
+local Loader = {}
+
+-- Services
 local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-local LocalPlayer = Players.LocalPlayer
-local GuiTarget = LocalPlayer:FindFirstChildWhichIsA("PlayerGui") or LocalPlayer:WaitForChild("PlayerGui")
+-- Configuration
+local CONFIG = {
+    Title = "RussElite",
+    Subtitle = "Loading Experience...",
+    PrimaryColor = Color3.fromRGB(255, 255, 255),
+    AccentColor = Color3.fromRGB(100, 180, 255),
+    BackgroundTransparency = 0.85,
+    GlassBackground = Color3.fromRGB(20, 20, 30),
+    LoadingTime = 2.5,
+    ScriptURL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/ui/gui.lua"
+}
 
--- Animation Presets
-local tweenInfoFast = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-local tweenInfoSlow = TweenInfo.new(1.2, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
-
--- Utility Function: Create Glass Element
-local function createGlass(props)
-    local element = Instance.new(props.ClassName)
-    element.Name = props.Name or "Glass"
-    element.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
-    element.BackgroundTransparency = props.BackgroundTransparency or 0.15
-    element.Size = props.Size or UDim2.new(1, 0, 1, 0)
-    element.Position = props.Position or UDim2.new(0, 0, 0, 0)
-    element.AnchorPoint = props.AnchorPoint or Vector2.new(0, 0)
-    element.BorderSizePixel = 0
-    element.Parent = props.Parent or GuiTarget
-
-    Instance.new("UICorner", element).CornerRadius = UDim.new(0, props.CornerRadius or 12)
-
-    local stroke = Instance.new("UIStroke", element)
-    stroke.Color = Color3.fromRGB(255, 255, 255)
-    stroke.Transparency = 0.85
-    stroke.Thickness = 1
-
-    if props.InnerShadow then
-        local innerGlow = Instance.new("ImageLabel", element)
-        innerGlow.Name = "InnerGlow"
-        innerGlow.BackgroundTransparency = 1
-        innerGlow.Size = UDim2.new(1, 0, 1, 0)
-        innerGlow.Image = "rbxassetid://7669168585"
-        innerGlow.ImageColor3 = Color3.fromRGB(255, 255, 255)
-        innerGlow.ImageTransparency = 0.92
-        innerGlow.ScaleType = Enum.ScaleType.Slice
-        innerGlow.SliceCenter = Rect.new(100, 100, 100, 100)
+-- Safe parent container
+local function GetSafeContainer()
+    local success, result = pcall(function()
+        local coreGui = Instance.new("ScreenGui")
+        coreGui.Name = "RussEliteLoader"
+        coreGui.Parent = CoreGui
+        return coreGui
+    end)
+    
+    if not success then
+        local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "RussEliteLoader"
+        screenGui.Parent = playerGui
+        return screenGui
     end
-
-    return element
+    
+    return result
 end
 
--- Build Loader UI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RussEliteLoader"
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.IgnoreGuiInset = true
-ScreenGui.Parent = GuiTarget
+-- Create loading UI
+function Loader:CreateLoadingUI()
+    local container = GetSafeContainer()
+    
+    -- Main background overlay
+    local background = Instance.new("Frame")
+    background.Name = "Background"
+    background.Size = UDim2.new(1, 0, 1, 0)
+    background.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    background.BackgroundTransparency = 0.6
+    background.Parent = container
+    
+    -- Loading card
+    local loadingCard = Instance.new("Frame")
+    loadingCard.Name = "LoadingCard"
+    loadingCard.Size = UDim2.new(0, 350, 0, 220)
+    loadingCard.Position = UDim2.new(0.5, -175, 0.5, -110)
+    loadingCard.BackgroundColor3 = CONFIG.GlassBackground
+    loadingCard.BackgroundTransparency = CONFIG.BackgroundTransparency
+    loadingCard.Parent = container
+    
+    -- Glass effect border
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Name = "CardStroke"
+    cardStroke.Color = Color3.fromRGB(255, 255, 255)
+    cardStroke.Transparency = 0.7
+    cardStroke.Thickness = 1.5
+    cardStroke.Parent = loadingCard
+    
+    -- Corner rounding
+    local cardCorner = Instance.new("UICorner")
+    cardCorner.Name = "CardCorner"
+    cardCorner.CornerRadius = UDim.new(0, 16)
+    cardCorner.Parent = loadingCard
+    
+    -- Drop shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Name = "Shadow"
+    shadow.Size = UDim2.new(1, 20, 1, 20)
+    shadow.Position = UDim2.new(0, -10, 0, -10)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://6014261993"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(49, 49, 49, 49)
+    shadow.Parent = loadingCard
+    
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Name = "Title"
+    title.Size = UDim2.new(1, 0, 0, 40)
+    title.Position = UDim2.new(0, 0, 0, 30)
+    title.BackgroundTransparency = 1
+    title.Text = CONFIG.Title
+    title.TextColor3 = CONFIG.PrimaryColor
+    title.TextSize = 32
+    title.Font = Enum.Font.GothamBold
+    title.TextTransparency = 0
+    title.Parent = loadingCard
+    
+    -- Subtitle
+    local subtitle = Instance.new("TextLabel")
+    subtitle.Name = "Subtitle"
+    subtitle.Size = UDim2.new(1, 0, 0, 20)
+    subtitle.Position = UDim2.new(0, 0, 0, 75)
+    subtitle.BackgroundTransparency = 1
+    subtitle.Text = CONFIG.Subtitle
+    subtitle.TextColor3 = CONFIG.PrimaryColor
+    subtitle.TextSize = 14
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextTransparency = 0.3
+    subtitle.Parent = loadingCard
+    
+    -- Progress bar background
+    local progressBarBg = Instance.new("Frame")
+    progressBarBg.Name = "ProgressBarBg"
+    progressBarBg.Size = UDim2.new(0.8, 0, 0, 6)
+    progressBarBg.Position = UDim2.new(0.1, 0, 0, 120)
+    progressBarBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    progressBarBg.BackgroundTransparency = 0.85
+    progressBarBg.Parent = loadingCard
+    
+    local progressBarBgCorner = Instance.new("UICorner")
+    progressBarBgCorner.CornerRadius = UDim.new(1, 0)
+    progressBarBgCorner.Parent = progressBarBg
+    
+    -- Progress bar fill
+    local progressBarFill = Instance.new("Frame")
+    progressBarFill.Name = "ProgressBarFill"
+    progressBarFill.Size = UDim2.new(0, 0, 1, 0)
+    progressBarFill.BackgroundColor3 = CONFIG.AccentColor
+    progressBarFill.BackgroundTransparency = 0.2
+    progressBarFill.Parent = progressBarBg
+    
+    local progressBarFillCorner = Instance.new("UICorner")
+    progressBarFillCorner.CornerRadius = UDim.new(1, 0)
+    progressBarFillCorner.Parent = progressBarFill
+    
+    -- Status text
+    local statusText = Instance.new("TextLabel")
+    statusText.Name = "StatusText"
+    statusText.Size = UDim2.new(1, 0, 0, 20)
+    statusText.Position = UDim2.new(0, 0, 0, 140)
+    statusText.BackgroundTransparency = 1
+    statusText.Text = "Initializing..."
+    statusText.TextColor3 = CONFIG.PrimaryColor
+    statusText.TextSize = 12
+    statusText.Font = Enum.Font.Gotham
+    statusText.TextTransparency = 0.5
+    statusText.Parent = loadingCard
+    
+    -- Glow effect on progress bar
+    local progressGlow = Instance.new("UIGradient")
+    progressGlow.Name = "ProgressGlow"
+    progressGlow.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CONFIG.AccentColor),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 220, 255))
+    })
+    progressGlow.Parent = progressBarFill
+    
+    return {
+        Container = container,
+        Card = loadingCard,
+        ProgressBar = progressBarFill,
+        StatusText = statusText,
+        Title = title,
+        Subtitle = subtitle
+    }
+end
 
-local MainFrame = createGlass({
-    Parent = ScreenGui,
-    Size = UDim2.new(0, 350, 0, 200),
-    Position = UDim2.new(0.5, 0, 0.5, 0),
-    AnchorPoint = Vector2.new(0.5, 0.5),
-    CornerRadius = 20,
-    InnerShadow = true
-})
-
-local Title = Instance.new("TextLabel", MainFrame)
-Title.Name = "Title"
-Title.Size = UDim2.new(1, -40, 0, 40)
-Title.Position = UDim2.new(0, 20, 0, 30)
-Title.BackgroundTransparency = 1
-Title.Text = "RussElite"
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 32
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextXAlignment = Enum.TextXAlignment.Left
-
-local Subtitle = Instance.new("TextLabel", MainFrame)
-Subtitle.Name = "Subtitle"
-Subtitle.Size = UDim2.new(1, -40, 0, 20)
-Subtitle.Position = UDim2.new(0, 20, 0, 70)
-Subtitle.BackgroundTransparency = 1
-Subtitle.Text = "Initializing modules..."
-Subtitle.Font = Enum.Font.Gotham
-Subtitle.TextSize = 14
-Subtitle.TextColor3 = Color3.fromRGB(180, 180, 180)
-Subtitle.TextXAlignment = Enum.TextXAlignment.Left
-
--- Progress Bar Frame
-local BarBg = Instance.new("Frame", MainFrame)
-BarBg.Name = "BarBackground"
-BarBg.Size = UDim2.new(1, -40, 0, 6)
-BarBg.Position = UDim2.new(0, 20, 0, 150)
-BarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-BarBg.BackgroundTransparency = 0.5
-BarBg.BorderSizePixel = 0
-Instance.new("UICorner", BarBg).CornerRadius = UDim.new(1, 0)
-
-local BarFill = Instance.new("Frame", BarBg)
-BarFill.Name = "Fill"
-BarFill.Size = UDim2.new(0, 0, 1, 0)
-BarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-BarFill.BackgroundTransparency = 0.1
-BarFill.BorderSizePixel = 0
-Instance.new("UICorner", BarFill).CornerRadius = UDim.new(1, 0)
-
--- Simulate Loading & Tween Out
-task.spawn(function()
-    local fakeLoadSteps = {0.15, 0.4, 0.65, 0.85, 1.0}
-    local statusTexts = {"Parsing UI layout...", "Loading dependencies...", "Securing environment...", "Finalizing...", "Done!"}
-
-    for i = 1, #fakeLoadSteps do
-        TweenService:Create(BarFill, TweenInfo.new(0.8, Enum.EasingStyle.Expo, Enum.EasingDirection.Out), {Size = UDim2.new(fakeLoadSteps[i], 0, 1, 0)}):Play()
-        Subtitle.Text = statusTexts[i]
-        task.wait(0.6)
+-- Animate progress
+function Loader:AnimateProgress(elements, callback)
+    local progressTween = TweenService:Create(
+        elements.ProgressBar,
+        TweenInfo.new(CONFIG.LoadingTime, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+        {Size = UDim2.new(1, 0, 1, 0)}
+    )
+    
+    local statusMessages = {
+        "Initializing systems...",
+        "Loading modules...",
+        "Establishing connection...",
+        "Preparing interface...",
+        "Almost ready..."
+    }
+    
+    local currentMessage = 1
+    local messageInterval = CONFIG.LoadingTime / #statusMessages
+    
+    for i = 1, #statusMessages do
+        task.delay(messageInterval * (i - 1), function()
+            elements.StatusText.Text = statusMessages[i]
+        end)
     end
-
-    task.wait(0.4)
-
-    -- Fade out loader
-    local fadeOut = TweenService:Create(MainFrame, tweenInfoSlow, {BackgroundTransparency = 1})
-    fadeOut:Play()
-    TweenService:Create(Title, tweenInfoSlow, {TextTransparency = 1}):Play()
-    TweenService:Create(Subtitle, tweenInfoSlow, {TextTransparency = 1}):Play()
-    TweenService:Create(BarBg, tweenInfoSlow, {BackgroundTransparency = 1}):Play()
-    TweenService:Create(BarFill, tweenInfoSlow, {BackgroundTransparency = 1}):Play()
-
-    fadeOut.Completed:Connect(function()
-        ScreenGui:Destroy()
-        -- Execute Main GUI
-        loadstring(game:HttpGet('https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/ui/gui.lua'))()
+    
+    progressTween:Play()
+    
+    progressTween.Completed:Connect(function()
+        elements.StatusText.Text = "Complete!"
+        task.wait(0.3)
+        callback()
     end)
-end)
+end
+
+-- Fade out and cleanup
+function Loader:FadeOut(elements, callback)
+    local fadeTween = TweenService:Create(
+        elements.Container,
+        TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {BackgroundTransparency = 1}
+    )
+    
+    local cardFadeTween = TweenService:Create(
+        elements.Card,
+        TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        {BackgroundTransparency = 1, Position = UDim2.new(0.5, -175, 0.5, -130)}
+    )
+    
+    fadeTween:Play()
+    cardFadeTween:Play()
+    
+    cardFadeTween.Completed:Connect(function()
+        elements.Container:Destroy()
+        if callback then
+            callback()
+        end
+    end)
+end
+
+-- Main execution
+local function Init()
+    local elements = Loader:CreateLoadingUI()
+    
+    -- Start progress animation
+    Loader:AnimateProgress(elements, function()
+        -- Load and execute main script
+        local success, result = pcall(function()
+            local mainScript = game:HttpGet(CONFIG.ScriptURL)
+            local loadedFunction = loadstring(mainScript)
+            if loadedFunction then
+                loadedFunction()
+            end
+        end)
+        
+        if not success then
+            elements.StatusText.Text = "Error loading script!"
+            elements.StatusText.TextColor3 = Color3.fromRGB(255, 100, 100)
+            warn("RussElite Loader Error:", result)
+        end
+        
+        -- Fade out loader
+        Loader:FadeOut(elements)
+    end)
+end
+
+-- Run
+Init()
