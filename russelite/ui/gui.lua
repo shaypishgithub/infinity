@@ -1,360 +1,513 @@
---// RussElite All-In-One GUI
---// Сначала показывает загрузку, затем открывает главный интерфейс
+-- RussElite Main Interface - gui.lua
+-- Glassmorphism Script Hub Interface
 
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-
-local LocalPlayer = Players.LocalPlayer
--- Пытаемся засунуть в CoreGui, если не получается — в PlayerGui
-local GuiTarget = game:GetService("CoreGui")
-local Success, Err = pcall(function() return GuiTarget:FindFirstChild("RobloxGui") end)
-if not Success then GuiTarget = LocalPlayer:WaitForChild("PlayerGui") end
-
--- Настройки анимаций
-local tweenFast = TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-local tweenSmooth = TweenInfo.new(0.4, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-local tweenUIStroke = TweenInfo.new(0.2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-local tweenLoader = TweenInfo.new(0.8, Enum.EasingStyle.Expo, Enum.EasingDirection.Out)
-local tweenFadeOut = TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.InOut)
-
--- Утилита: Создание стеклянного элемента (Glassmorphism)
-local function createGlass(props)
-    local element = Instance.new(props.ClassName or "Frame")
-    element.Name = props.Name or "Glass"
-    element.BackgroundColor3 = Color3.fromRGB(12, 12, 18)
-    element.BackgroundTransparency = props.BackgroundTransparency or 0.12
-    element.Size = props.Size or UDim2.new(1, 0, 1, 0)
-    element.Position = props.Position or UDim2.new(0.5, 0, 0.5, 0)
-    element.AnchorPoint = props.AnchorPoint or Vector2.new(0.5, 0.5)
-    element.BorderSizePixel = 0
-    element.ClipsDescendants = props.ClipsDescendants or false
-    element.Parent = props.Parent
-
-    Instance.new("UICorner", element).CornerRadius = UDim.new(0, props.CornerRadius or 16)
-
-    local stroke = Instance.new("UIStroke", element)
-    stroke.Name = "GlowStroke"
-    stroke.Color = Color3.fromRGB(255, 255, 255)
-    stroke.Transparency = 0.88
-    stroke.Thickness = 1.2
-
-    -- Внутреннее свечение (эффект iPhone)
-    if not props.IgnoreInnerGlow then
-        local innerGlow = Instance.new("ImageLabel", element)
-        innerGlow.Name = "InnerGlow"
-        innerGlow.BackgroundTransparency = 1
-        innerGlow.Size = UDim2.new(1, 0, 1, 0)
-        innerGlow.Image = "rbxassetid://7669168585"
-        innerGlow.ImageColor3 = Color3.fromRGB(200, 200, 255)
-        innerGlow.ImageTransparency = 0.94
-        innerGlow.ScaleType = Enum.ScaleType.Slice
-        innerGlow.SliceCenter = Rect.new(100, 100, 100, 100)
-        innerGlow.ZIndex = 0
-    end
-
-    return element
-end
-
--- ========================================================
--- ЧАСТЬ 1: ЭКРАН ЗАГРУЗКИ (Имитация)
--- ========================================================
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RussElite"
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = GuiTarget
-
-local LoaderFrame = createGlass({
-    Parent = ScreenGui,
-    Name = "Loader",
-    Size = UDim2.new(0, 350, 0, 200),
-    CornerRadius = 20,
-    InnerShadow = true
-})
-
-local LoaderTitle = Instance.new("TextLabel", LoaderFrame)
-LoaderTitle.Size = UDim2.new(1, -40, 0, 40)
-LoaderTitle.Position = UDim2.new(0, 20, 0, 30)
-LoaderTitle.BackgroundTransparency = 1
-LoaderTitle.Text = "RussElite"
-LoaderTitle.Font = Enum.Font.GothamBold
-LoaderTitle.TextSize = 32
-LoaderTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-LoaderTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local LoaderSub = Instance.new("TextLabel", LoaderFrame)
-LoaderSub.Size = UDim2.new(1, -40, 0, 20)
-LoaderSub.Position = UDim2.new(0, 20, 0, 70)
-LoaderSub.BackgroundTransparency = 1
-LoaderSub.Text = "Initializing modules..."
-LoaderSub.Font = Enum.Font.Gotham
-LoaderSub.TextSize = 14
-LoaderSub.TextColor3 = Color3.fromRGB(180, 180, 180)
-LoaderSub.TextXAlignment = Enum.TextXAlignment.Left
-
-local BarBg = Instance.new("Frame", LoaderFrame)
-BarBg.Size = UDim2.new(1, -40, 0, 6)
-BarBg.Position = UDim2.new(0, 20, 0, 150)
-BarBg.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-BarBg.BackgroundTransparency = 0.5
-BarBg.BorderSizePixel = 0
-Instance.new("UICorner", BarBg).CornerRadius = UDim.new(1, 0)
-
-local BarFill = Instance.new("Frame", BarBg)
-BarFill.Size = UDim2.new(0, 0, 1, 0)
-BarFill.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-BarFill.BackgroundTransparency = 0.1
-BarFill.BorderSizePixel = 0
-Instance.new("UICorner", BarFill).CornerRadius = UDim.new(1, 0)
-
--- ========================================================
--- ЧАСТЬ 2: ГЛАВНЫЙ ИНТЕРФЕЙС (Скрыт изначально)
--- ========================================================
-
-local MainWindow = createGlass({
-    Parent = ScreenGui,
-    Name = "MainWindow",
-    Size = UDim2.new(0, 0, 0, 0), -- Скрыт для анимации
-    Position = UDim2.new(0.5, 0, 0.5, 0),
-    CornerRadius = 24,
-    ClipsDescendants = true
-})
-
--- Верхняя панель (Для перетаскивания)
-local TopBar = createGlass({
-    Parent = MainWindow,
-    Size = UDim2.new(1, 0, 0, 50),
-    Position = UDim2.new(0, 0, 0, 0),
-    AnchorPoint = Vector2.new(0, 0),
-    CornerRadius = 24,
-    BackgroundTransparency = 0.05,
-    IgnoreInnerGlow = true
-})
-
-local TitleLabel = Instance.new("TextLabel", TopBar)
-TitleLabel.Size = UDim2.new(1, -20, 1, 0)
-TitleLabel.Position = UDim2.new(0, 20, 0, 0)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "RussElite"
-TitleLabel.Font = Enum.Font.GothamBold
-TitleLabel.TextSize = 18
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-
--- Меню вкладок (Слева)
-local TabFrame = Instance.new("Frame", MainWindow)
-TabFrame.Size = UDim2.new(0, 140, 1, -50)
-TabFrame.Position = UDim2.new(0, 0, 0, 50)
-TabFrame.BackgroundTransparency = 1
-TabFrame.BorderSizePixel = 0
-
-local TabPadding = Instance.new("UIListLayout", TabFrame)
-TabPadding.Padding = UDim.new(0, 8)
-TabPadding.SortOrder = Enum.SortOrder.LayoutOrder
-
-local TabButtonData = {
-    {Name = "Home", Layout = 1},
-    {Name = "Base", Layout = 2, Module = "base/base.lua"},
-    {Name = "Game", Layout = 3, Module = "base/game.lua"}
+local Gui = {}
+local Modules = {
+    Base = nil,
+    Game = nil
 }
 
-local activeTab = nil
+-- Services
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
-for _, data in ipairs(TabButtonData) do
-    local btn = createGlass({
-        Parent = TabFrame,
-        Name = data.Name .. "Tab",
-        Size = UDim2.new(1, -16, 0, 40),
-        AnchorPoint = Vector2.new(0, 0),
-        Position = UDim2.new(0, 8, 0, 0),
-        CornerRadius = 12,
-        BackgroundTransparency = 0.85
+-- Configuration
+local CONFIG = {
+    Title = "RussElite",
+    Version = "v1.0.0",
+    PrimaryColor = Color3.fromRGB(100, 180, 255),
+    AccentColor = Color3.fromRGB(80, 150, 255),
+    BackgroundColor = Color3.fromRGB(15, 15, 25),
+    GlassBackground = Color3.fromRGB(25, 25, 40),
+    TextColor = Color3.fromRGB(255, 255, 255),
+    GlassTransparency = 0.15,
+    WindowSize = UDim2.new(0, 550, 0, 380),
+    ToggleButtonSize = UDim2.new(0, 50, 0, 50),
+    BorderRadius = 16,
+    Modules = {
+        Base = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/base/base.lua",
+        Game = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/base/game.lua"
+    }
+}
+
+-- Safe parent
+local function GetSafeContainer()
+    local success, result = pcall(function()
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "RussEliteHub"
+        sg.Parent = CoreGui
+        return sg
+    end)
+    
+    if not success then
+        local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "RussEliteHub"
+        sg.Parent = playerGui
+        return sg
+    end
+    
+    return result
+end
+
+-- Utility functions
+local function CreateTween(object, properties, duration, easingStyle, easingDirection)
+    return TweenService:Create(
+        object,
+        TweenInfo.new(duration or 0.3, easingStyle or Enum.EasingStyle.Quad, easingDirection or Enum.EasingDirection.Out),
+        properties
+    )
+end
+
+local function ApplyGlassEffect(frame)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 255, 255)
+    stroke.Transparency = 0.7
+    stroke.Thickness = 1
+    stroke.Parent = frame
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    corner.Parent = frame
+    
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 220))
     })
-    btn.LayoutOrder = data.Layout
-    btn.ZIndex = 5
-
-    local label = Instance.new("TextLabel", btn)
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = data.Name
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 14
-    label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    label.ZIndex = 6
-
-    btn.MouseEnter:Connect(function()
-        if activeTab ~= btn then
-            TweenService:Create(btn, tweenSmooth, {BackgroundTransparency = 0.7}):Play()
-            TweenService:Create(btn.GlowStroke, tweenUIStroke, {Transparency = 0.7}):Play()
-        end
-    end)
-
-    btn.MouseLeave:Connect(function()
-        if activeTab ~= btn then
-            TweenService:Create(btn, tweenSmooth, {BackgroundTransparency = 0.85}):Play()
-            TweenService:Create(btn.GlowStroke, tweenUIStroke, {Transparency = 0.88}):Play()
-        end
-    end)
-
-    btn.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            if activeTab then
-                TweenService:Create(activeTab, tweenSmooth, {BackgroundTransparency = 0.85}):Play()
-                TweenService:Create(activeTab.GlowStroke, tweenUIStroke, {Transparency = 0.88}):Play()
-                activeTab.TextLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-            end
-            activeTab = btn
-            TweenService:Create(btn, tweenSmooth, {BackgroundTransparency = 0.5}):Play()
-            TweenService:Create(btn.GlowStroke, tweenUIStroke, {Transparency = 0.5, Thickness = 1.5}):Play()
-            label.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-            if data.Module then
-                pcall(function()
-                    loadstring(game:HttpGet('https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/'..data.Module))()
-                end)
-            end
-        end
-    end)
+    gradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.9),
+        NumberSequenceKeypoint.new(0.5, 0.95),
+        NumberSequenceKeypoint.new(1, 0.9)
+    })
+    gradient.Rotation = 45
+    gradient.Parent = stroke
+    
+    return {Stroke = stroke, Corner = corner, Gradient = gradient}
 end
 
--- Зона контента (Справа)
-local ContentFrame = createGlass({
-    Parent = MainWindow,
-    Name = "ContentArea",
-    Size = UDim2.new(1, -140, 1, -50),
-    Position = UDim2.new(0, 140, 0, 50),
-    AnchorPoint = Vector2.new(0, 0),
-    CornerRadius = 0,
-    BackgroundTransparency = 0.9,
-    IgnoreInnerGlow = true
-})
+-- Create toggle button
+function Gui:CreateToggleButton()
+    local container = GetSafeContainer()
+    
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Name = "ToggleButton"
+    toggleButton.Size = CONFIG.ToggleButtonSize
+    toggleButton.Position = UDim2.new(0.95, -25, 0.5, -25)
+    toggleButton.BackgroundColor3 = CONFIG.GlassBackground
+    toggleButton.BackgroundTransparency = CONFIG.GlassTransparency
+    toggleButton.Text = "RE"
+    toggleButton.TextColor3 = CONFIG.TextColor
+    toggleButton.TextSize = 18
+    toggleButton.Font = Enum.Font.GothamBold
+    toggleButton.Parent = container
+    
+    ApplyGlassEffect(toggleButton)
+    
+    -- Icon
+    local icon = Instance.new("TextLabel")
+    icon.Name = "Icon"
+    icon.Size = UDim2.new(1, 0, 1, 0)
+    icon.BackgroundTransparency = 1
+    icon.Text = "✦"
+    icon.TextColor3 = CONFIG.PrimaryColor
+    icon.TextSize = 24
+    icon.Font = Enum.Font.GothamBold
+    icon.Parent = toggleButton
+    
+    return toggleButton
+end
 
-local ContentLabel = Instance.new("TextLabel", ContentFrame)
-ContentLabel.Size = UDim2.new(1, 0, 1, 0)
-ContentLabel.BackgroundTransparency = 1
-ContentLabel.Text = "Select a module to begin."
-ContentLabel.Font = Enum.Font.GothamMedium
-ContentLabel.TextSize = 16
-ContentLabel.TextColor3 = Color3.fromRGB(120, 120, 130)
-ContentLabel.ZIndex = 5
+-- Create main window
+function Gui:CreateMainWindow()
+    local container = GetSafeContainer()
+    
+    -- Main window frame
+    local mainWindow = Instance.new("Frame")
+    mainWindow.Name = "MainWindow"
+    mainWindow.Size = CONFIG.WindowSize
+    mainWindow.Position = UDim2.new(0.5, -275, 0.5, -190)
+    mainWindow.BackgroundColor3 = CONFIG.GlassBackground
+    mainWindow.BackgroundTransparency = CONFIG.GlassTransparency
+    mainWindow.Visible = false
+    mainWindow.Parent = container
+    
+    local elements = ApplyGlassEffect(mainWindow)
+    
+    -- Title bar
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 45)
+    titleBar.BackgroundColor3 = CONFIG.BackgroundColor
+    titleBar.BackgroundTransparency = 0.3
+    titleBar.Parent = mainWindow
+    
+    local titleBarCorner = Instance.new("UICorner")
+    titleBarCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    titleBarCorner.Parent = titleBar
+    
+    -- Title text
+    local titleText = Instance.new("TextLabel")
+    titleText.Name = "TitleText"
+    titleText.Size = UDim2.new(0.6, 0, 1, 0)
+    titleText.Position = UDim2.new(0.02, 0, 0, 0)
+    titleText.BackgroundTransparency = 1
+    titleText.Text = CONFIG.Title
+    titleText.TextColor3 = CONFIG.TextColor
+    titleText.TextSize = 20
+    titleText.Font = Enum.Font.GothamBold
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Parent = titleBar
+    
+    -- Version label
+    local versionLabel = Instance.new("TextLabel")
+    versionLabel.Name = "VersionLabel"
+    versionLabel.Size = UDim2.new(0.2, 0, 1, 0)
+    versionLabel.Position = UDim2.new(0.6, 0, 0, 0)
+    versionLabel.BackgroundTransparency = 1
+    versionLabel.Text = CONFIG.Version
+    versionLabel.TextColor3 = CONFIG.PrimaryColor
+    versionLabel.TextSize = 12
+    versionLabel.Font = Enum.Font.Gotham
+    versionLabel.TextTransparency = 0.3
+    versionLabel.Parent = titleBar
+    
+    -- Close button
+    local closeButton = Instance.new("TextButton")
+    closeButton.Name = "CloseButton"
+    closeButton.Size = UDim2.new(0, 35, 0, 35)
+    closeButton.Position = UDim2.new(0.92, 0, 0.1, 0)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    closeButton.BackgroundTransparency = 0.8
+    closeButton.Text = "✕"
+    closeButton.TextColor3 = CONFIG.TextColor
+    closeButton.TextSize = 18
+    closeButton.Font = Enum.Font.GothamBold
+    closeButton.Parent = titleBar
+    
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(1, 0)
+    closeCorner.Parent = closeButton
+    
+    -- Tab container
+    local tabContainer = Instance.new("Frame")
+    tabContainer.Name = "TabContainer"
+    tabContainer.Size = UDim2.new(0.22, 0, 1, -55)
+    tabContainer.Position = UDim2.new(0.01, 0, 0, 55)
+    tabContainer.BackgroundColor3 = CONFIG.BackgroundColor
+    tabContainer.BackgroundTransparency = 0.5
+    tabContainer.Parent = mainWindow
+    
+    local tabCorner = Instance.new("UICorner")
+    tabCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    tabCorner.Parent = tabContainer
+    
+    -- Content area
+    local contentArea = Instance.new("Frame")
+    contentArea.Name = "ContentArea"
+    contentArea.Size = UDim2.new(0.74, 0, 1, -65)
+    contentArea.Position = UDim2.new(0.25, 0, 0, 55)
+    contentArea.BackgroundColor3 = CONFIG.BackgroundColor
+    contentArea.BackgroundTransparency = 0.3
+    contentArea.Parent = mainWindow
+    
+    local contentCorner = Instance.new("UICorner")
+    contentCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    contentCorner.Parent = contentArea
+    
+    -- Create tabs
+    local tabs = {
+        {Name = "Universal", Icon = "🌐", Module = "Base"},
+        {Name = "Game Specific", Icon = "🎮", Module = "Game"}
+    }
+    
+    local tabButtons = {}
+    
+    for i, tab in ipairs(tabs) do
+        local tabButton = Instance.new("TextButton")
+        tabButton.Name = tab.Name .. "Tab"
+        tabButton.Size = UDim2.new(0.9, 0, 0, 40)
+        tabButton.Position = UDim2.new(0.05, 0, 0, 10 + (i - 1) * 50)
+        tabButton.BackgroundColor3 = CONFIG.PrimaryColor
+        tabButton.BackgroundTransparency = 0.85
+        tabButton.Text = tab.Icon .. "  " .. tab.Name
+        tabButton.TextColor3 = CONFIG.TextColor
+        tabButton.TextSize = 14
+        tabButton.Font = Enum.Font.Gotham
+        tabButton.Parent = tabContainer
+        
+        local tabButtonCorner = Instance.new("UICorner")
+        tabButtonCorner.CornerRadius = UDim.new(0, 12)
+        tabButtonCorner.Parent = tabButton
+        
+        local tabStroke = Instance.new("UIStroke")
+        tabStroke.Color = CONFIG.PrimaryColor
+        tabStroke.Transparency = 0.5
+        tabStroke.Thickness = 1
+        tabStroke.Parent = tabButton
+        
+        table.insert(tabButtons, {
+            Button = tabButton,
+            Module = tab.Module,
+            Name = tab.Name
+        })
+    end
+    
+    -- Status bar
+    local statusBar = Instance.new("Frame")
+    statusBar.Name = "StatusBar"
+    statusBar.Size = UDim2.new(0.74, 0, 0, 25)
+    statusBar.Position = UDim2.new(0.25, 0, 0.94, -25)
+    statusBar.BackgroundColor3 = CONFIG.BackgroundColor
+    statusBar.BackgroundTransparency = 0.5
+    statusBar.Parent = mainWindow
+    
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    statusCorner.Parent = statusBar
+    
+    local statusText = Instance.new("TextLabel")
+    statusText.Name = "StatusText"
+    statusText.Size = UDim2.new(0.9, 0, 1, 0)
+    statusText.Position = UDim2.new(0.05, 0, 0, 0)
+    statusText.BackgroundTransparency = 1
+    statusText.Text = "Ready"
+    statusText.TextColor3 = CONFIG.PrimaryColor
+    statusText.TextSize = 12
+    statusText.Font = Enum.Font.Gotham
+    statusText.TextTransparency = 0.3
+    statusText.TextXAlignment = Enum.TextXAlignment.Left
+    statusText.Parent = statusBar
+    
+    return {
+        Window = mainWindow,
+        TitleBar = titleBar,
+        CloseButton = closeButton,
+        TabContainer = tabContainer,
+        ContentArea = contentArea,
+        StatusBar = statusBar,
+        StatusText = statusText,
+        TabButtons = tabButtons
+    }
+end
 
--- Плавающая кнопка откытия/закрытия
-local ToggleBtn = createGlass({
-    Parent = ScreenGui,
-    Name = "ToggleBtn",
-    Size = UDim2.new(0, 55, 0, 55),
-    Position = UDim2.new(0, 20, 0.5, 0),
-    CornerRadius = 28,
-    BackgroundTransparency = 0.05
-})
-
-local ToggleIcon = Instance.new("TextLabel", ToggleBtn)
-ToggleIcon.Size = UDim2.new(1, 0, 1, 0)
-ToggleIcon.BackgroundTransparency = 1
-ToggleIcon.Text = "✕"
-ToggleIcon.Font = Enum.Font.GothamBold
-ToggleIcon.TextSize = 22
-ToggleIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleIcon.ZIndex = 10
-
-local isOpen = true
-
-local function toggleUI()
-    isOpen = not isOpen
-    if isOpen then
-        TweenService:Create(MainWindow, tweenFast, {Size = UDim2.new(0, 550, 0, 380)}):Play()
-        TweenService:Create(ToggleBtn, tweenFast, {Rotation = 0}):Play()
-        ToggleIcon.Text = "✕"
+-- Module loader
+function Gui:LoadModule(moduleName, url)
+    local statusText = self.Elements.StatusText
+    
+    statusText.Text = "Loading " .. moduleName .. " module..."
+    
+    local success, result = pcall(function()
+        local moduleScript = game:HttpGet(url)
+        local moduleFunc = loadstring(moduleScript)
+        if moduleFunc then
+            local module = moduleFunc()
+            Modules[moduleName] = module
+            
+            if module and module.Init then
+                module.Init(self.Elements.ContentArea)
+            end
+        end
+    end)
+    
+    if success then
+        statusText.Text = moduleName .. " module loaded successfully!"
+        statusText.TextColor3 = Color3.fromRGB(100, 255, 100)
+        task.delay(2, function()
+            statusText.Text = "Ready"
+            statusText.TextColor3 = CONFIG.PrimaryColor
+        end)
     else
-        TweenService:Create(MainWindow, tweenFast, {Size = UDim2.new(0, 0, 0, 0)}):Play()
-        TweenService:Create(ToggleBtn, tweenFast, {Rotation = 90}):Play()
-        ToggleIcon.Text = "☰"
-    end
-end
-
-ToggleBtn.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        toggleUI()
-    end
-end)
-
-ToggleBtn.MouseEnter:Connect(function()
-    TweenService:Create(ToggleBtn.GlowStroke, tweenUIStroke, {Transparency = 0.5, Thickness = 2}):Play()
-    TweenService:Create(ToggleBtn, tweenSmooth, {BackgroundTransparency = 0.0}):Play()
-end)
-
-ToggleBtn.MouseLeave:Connect(function()
-    TweenService:Create(ToggleBtn.GlowStroke, tweenUIStroke, {Transparency = 0.88, Thickness = 1.2}):Play()
-    TweenService:Create(ToggleBtn, tweenSmooth, {BackgroundTransparency = 0.05}):Play()
-end)
-
--- Логика перетаскивания (Drag)
-local dragInput, dragStart, startPos
-
-TopBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragStart = input.Position
-        startPos = MainWindow.Position
-        local delta = (input.Position - dragStart)
-        MainWindow.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragInput = nil end
+        statusText.Text = "Failed to load " .. moduleName .. " module!"
+        statusText.TextColor3 = Color3.fromRGB(255, 100, 100)
+        warn("Module load error:", result)
+        task.delay(3, function()
+            statusText.Text = "Ready"
+            statusText.TextColor3 = CONFIG.PrimaryColor
         end)
     end
-end)
+end
 
-TopBar.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-    end
-end)
-
-RunService:BindToRenderStep("RussEliteDrag", Enum.RenderPriority.Input.Value, function()
-    if dragInput and dragStart then
-        local delta = (dragInput.Position - dragStart)
-        MainWindow.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
--- ========================================================
--- ЧАСТЬ 3: ЗАПУСК ПРОЦЕССА
--- ========================================================
-
-task.spawn(function()
-    -- 1. Анимируем загрузку
-    local loadSteps = {0.15, 0.4, 0.7, 1.0}
-    local loadTexts = {"Parsing UI layout...", "Loading dependencies...", "Securing environment...", "Done!"}
-    
-    for i = 1, #loadSteps do
-        TweenService:Create(BarFill, tweenLoader, {Size = UDim2.new(loadSteps[i], 0, 1, 0)}):Play()
-        LoaderSub.Text = loadTexts[i]
-        task.wait(0.6)
+-- Handle tab selection
+function Gui:SelectTab(button, tabData)
+    -- Update button states
+    for _, tab in ipairs(self.Elements.TabButtons) do
+        local isSelected = (tab.Module == tabData.Module)
+        CreateTween(tab.Button, {
+            BackgroundTransparency = isSelected and 0.7 or 0.85
+        }, 0.3):Play()
     end
     
-    task.wait(0.3)
-    
-    -- 2. Плавно исчезает загрузчик
-    TweenService:Create(LoaderFrame, tweenFadeOut, {BackgroundTransparency = 1}):Play()
-    TweenService:Create(LoaderTitle, tweenFadeOut, {TextTransparency = 1}):Play()
-    TweenService:Create(LoaderSub, tweenFadeOut, {TextTransparency = 1}):Play()
-    TweenService:Create(BarBg, tweenFadeOut, {BackgroundTransparency = 1}):Play()
-    TweenService:Create(BarFill, tweenFadeOut, {BackgroundTransparency = 1}):Play()
-    
-    task.wait(1)
-    LoaderFrame:Destroy()
-    
-    -- 3. Выдвигаем главный интерфейс
-    toggleUI() -- Вызываем функцию, чтобы окно появилось (так как по умолчанию оно size 0,0)
-    
-    -- Активируем первую вкладку
-    local firstTab = TabFrame:FindFirstChild("HomeTab")
-    if firstTab then
-        activeTab = firstTab
-        TweenService:Create(firstTab, tweenSmooth, {BackgroundTransparency = 0.5}):Play()
-        TweenService:Create(firstTab.GlowStroke, tweenUIStroke, {Transparency = 0.5, Thickness = 1.5}):Play()
-        firstTab.TextLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    -- Load module if not loaded
+    if not Modules[tabData.Module] then
+        local moduleUrl = CONFIG.Modules[tabData.Module]
+        if moduleUrl then
+            self:LoadModule(tabData.Module, moduleUrl)
+        end
     end
-end)
+end
+
+-- Make window draggable
+function Gui:MakeDraggable(window, titleBar)
+    local dragging
+    local dragInput
+    local dragStart
+    local startPos
+    
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = window.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    
+    titleBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            window.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Toggle window with animation
+function Gui:ToggleWindow()
+    local window = self.Elements.Window
+    local toggleButton = self.Elements.ToggleButton
+    
+    if window.Visible then
+        -- Fade out animation
+        CreateTween(window, {
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0, 500, 0, 330)
+        }, 0.3):Play()
+        
+        CreateTween(self.Elements.TitleBar, {
+            BackgroundTransparency = 1
+        }, 0.3):Play()
+        
+        task.wait(0.3)
+        window.Visible = false
+    else
+        -- Fade in animation
+        window.Visible = true
+        window.BackgroundTransparency = 1
+        
+        CreateTween(window, {
+            BackgroundTransparency = CONFIG.GlassTransparency,
+            Size = CONFIG.WindowSize
+        }, 0.3):Play()
+        
+        CreateTween(self.Elements.TitleBar, {
+            BackgroundTransparency = 0.3
+        }, 0.3):Play()
+    end
+end
+
+-- Setup animations
+function Gui:SetupAnimations()
+    local toggleButton = self.Elements.ToggleButton
+    
+    -- Hover animations
+    toggleButton.MouseEnter:Connect(function()
+        CreateTween(toggleButton, {
+            BackgroundTransparency = 0.05,
+            Size = UDim2.new(0, 55, 0, 55)
+        }, 0.2, Enum.EasingStyle.Back):Play()
+    end)
+    
+    toggleButton.MouseLeave:Connect(function()
+        CreateTween(toggleButton, {
+            BackgroundTransparency = CONFIG.GlassTransparency,
+            Size = CONFIG.ToggleButtonSize
+        }, 0.2, Enum.EasingStyle.Quad):Play()
+    end)
+    
+    -- Close button hover
+    local closeButton = self.Elements.CloseButton
+    closeButton.MouseEnter:Connect(function()
+        CreateTween(closeButton, {
+            BackgroundTransparency = 0.3
+        }, 0.2):Play()
+    end)
+    
+    closeButton.MouseLeave:Connect(function()
+        CreateTween(closeButton, {
+            BackgroundTransparency = 0.8
+        }, 0.2):Play()
+    end)
+    
+    -- Tab button hovers
+    for _, tab in ipairs(self.Elements.TabButtons) do
+        tab.Button.MouseEnter:Connect(function()
+            if not Modules[tab.Module] then
+                CreateTween(tab.Button, {
+                    BackgroundTransparency = 0.75
+                }, 0.2):Play()
+            end
+        end)
+        
+        tab.Button.MouseLeave:Connect(function()
+            if not Modules[tab.Module] then
+                CreateTween(tab.Button, {
+                    BackgroundTransparency = 0.85
+                }, 0.2):Play()
+            end
+        end)
+    end
+end
+
+-- Initialize GUI
+function Gui:Init()
+    self.Elements = {}
+    
+    -- Create toggle button
+    self.Elements.ToggleButton = self:CreateToggleButton()
+    
+    -- Create main window elements
+    local windowElements = self:CreateMainWindow()
+    for k, v in pairs(windowElements) do
+        self.Elements[k] = v
+    end
+    
+    -- Make window draggable
+    self:MakeDraggable(self.Elements.Window, self.Elements.TitleBar)
+    
+    -- Setup animations
+    self:SetupAnimations()
+    
+    -- Button events
+    self.Elements.ToggleButton.MouseButton1Click:Connect(function()
+        self:ToggleWindow()
+    end)
+    
+    self.Elements.CloseButton.MouseButton1Click:Connect(function()
+        self:ToggleWindow()
+    end)
+    
+    -- Tab button events
+    for _, tab in ipairs(self.Elements.TabButtons) do
+        tab.Button.MouseButton1Click:Connect(function()
+            self:SelectTab(tab.Button, tab)
+        end)
+    end
+end
+
+-- Start the GUI
+Gui:Init()
