@@ -1,0 +1,169 @@
+--[[
+    RussElite | loader.lua
+    Загрузчик. Подтягивает gui.lua (модуль интерфейса) и связывает
+    его с реальным плеером (SoundService), плейлистом и логикой кнопок.
+
+    Использование (LocalScript, например в StarterPlayerScripts):
+        loadstring(game:HttpGet(
+            "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/loader.lua"
+        ))()
+]]
+
+local Players       = game:GetService("Players")
+local SoundService   = game:GetService("SoundService")
+local TweenService   = game:GetService("TweenService")
+local HttpService    = game:GetService("HttpService")
+
+local player   = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+----------------------------------------------------------------
+-- 1. Подключаем модуль интерфейса (gui.lua)
+----------------------------------------------------------------
+-- Путь к RAW-файлу в том же репозитории/стиле, что и остальные модули
+local GUI_URL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/ui/gui.lua"
+
+local function loadModule(url)
+    local ok, result = pcall(function()
+        return loadstring(game:HttpGet(url))()
+    end)
+    if not ok then
+        warn("[RussElite] Не удалось загрузить модуль: " .. tostring(url))
+        warn(result)
+        return nil
+    end
+    return result
+end
+
+-- Убираем старую копию интерфейса, если скрипт перезапускается
+local old = playerGui:FindFirstChild("RussElite")
+if old then old:Destroy() end
+
+local GUI = loadModule(GUI_URL)
+if not GUI then
+    error("[RussElite] gui.lua не загрузился — прекращаю выполнение loader.lua")
+end
+
+local ui = GUI.new(playerGui)
+
+----------------------------------------------------------------
+-- 2. Плейлист (id звуков — замени на свои)
+----------------------------------------------------------------
+local playlist = {
+    {name = "Track 1 — Night Drive", id = "rbxassetid://1837701036"},
+    {name = "Track 2 — Glass City",  id = "rbxassetid://1841165784"},
+    {name = "Track 3 — Midnight",    id = "rbxassetid://1845100801"},
+}
+
+local currentIndex = 1
+local isPlaying = false
+
+----------------------------------------------------------------
+-- 3. Объект Sound
+----------------------------------------------------------------
+local sound = Instance.new("Sound")
+sound.Name = "RussEliteSound"
+sound.Looped = false
+sound.Volume = 0.5
+sound.Parent = SoundService
+
+ui.VolumeFill.Size = UDim2.new(sound.Volume, 0, 1, 0)
+
+----------------------------------------------------------------
+-- 4. Логика плеера
+----------------------------------------------------------------
+local function loadTrack(index)
+    local track = playlist[index]
+    if not track then return end
+
+    sound.SoundId = track.id
+    ui.SongLabel.Text = track.name
+    ui.ProgressFill.Size = UDim2.new(0, 0, 1, 0)
+end
+
+local function play()
+    if sound.SoundId == "" then
+        loadTrack(currentIndex)
+    end
+    sound:Play()
+    isPlaying = true
+    ui.PlayButton.Text = "⏸"
+end
+
+local function pause()
+    sound:Pause()
+    isPlaying = false
+    ui.PlayButton.Text = "▶"
+end
+
+local function playPauseToggle()
+    if isPlaying then
+        pause()
+    else
+        play()
+    end
+end
+
+local function nextTrack()
+    currentIndex = currentIndex % #playlist + 1
+    loadTrack(currentIndex)
+    play()
+end
+
+local function prevTrack()
+    currentIndex = currentIndex - 1
+    if currentIndex < 1 then currentIndex = #playlist end
+    loadTrack(currentIndex)
+    play()
+end
+
+----------------------------------------------------------------
+-- 5. Привязка кнопок GUI к логике плеера
+----------------------------------------------------------------
+ui.PlayButton.MouseButton1Click:Connect(playPauseToggle)
+ui.NextButton.MouseButton1Click:Connect(nextTrack)
+ui.PrevButton.MouseButton1Click:Connect(prevTrack)
+
+-- Обновление полосы прогресса в реальном времени
+sound:GetPropertyChangedSignal("TimeLength"):Connect(function() end)
+game:GetService("RunService").Heartbeat:Connect(function()
+    if sound.IsPlaying and sound.TimeLength > 0 then
+        local ratio = math.clamp(sound.TimePosition / sound.TimeLength, 0, 1)
+        TweenService:Create(ui.ProgressFill, TweenInfo.new(0.1), {
+            Size = UDim2.new(ratio, 0, 1, 0)
+        }):Play()
+    end
+
+    if sound.IsPlaying == false and isPlaying and sound.TimePosition >= (sound.TimeLength - 0.05) and sound.TimeLength > 0 then
+        -- трек закончился сам — переключаем на следующий
+        nextTrack()
+    end
+end)
+
+-- Клик по полосе громкости — перетаскивание
+local dragging = false
+ui.VolumeBack.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+    end
+end)
+game:GetService("UserInputService").InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local relX = (input.Position.X - ui.VolumeBack.AbsolutePosition.X) / ui.VolumeBack.AbsoluteSize.X
+        relX = math.clamp(relX, 0, 1)
+        sound.Volume = relX
+        ui.VolumeFill.Size = UDim2.new(relX, 0, 1, 0)
+    end
+end)
+
+----------------------------------------------------------------
+-- 6. Первичная загрузка
+----------------------------------------------------------------
+loadTrack(currentIndex)
+
+print("[RussElite] Интерфейс и плеер успешно загружены.")
