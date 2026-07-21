@@ -2,7 +2,7 @@
 -- MEGAHACK 2026 EDITION
 
 local database = {
-    baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/base",
+    baseUrl = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/vertelvsepoel/megahack/base",
     
     categories = {
         Brookhaven = "brookhaven.lua",
