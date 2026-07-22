@@ -1,6 +1,4 @@
 -- RussElite Main Interface - gui.lua
--- Full black UI with working script execution
-
 local Gui = {}
 local Database = nil
 local CurrentSubScripts = nil
