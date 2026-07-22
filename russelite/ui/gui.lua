@@ -1,4 +1,7 @@
--- RussElite Main Interface - gui.lua [2026 Modern Glass Design]
+-- RussElite Main Interface - gui.lua
+-- Premium Glass Morphism Design 2026
+-- iPhone Aesthetic with Modern Glass Effects
+
 local Gui = {}
 local Database = nil
 local CurrentSubScripts = nil
@@ -11,56 +14,75 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
--- Configuration - 2026 Modern Glass Aesthetic
+-- Modern Premium Configuration
 local CONFIG = {
     Title = "RussElite",
-    Version = "v3.0 • Glass",
+    Version = "v3.0 Pro",
+    
+    -- Premium Color Palette 2026
     TextColor = Color3.fromRGB(255, 255, 255),
     TextSecondary = Color3.fromRGB(200, 200, 200),
-    Accent = Color3.fromRGB(100, 200, 255),           -- Modern blue
-    AccentHover = Color3.fromRGB(120, 220, 255),
-    Background = Color3.fromRGB(5, 5, 10),            -- Deep black
-    Glass = Color3.fromRGB(25, 30, 45),               -- Dark glass
-    GlassLight = Color3.fromRGB(40, 50, 70),          -- Light glass
-    StrokeColor = Color3.fromRGB(80, 100, 150),       -- Glass border
-    StrokeGlow = Color3.fromRGB(100, 200, 255),       -- Glow color
-    WindowSize = UDim2.new(0, 720, 0, 520),
+    TextTertiary = Color3.fromRGB(150, 150, 150),
+    
+    -- Glass Effects
+    GlassLight = Color3.fromRGB(25, 25, 25),
+    GlassMedium = Color3.fromRGB(20, 20, 20),
+    GlassDark = Color3.fromRGB(15, 15, 15),
+    
+    -- Accents
+    PrimaryAccent = Color3.fromRGB(100, 200, 255),      -- Cyan Blue
+    SecondaryAccent = Color3.fromRGB(150, 150, 150),    -- Grey
+    SuccessAccent = Color3.fromRGB(100, 220, 140),      -- Green
+    WarningAccent = Color3.fromRGB(255, 180, 100),      -- Orange
+    ErrorAccent = Color3.fromRGB(255, 120, 120),        -- Red
+    
+    -- Background
+    BackgroundDark = Color3.fromRGB(5, 5, 8),           -- Almost Black
+    GlassStroke = Color3.fromRGB(60, 60, 70),           -- Dark Blue-Grey
+    
+    -- Sizes
+    WindowSize = UDim2.new(0, 700, 0, 500),
     ToggleButtonSize = UDim2.new(0, 60, 0, 60),
+    
+    -- Styling
     BorderRadius = 20,
-    BaseURL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/base/base.lua"
+    SmallRadius = 12,
+    TinyRadius = 8,
 }
 
 -- Safe GUI container
 local function GetSafeContainer()
     local success, result = pcall(function()
         local sg = Instance.new("ScreenGui")
-        sg.Name = "RussEliteHub2026"
+        sg.Name = "RussEliteHub"
+        sg.ResetOnSpawn = false
         sg.Parent = CoreGui
         return sg
     end)
     if not success then
         local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
         local sg = Instance.new("ScreenGui")
-        sg.Name = "RussEliteHub2026"
+        sg.Name = "RussEliteHub"
+        sg.ResetOnSpawn = false
         sg.Parent = playerGui
         return sg
     end
     return result
 end
 
--- Tween helper with smooth animations
+-- Advanced Tween Helper
 local function tween(obj, props, dur, style)
-    local easing = style or Enum.EasingStyle.Quad
-    local t = TweenService:Create(obj, TweenInfo.new(dur or 0.3, easing, Enum.EasingDirection.Out), props)
+    local easingStyle = style or Enum.EasingStyle.Quad
+    local t = TweenService:Create(obj, TweenInfo.new(dur or 0.35, easingStyle, Enum.EasingDirection.Out), props)
     t:Play()
     return t
 end
 
--- Apply modern glass style
-local function applyGlassStyle(frame, hasGlow)
+-- Apply Premium Glass Style
+local function applyGlassStyle(frame, isLight)
     local stroke = Instance.new("UIStroke")
-    stroke.Color = hasGlow and CONFIG.StrokeGlow or CONFIG.StrokeColor
-    stroke.Transparency = 0.4
+    stroke.Color = CONFIG.GlassStroke
+    stroke.Transparency = 0.6
     stroke.Thickness = 1.5
     stroke.Parent = frame
     
@@ -68,217 +90,272 @@ local function applyGlassStyle(frame, hasGlow)
     corner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
     corner.Parent = frame
     
-    -- Gradient effect for premium look
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, frame.BackgroundColor3),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(math.max(0, frame.BackgroundColor3.R*255-10)/255, 
-                                                   math.max(0, frame.BackgroundColor3.G*255-10)/255, 
-                                                   math.max(0, frame.BackgroundColor3.B*255-10)/255))
+    -- Add blur effect visual (semi-transparent layer)
+    local blur = Instance.new("UIGradient")
+    blur.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 200, 200)),
     })
-    gradient.Rotation = 45
-    gradient.Parent = frame
+    blur.Transparency = NumberSequence.new(0.95)
+    blur.Parent = frame
 end
 
--- Create premium toggle button (floating action button)
+-- Apply Button Style
+local function applyButtonStyle(button, isPrimary)
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, CONFIG.SmallRadius)
+    corner.Parent = button
+    
+    if isPrimary then
+        button.BackgroundColor3 = CONFIG.PrimaryAccent
+        button.BackgroundTransparency = 0.15
+    else
+        button.BackgroundColor3 = CONFIG.GlassLight
+        button.BackgroundTransparency = 0.2
+    end
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = CONFIG.GlassStroke
+    stroke.Transparency = 0.5
+    stroke.Thickness = 1
+    stroke.Parent = button
+end
+
+-- Create Toggle Button (Floating Action Button)
 function Gui:CreateToggleButton()
     local btn = Instance.new("TextButton")
     btn.Name = "ToggleButton"
     btn.Size = CONFIG.ToggleButtonSize
-    btn.Position = UDim2.new(0.92, 0, 0.5, -30)
-    btn.BackgroundColor3 = CONFIG.GlassLight
-    btn.BackgroundTransparency = 0.15
+    btn.Position = UDim2.new(0.94, -30, 0.08, -30)
+    btn.BackgroundColor3 = CONFIG.PrimaryAccent
+    btn.BackgroundTransparency = 0.1
     btn.Text = ""
-    btn.Parent = self.Container
     btn.ZIndex = 100
+    btn.Parent = self.Container
     
-    applyGlassStyle(btn, true)
+    -- Apply premium style
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = btn
     
-    -- Icon with animation
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = CONFIG.PrimaryAccent
+    stroke.Transparency = 0.4
+    stroke.Thickness = 2
+    stroke.Parent = btn
+    
+    -- Icon (RE Badge)
     local icon = Instance.new("TextLabel")
     icon.Size = UDim2.new(1, 0, 1, 0)
     icon.BackgroundTransparency = 1
-    icon.Text = "⚡"
-    icon.TextColor3 = CONFIG.Accent
-    icon.TextSize = 26
+    icon.Text = "RE"
+    icon.TextColor3 = CONFIG.TextColor
+    icon.TextSize = 24
     icon.Font = Enum.Font.GothamBold
     icon.Parent = btn
     
-    -- Hover animations
+    -- Glow effect
+    local glow = Instance.new("Frame")
+    glow.Name = "Glow"
+    glow.Size = UDim2.new(1.3, 0, 1.3, 0)
+    glow.Position = UDim2.new(-0.15, 0, -0.15, 0)
+    glow.BackgroundColor3 = CONFIG.PrimaryAccent
+    glow.BackgroundTransparency = 0.8
+    glow.ZIndex = 0
+    
+    local glowCorner = Instance.new("UICorner")
+    glowCorner.CornerRadius = UDim.new(1, 0)
+    glowCorner.Parent = glow
+    glow.Parent = btn
+    
+    -- Hover animation
     btn.MouseEnter:Connect(function()
-        tween(btn, {BackgroundTransparency = 0.25}, 0.2, Enum.EasingStyle.Quad)
-        tween(icon, {TextColor3 = CONFIG.AccentHover}, 0.2)
+        tween(btn, {BackgroundTransparency = 0.05}, 0.2)
+        tween(glow, {BackgroundTransparency = 0.7}, 0.2)
     end)
     
     btn.MouseLeave:Connect(function()
-        tween(btn, {BackgroundTransparency = 0.15}, 0.2, Enum.EasingStyle.Quad)
-        tween(icon, {TextColor3 = CONFIG.Accent}, 0.2)
+        tween(btn, {BackgroundTransparency = 0.1}, 0.2)
+        tween(glow, {BackgroundTransparency = 0.8}, 0.2)
     end)
     
     return btn
 end
 
--- Create modern main window with glass-morphism
+-- Create Main Premium Window
 function Gui:CreateMainWindow()
-    -- Background blur effect (dark overlay)
-    local bgOverlay = Instance.new("Frame")
-    bgOverlay.Name = "BGOverlay"
-    bgOverlay.Size = UDim2.new(1, 0, 1, 0)
-    bgOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    bgOverlay.BackgroundTransparency = 0.7
-    bgOverlay.Visible = false
-    bgOverlay.ZIndex = 1
-    bgOverlay.Parent = self.Container
-    
-    -- Main window
+    -- Main Container
     local window = Instance.new("Frame")
     window.Name = "MainWindow"
     window.Size = CONFIG.WindowSize
-    window.Position = UDim2.new(0.5, -360, 0.5, -260)
-    window.BackgroundColor3 = CONFIG.Glass
-    window.BackgroundTransparency = 0.1
+    window.Position = UDim2.new(0.5, -350, 0.5, -250)
+    window.BackgroundColor3 = CONFIG.BackgroundDark
+    window.BackgroundTransparency = 0.05
     window.Visible = false
     window.ZIndex = 50
     window.Parent = self.Container
     
     applyGlassStyle(window)
     
-    -- Premium header with gradient
-    local headerBg = Instance.new("Frame")
-    headerBg.Size = UDim2.new(1, 0, 0, 60)
-    headerBg.BackgroundColor3 = CONFIG.GlassLight
-    headerBg.BackgroundTransparency = 0.05
-    headerBg.Parent = window
+    -- Decorative Top Gradient Bar
+    local topBar = Instance.new("Frame")
+    topBar.Name = "TopBar"
+    topBar.Size = UDim2.new(1, 0, 0, 60)
+    topBar.BackgroundColor3 = CONFIG.GlassMedium
+    topBar.BackgroundTransparency = 0.3
+    topBar.Parent = window
     
-    local headerCorner = Instance.new("UICorner")
-    headerCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
-    headerCorner.Parent = headerBg
+    local topCorner = Instance.new("UICorner")
+    topCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    topCorner.Parent = topBar
     
-    local headerGradient = Instance.new("UIGradient")
-    headerGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, CONFIG.Accent),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 140, 200))
+    -- Gradient effect on top bar
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CONFIG.PrimaryAccent),
+        ColorSequenceKeypoint.new(1, CONFIG.GlassMedium),
     })
-    headerGradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.85),
-        NumberSequenceKeypoint.new(1, 0.95)
-    })
-    headerGradient.Rotation = 45
-    headerGradient.Parent = headerBg
+    gradient.Rotation = 90
+    gradient.Transparency = NumberSequence.new(0.7)
+    gradient.Parent = topBar
     
-    -- Title
+    -- Title Section
+    local titleContainer = Instance.new("Frame")
+    titleContainer.Size = UDim2.new(1, 0, 0, 60)
+    titleContainer.BackgroundTransparency = 1
+    titleContainer.Parent = topBar
+    
     local titleText = Instance.new("TextLabel")
     titleText.Size = UDim2.new(0.6, 0, 1, 0)
-    titleText.Position = UDim2.new(0.05, 0, 0, 0)
+    titleText.Position = UDim2.new(0.04, 0, 0, 0)
     titleText.BackgroundTransparency = 1
-    titleText.Text = CONFIG.Title
+    titleText.Text = "◆ " .. CONFIG.Title
     titleText.TextColor3 = CONFIG.TextColor
     titleText.TextSize = 28
     titleText.Font = Enum.Font.GothamBold
     titleText.TextXAlignment = Enum.TextXAlignment.Left
-    titleText.Parent = headerBg
+    titleText.Parent = titleContainer
     
-    -- Version badge
-    local versionBadge = Instance.new("Frame")
-    versionBadge.Size = UDim2.new(0, 140, 0, 24)
-    versionBadge.Position = UDim2.new(0.6, 0, 0.5, -12)
-    versionBadge.BackgroundColor3 = CONFIG.Accent
-    versionBadge.BackgroundTransparency = 0.3
-    versionBadge.Parent = headerBg
+    -- Version Badge
+    local versionFrame = Instance.new("Frame")
+    versionFrame.Size = UDim2.new(0, 90, 0, 28)
+    versionFrame.Position = UDim2.new(0.58, 0, 0.5, -14)
+    versionFrame.BackgroundColor3 = CONFIG.PrimaryAccent
+    versionFrame.BackgroundTransparency = 0.3
+    versionFrame.Parent = titleContainer
     
     local versionCorner = Instance.new("UICorner")
-    versionCorner.CornerRadius = UDim.new(0, 6)
-    versionCorner.Parent = versionBadge
+    versionCorner.CornerRadius = UDim.new(0, 8)
+    versionCorner.Parent = versionFrame
     
-    local version = Instance.new("TextLabel")
-    version.Size = UDim2.new(1, 0, 1, 0)
-    version.BackgroundTransparency = 1
-    version.Text = CONFIG.Version
-    version.TextColor3 = CONFIG.TextColor
-    version.TextSize = 11
-    version.Font = Enum.Font.GothamSemibold
-    version.Parent = versionBadge
+    local versionText = Instance.new("TextLabel")
+    versionText.Size = UDim2.new(1, 0, 1, 0)
+    versionText.BackgroundTransparency = 1
+    versionText.Text = "✨ " .. CONFIG.Version
+    versionText.TextColor3 = CONFIG.PrimaryAccent
+    versionText.TextSize = 12
+    versionText.Font = Enum.Font.GothamBold
+    versionText.Parent = versionFrame
     
-    -- Close button (modern X)
+    -- Close Button (Premium Style)
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Size = UDim2.new(0, 36, 0, 36)
-    closeBtn.Position = UDim2.new(0.93, 0, 0.5, -18)
-    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-    closeBtn.BackgroundTransparency = 0.3
+    closeBtn.Name = "CloseButton"
+    closeBtn.Size = UDim2.new(0, 40, 0, 40)
+    closeBtn.Position = UDim2.new(0.92, -20, 0.1, -20)
+    closeBtn.BackgroundColor3 = CONFIG.ErrorAccent
+    closeBtn.BackgroundTransparency = 0.2
     closeBtn.Text = "✕"
-    closeBtn.TextColor3 = CONFIG.TextColor
+    closeBtn.TextColor3 = CONFIG.ErrorAccent
     closeBtn.TextSize = 18
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.ZIndex = 51
-    closeBtn.Parent = headerBg
+    closeBtn.Parent = titleContainer
     
     local closeBtnCorner = Instance.new("UICorner")
-    closeBtnCorner.CornerRadius = UDim.new(0, 8)
+    closeBtnCorner.CornerRadius = UDim.new(0, 10)
     closeBtnCorner.Parent = closeBtn
     
     closeBtn.MouseEnter:Connect(function()
         tween(closeBtn, {BackgroundTransparency = 0.1}, 0.2)
     end)
     closeBtn.MouseLeave:Connect(function()
-        tween(closeBtn, {BackgroundTransparency = 0.3}, 0.2)
+        tween(closeBtn, {BackgroundTransparency = 0.2}, 0.2)
     end)
     
-    -- Premium search bar
+    -- Search Bar (Premium)
     local searchFrame = Instance.new("Frame")
-    searchFrame.Size = UDim2.new(0.93, 0, 0, 40)
-    searchFrame.Position = UDim2.new(0.035, 0, 0, 72)
+    searchFrame.Name = "SearchFrame"
+    searchFrame.Size = UDim2.new(0.92, 0, 0, 40)
+    searchFrame.Position = UDim2.new(0.04, 0, 0, 70)
     searchFrame.BackgroundColor3 = CONFIG.GlassLight
-    searchFrame.BackgroundTransparency = 0.2
+    searchFrame.BackgroundTransparency = 0.3
     searchFrame.Parent = window
     
-    applyGlassStyle(searchFrame, false)
+    local searchCorner = Instance.new("UICorner")
+    searchCorner.CornerRadius = UDim.new(0, CONFIG.SmallRadius)
+    searchCorner.Parent = searchFrame
     
+    local searchStroke = Instance.new("UIStroke")
+    searchStroke.Color = CONFIG.GlassStroke
+    searchStroke.Transparency = 0.5
+    searchStroke.Thickness = 1
+    searchStroke.Parent = searchFrame
+    
+    -- Search Icon
     local searchIcon = Instance.new("TextLabel")
-    searchIcon.Size = UDim2.new(0, 36, 1, 0)
+    searchIcon.Size = UDim2.new(0, 40, 1, 0)
     searchIcon.BackgroundTransparency = 1
     searchIcon.Text = "🔎"
-    searchIcon.TextColor3 = CONFIG.Accent
-    searchIcon.TextSize = 16
-    searchIcon.Font = Enum.Font.GothamBold
+    searchIcon.TextColor3 = CONFIG.PrimaryAccent
+    searchIcon.TextSize = 18
+    searchIcon.Font = Enum.Font.Gotham
     searchIcon.Parent = searchFrame
     
+    -- Search Box
     local searchBox = Instance.new("TextBox")
     searchBox.Name = "SearchBox"
-    searchBox.Size = UDim2.new(1, -50, 1, 0)
-    searchBox.Position = UDim2.new(0, 36, 0, 0)
+    searchBox.Size = UDim2.new(0.88, 0, 1, 0)
+    searchBox.Position = UDim2.new(0.08, 0, 0, 0)
     searchBox.BackgroundTransparency = 1
     searchBox.PlaceholderText = "Search scripts..."
-    searchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 180)
+    searchBox.PlaceholderColor3 = CONFIG.TextTertiary
     searchBox.Text = ""
     searchBox.TextColor3 = CONFIG.TextColor
-    searchBox.TextSize = 14
+    searchBox.TextSize = 16
     searchBox.Font = Enum.Font.Gotham
     searchBox.Parent = searchFrame
     
-    -- Content area with glass effect
+    -- Content Area (Main)
     local contentArea = Instance.new("Frame")
-    contentArea.Size = UDim2.new(0.93, 0, 1, -140)
-    contentArea.Position = UDim2.new(0.035, 0, 0, 125)
-    contentArea.BackgroundColor3 = CONFIG.Glass
-    contentArea.BackgroundTransparency = 0.15
+    contentArea.Name = "ContentArea"
+    contentArea.Size = UDim2.new(0.96, 0, 1, -140)
+    contentArea.Position = UDim2.new(0.02, 0, 0, 120)
+    contentArea.BackgroundColor3 = CONFIG.GlassDark
+    contentArea.BackgroundTransparency = 0.4
     contentArea.ClipsDescendants = true
     contentArea.Parent = window
     
-    applyGlassStyle(contentArea, false)
+    local contentCorner = Instance.new("UICorner")
+    contentCorner.CornerRadius = UDim.new(0, CONFIG.SmallRadius)
+    contentCorner.Parent = contentArea
     
-    -- Back button (modern style)
+    local contentStroke = Instance.new("UIStroke")
+    contentStroke.Color = CONFIG.GlassStroke
+    contentStroke.Transparency = 0.6
+    contentStroke.Thickness = 1
+    contentStroke.Parent = contentArea
+    
+    -- Back Button (Hidden by default)
     local backBtn = Instance.new("TextButton")
     backBtn.Name = "BackButton"
-    backBtn.Size = UDim2.new(0, 90, 0, 28)
-    backBtn.Position = UDim2.new(0.015, 0, 0.01, 0)
-    backBtn.BackgroundColor3 = CONFIG.Accent
-    backBtn.BackgroundTransparency = 0.4
-    backBtn.Text = "← Back"
-    backBtn.TextColor3 = CONFIG.TextColor
+    backBtn.Size = UDim2.new(0, 80, 0, 32)
+    backBtn.Position = UDim2.new(0.02, 0, 0.02, 0)
+    backBtn.BackgroundColor3 = CONFIG.PrimaryAccent
+    backBtn.BackgroundTransparency = 0.3
+    backBtn.Text = "◀ Back"
+    backBtn.TextColor3 = CONFIG.PrimaryAccent
     backBtn.TextSize = 13
     backBtn.Font = Enum.Font.GothamBold
     backBtn.Visible = false
-    backBtn.ZIndex = 51
     backBtn.Parent = contentArea
     
     local backBtnCorner = Instance.new("UICorner")
@@ -289,292 +366,305 @@ function Gui:CreateMainWindow()
         tween(backBtn, {BackgroundTransparency = 0.2}, 0.2)
     end)
     backBtn.MouseLeave:Connect(function()
-        tween(backBtn, {BackgroundTransparency = 0.4}, 0.2)
+        tween(backBtn, {BackgroundTransparency = 0.3}, 0.2)
     end)
     
-    -- Category scroll view
+    -- Category Scroll
     local categoryScroll = Instance.new("ScrollingFrame")
     categoryScroll.Name = "CategoryScroll"
     categoryScroll.Size = UDim2.new(1, 0, 1, 0)
     categoryScroll.BackgroundTransparency = 1
-    categoryScroll.ScrollBarThickness = 5
-    categoryScroll.ScrollBarImageColor3 = CONFIG.Accent
+    categoryScroll.ScrollBarThickness = 4
+    categoryScroll.ScrollBarImageColor3 = CONFIG.PrimaryAccent
     categoryScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     categoryScroll.Parent = contentArea
     
     local categoryGrid = Instance.new("UIGridLayout")
-    categoryGrid.CellSize = UDim2.new(0, 140, 0, 110)
+    categoryGrid.CellSize = UDim2.new(0, 140, 0, 100)
     categoryGrid.CellPadding = UDim2.new(0, 10, 0, 10)
     categoryGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    categoryGrid.VerticalAlignment = Enum.VerticalAlignment.Top
     categoryGrid.SortOrder = Enum.SortOrder.Name
     categoryGrid.Parent = categoryScroll
     
-    -- Sub-script scroll view
+    -- Sub-Script Scroll
     local subScroll = Instance.new("ScrollingFrame")
     subScroll.Name = "SubScriptScroll"
     subScroll.Size = UDim2.new(1, 0, 1, -40)
     subScroll.Position = UDim2.new(0, 0, 0, 40)
     subScroll.BackgroundTransparency = 1
-    subScroll.ScrollBarThickness = 5
-    subScroll.ScrollBarImageColor3 = CONFIG.Accent
+    subScroll.ScrollBarThickness = 4
+    subScroll.ScrollBarImageColor3 = CONFIG.PrimaryAccent
     subScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     subScroll.Visible = false
     subScroll.Parent = contentArea
     
     local subList = Instance.new("UIListLayout")
     subList.SortOrder = Enum.SortOrder.Name
-    subList.Padding = UDim.new(0, 8)
+    subList.Padding = UDim.new(0, 6)
     subList.Parent = subScroll
     
-    -- Sub-title
+    -- Sub-Title
     local subTitle = Instance.new("TextLabel")
     subTitle.Name = "SubTitle"
     subTitle.Size = UDim2.new(1, 0, 0, 35)
     subTitle.BackgroundTransparency = 1
-    subTitle.Text = ""
-    subTitle.TextColor3 = CONFIG.Accent
+    subTitle.Text = "Scripts"
+    subTitle.TextColor3 = CONFIG.TextColor
     subTitle.TextSize = 18
     subTitle.Font = Enum.Font.GothamBold
     subTitle.Visible = false
-    subTitle.ZIndex = 51
     subTitle.Parent = contentArea
     
-    -- Status bar (modern design)
+    -- Status Bar (Bottom)
     local statusBar = Instance.new("Frame")
-    statusBar.Size = UDim2.new(1, 0, 0, 45)
-    statusBar.Position = UDim2.new(0, 0, 1, -45)
-    statusBar.BackgroundColor3 = CONFIG.GlassLight
-    statusBar.BackgroundTransparency = 0.1
+    statusBar.Size = UDim2.new(1, 0, 0, 40)
+    statusBar.Position = UDim2.new(0, 0, 1, -40)
+    statusBar.BackgroundColor3 = CONFIG.GlassMedium
+    statusBar.BackgroundTransparency = 0.3
     statusBar.Parent = window
     
-    local statusBarCorner = Instance.new("UICorner")
-    statusBarCorner.CornerRadius = UDim.new(0, 10)
-    statusBarCorner.Parent = statusBar
-    
-    -- Status indicator dot
-    local statusDot = Instance.new("Frame")
-    statusDot.Size = UDim2.new(0, 12, 0, 12)
-    statusDot.Position = UDim2.new(0.03, 0, 0.5, -6)
-    statusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-    statusDot.Parent = statusBar
-    
-    local dotCorner = Instance.new("UICorner")
-    dotCorner.CornerRadius = UDim.new(1, 0)
-    dotCorner.Parent = statusDot
+    local statusCorner = Instance.new("UICorner")
+    statusCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    statusCorner.Parent = statusBar
     
     local statusText = Instance.new("TextLabel")
     statusText.Name = "StatusText"
-    statusText.Size = UDim2.new(0.9, -30, 1, 0)
-    statusText.Position = UDim2.new(0.08, 0, 0, 0)
+    statusText.Size = UDim2.new(0.9, 0, 1, 0)
+    statusText.Position = UDim2.new(0.05, 0, 0, 0)
     statusText.BackgroundTransparency = 1
-    statusText.Text = "Ready • Loaded"
-    statusText.TextColor3 = CONFIG.TextSecondary
-    statusText.TextSize = 13
+    statusText.Text = "✓ Ready"
+    statusText.TextColor3 = CONFIG.SuccessAccent
+    statusText.TextSize = 14
     statusText.Font = Enum.Font.Gotham
     statusText.TextXAlignment = Enum.TextXAlignment.Left
     statusText.Parent = statusBar
     
     return {
-        Container = self.Container,
-        BGOverlay = bgOverlay,
         Window = window,
-        TitleBar = headerBg,
+        TitleBar = topBar,
         CloseButton = closeBtn,
         SearchBox = searchBox,
-        ContentArea = contentArea,
         CategoryScroll = categoryScroll,
         SubScroll = subScroll,
         SubTitle = subTitle,
         BackButton = backBtn,
         StatusText = statusText,
-        StatusDot = statusDot
+        ContentArea = contentArea
     }
 end
 
--- Populate categories with modern cards
-function Gui:PopulateCategories(searchText)
-    if not Database or not Database.categories then return end
+-- Create Category Buttons
+function Gui:PopulateCategories(filter)
+    if not Database or not Database.categories then
+        return
+    end
     
     local scroll = self.Elements.CategoryScroll
     
-    -- Clear existing
-    for _, child in ipairs(scroll:GetChildren()) do
-        if child:IsA("Frame") then
-            child:Destroy()
-        end
-    end
-    
-    local count = 0
-    for categoryName, _ in pairs(Database.categories) do
-        if not searchText or categoryName:lower():find(searchText:lower(), 1, true) then
-            count = count + 1
-            
-            local card = Instance.new("Frame")
-            card.Name = categoryName
-            card.Size = UDim2.new(0, 135, 0, 105)
-            card.BackgroundColor3 = CONFIG.GlassLight
-            card.BackgroundTransparency = 0.25
-            card.Parent = scroll
-            
-            applyGlassStyle(card, false)
-            
-            -- Card content
-            local inner = Instance.new("Frame")
-            inner.Size = UDim2.new(1, -2, 1, -2)
-            inner.Position = UDim2.new(0, 1, 0, 1)
-            inner.BackgroundTransparency = 1
-            inner.Parent = card
-            
-            -- Icon/Emoji
-            local icon = Instance.new("TextLabel")
-            icon.Size = UDim2.new(1, 0, 0, 40)
-            icon.BackgroundTransparency = 1
-            icon.Text = "📦"
-            icon.TextColor3 = CONFIG.Accent
-            icon.TextSize = 32
-            icon.Font = Enum.Font.GothamBold
-            icon.Parent = inner
-            
-            -- Category name
-            local label = Instance.new("TextLabel")
-            label.Size = UDim2.new(1, 0, 0, 30)
-            label.Position = UDim2.new(0, 0, 0, 45)
-            label.BackgroundTransparency = 1
-            label.Text = categoryName
-            label.TextColor3 = CONFIG.TextColor
-            label.TextSize = 12
-            label.Font = Enum.Font.GothamSemibold
-            label.TextWrapped = true
-            label.Parent = inner
-            
-            -- Click effect
-            local clickableBtn = Instance.new("TextButton")
-            clickableBtn.Size = UDim2.new(1, 0, 1, 0)
-            clickableBtn.BackgroundTransparency = 1
-            clickableBtn.Text = ""
-            clickableBtn.Parent = card
-            
-            -- Hover animations
-            local originalTransparency = card.BackgroundTransparency
-            
-            clickableBtn.MouseEnter:Connect(function()
-                tween(card, {BackgroundTransparency = 0.1}, 0.2)
-                tween(icon, {TextColor3 = CONFIG.AccentHover}, 0.2)
-                tween(card, {Size = UDim2.new(0, 145, 0, 115)}, 0.2)
-            end)
-            
-            clickableBtn.MouseLeave:Connect(function()
-                tween(card, {BackgroundTransparency = 0.25}, 0.2)
-                tween(icon, {TextColor3 = CONFIG.Accent}, 0.2)
-                tween(card, {Size = UDim2.new(0, 135, 0, 105)}, 0.2)
-            end)
-            
-            clickableBtn.MouseButton1Click:Connect(function()
-                self:OnCategoryClick(categoryName)
-            end)
-        end
-    end
-    
-    scroll.CanvasSize = UDim2.new(0, 0, 0, math.ceil(count / 4) * 125)
-end
-
--- Populate sub-scripts
-function Gui:PopulateSubScripts(scripts, categoryName)
-    if not scripts or #scripts == 0 then return end
-    
-    local scroll = self.Elements.SubScroll
-    
-    -- Clear existing
-    for _, child in ipairs(scroll:GetChildren()) do
+    -- Clear old buttons
+    for _, child in pairs(scroll:GetChildren()) do
         if child:IsA("TextButton") then
             child:Destroy()
         end
     end
     
-    self.Elements.SubTitle.Text = "📂 " .. categoryName
+    local count = 0
+    for categoryName, fileName in pairs(Database.categories) do
+        if filter == "" or categoryName:lower():find(filter:lower(), 1, true) then
+            count = count + 1
+            
+            local btn = Instance.new("TextButton")
+            btn.Name = categoryName
+            btn.Size = UDim2.new(1, -10, 0, 90)
+            btn.BackgroundColor3 = CONFIG.GlassLight
+            btn.BackgroundTransparency = 0.2
+            btn.Text = ""
+            btn.Parent = scroll
+            
+            -- Button styling
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, CONFIG.SmallRadius)
+            corner.Parent = btn
+            
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = CONFIG.GlassStroke
+            stroke.Transparency = 0.5
+            stroke.Thickness = 1
+            stroke.Parent = btn
+            
+            -- Icon
+            local icon = Instance.new("TextLabel")
+            icon.Size = UDim2.new(0, 40, 0, 40)
+            icon.Position = UDim2.new(0.5, -20, 0.05, 0)
+            icon.BackgroundColor3 = CONFIG.PrimaryAccent
+            icon.BackgroundTransparency = 0.4
+            icon.Text = "✦"
+            icon.TextColor3 = CONFIG.PrimaryAccent
+            icon.TextSize = 20
+            icon.Font = Enum.Font.GothamBold
+            icon.Parent = btn
+            
+            local iconCorner = Instance.new("UICorner")
+            iconCorner.CornerRadius = UDim.new(0, 8)
+            iconCorner.Parent = icon
+            
+            -- Category Name
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Size = UDim2.new(1, -10, 0, 25)
+            nameLabel.Position = UDim2.new(0, 5, 0, 48)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.Text = categoryName
+            nameLabel.TextColor3 = CONFIG.TextColor
+            nameLabel.TextSize = 13
+            nameLabel.Font = Enum.Font.GothamBold
+            nameLabel.TextWrapped = true
+            nameLabel.Parent = btn
+            
+            -- Hover animation
+            btn.MouseEnter:Connect(function()
+                tween(btn, {BackgroundTransparency = 0.1}, 0.2)
+                tween(icon, {BackgroundTransparency = 0.3}, 0.2)
+            end)
+            
+            btn.MouseLeave:Connect(function()
+                tween(btn, {BackgroundTransparency = 0.2}, 0.2)
+                tween(icon, {BackgroundTransparency = 0.4}, 0.2)
+            end)
+            
+            -- Click handler
+            btn.MouseButton1Click:Connect(function()
+                self:OnCategoryClick(categoryName)
+            end)
+        end
+    end
     
-    for i, script in ipairs(scripts) do
+    -- Update canvas size
+    scroll.CanvasSize = UDim2.new(0, 0, 0, math.ceil(count / 4) * 105)
+end
+
+-- Load Database
+function Gui:LoadDatabase()
+    local success, result = pcall(function()
+        local source = game:HttpGet(CONFIG.BaseURL)
+        local chunk = loadstring(source)
+        if chunk then
+            return chunk()
+        end
+    end)
+    
+    if success and result then
+        Database = result
+        self:PopulateCategories("")
+        self.Elements.StatusText.Text = "✓ Database loaded"
+        self.Elements.StatusText.TextColor3 = CONFIG.SuccessAccent
+    else
+        self.Elements.StatusText.Text = "✗ Failed to load database"
+        self.Elements.StatusText.TextColor3 = CONFIG.ErrorAccent
+    end
+end
+
+-- Populate Sub-Scripts
+function Gui:PopulateSubScripts(scripts, categoryName)
+    local scroll = self.Elements.SubScroll
+    
+    -- Clear old buttons
+    for _, child in pairs(scroll:GetChildren()) do
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
+    end
+    
+    self.Elements.SubTitle.Text = "📁 " .. categoryName
+    
+    if not scripts or #scripts == 0 then
+        self.Elements.StatusText.Text = "No scripts found"
+        self.Elements.StatusText.TextColor3 = CONFIG.TextTertiary
+        return
+    end
+    
+    for _, script in ipairs(scripts) do
         if type(script) == "table" and #script >= 2 then
             local scriptName = tostring(script[1])
             local scriptFunc = script[2]
             
             local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(0.96, 0, 0, 42)
+            btn.Size = UDim2.new(0.98, 0, 0, 45)
             btn.BackgroundColor3 = CONFIG.GlassLight
-            btn.BackgroundTransparency = 0.2
-            btn.Text = "  ⚙️  " .. scriptName
+            btn.BackgroundTransparency = 0.25
+            btn.Text = "  ▶ " .. scriptName
             btn.TextColor3 = CONFIG.TextColor
-            btn.TextSize = 13
+            btn.TextSize = 14
             btn.Font = Enum.Font.Gotham
             btn.TextXAlignment = Enum.TextXAlignment.Left
             btn.Parent = scroll
             
-            applyGlassStyle(btn, false)
+            -- Button styling
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 10)
+            corner.Parent = btn
             
-            -- Arrow
-            local arrow = Instance.new("TextLabel")
-            arrow.Size = UDim2.new(0, 20, 1, 0)
-            arrow.Position = UDim2.new(0.95, -20, 0, 0)
-            arrow.BackgroundTransparency = 1
-            arrow.Text = "▶"
-            arrow.TextColor3 = CONFIG.Accent
-            arrow.TextSize = 12
-            arrow.Font = Enum.Font.GothamBold
-            arrow.Parent = btn
-            
-            -- Click handler
-            btn.MouseButton1Click:Connect(function()
-                self.Elements.StatusText.Text = "▶ Running: " .. scriptName
-                self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
-                
-                local success, err = pcall(scriptFunc)
-                
-                if success then
-                    self.Elements.StatusText.Text = "✓ " .. scriptName .. " executed!"
-                    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-                else
-                    self.Elements.StatusText.Text = "✗ Error: " .. tostring(err)
-                    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-                end
-                
-                task.delay(4, function()
-                    self.Elements.StatusText.Text = "Ready • Loaded"
-                    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-                end)
-            end)
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = CONFIG.GlassStroke
+            stroke.Transparency = 0.5
+            stroke.Thickness = 1
+            stroke.Parent = btn
             
             -- Hover effects
             btn.MouseEnter:Connect(function()
-                tween(btn, {BackgroundTransparency = 0.05}, 0.15)
+                tween(btn, {BackgroundTransparency = 0.15}, 0.2)
             end)
+            
             btn.MouseLeave:Connect(function()
-                tween(btn, {BackgroundTransparency = 0.2}, 0.15)
+                tween(btn, {BackgroundTransparency = 0.25}, 0.2)
+            end)
+            
+            -- Click handler
+            btn.MouseButton1Click:Connect(function()
+                self.Elements.StatusText.Text = "⚙️ Running: " .. scriptName
+                self.Elements.StatusText.TextColor3 = CONFIG.WarningAccent
+                
+                local ok, err = pcall(scriptFunc)
+                
+                if ok then
+                    self.Elements.StatusText.Text = "✓ " .. scriptName .. " executed!"
+                    self.Elements.StatusText.TextColor3 = CONFIG.SuccessAccent
+                else
+                    self.Elements.StatusText.Text = "✗ Error: " .. tostring(err)
+                    self.Elements.StatusText.TextColor3 = CONFIG.ErrorAccent
+                end
+                
+                task.delay(4, function()
+                    if self.Elements and self.Elements.StatusText then
+                        self.Elements.StatusText.Text = "✓ Ready"
+                        self.Elements.StatusText.TextColor3 = CONFIG.SuccessAccent
+                    end
+                end)
             end)
         end
     end
     
-    scroll.CanvasSize = UDim2.new(0, 0, 0, #scripts * (42 + 8) + 10)
+    scroll.CanvasSize = UDim2.new(0, 0, 0, #scripts * (45 + 6) + 10)
 end
 
--- Handle category click
+-- Handle Category Click
 function Gui:OnCategoryClick(categoryName)
     if not Database or not Database.categories then
         self.Elements.StatusText.Text = "✗ No database loaded!"
-        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        self.Elements.StatusText.TextColor3 = CONFIG.ErrorAccent
         return
     end
     
     local fileName = Database.categories[categoryName]
     if not fileName then
         self.Elements.StatusText.Text = "✗ Category not found!"
+        self.Elements.StatusText.TextColor3 = CONFIG.ErrorAccent
         return
     end
     
     local url = Database.baseUrl .. "/" .. fileName
     
     self.Elements.StatusText.Text = "⏳ Loading " .. categoryName .. "..."
-    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
+    self.Elements.StatusText.TextColor3 = CONFIG.WarningAccent
     
     local success, result = pcall(function()
         local source = game:HttpGet(url)
@@ -586,7 +676,7 @@ function Gui:OnCategoryClick(categoryName)
     
     if not success then
         self.Elements.StatusText.Text = "✗ Error: " .. tostring(result)
-        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        self.Elements.StatusText.TextColor3 = CONFIG.ErrorAccent
         return
     end
     
@@ -601,18 +691,20 @@ function Gui:OnCategoryClick(categoryName)
         CurrentCategory = categoryName
         
         self:PopulateSubScripts(result, categoryName)
-        self.Elements.StatusText.Text = "✓ " .. categoryName .. " loaded! (" .. #result .. " scripts)"
-        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+        self.Elements.StatusText.Text = categoryName .. " loaded! (" .. #result .. " scripts)"
+        self.Elements.StatusText.TextColor3 = CONFIG.SuccessAccent
     else
         self.Elements.StatusText.Text = "✓ " .. categoryName .. " executed!"
-        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
-        task.delay(3, function()
-            self.Elements.StatusText.Text = "Ready • Loaded"
+        self.Elements.StatusText.TextColor3 = CONFIG.SuccessAccent
+        task.delay(2, function()
+            if self.Elements and self.Elements.StatusText then
+                self.Elements.StatusText.Text = "✓ Ready"
+            end
         end)
     end
 end
 
--- Back to categories
+-- Back to Categories
 function Gui:BackToCategories()
     self.Elements.CategoryScroll.Visible = true
     self.Elements.SubScroll.Visible = false
@@ -623,36 +715,28 @@ function Gui:BackToCategories()
     CurrentSubScripts = nil
     CurrentCategory = nil
     
-    self.Elements.StatusText.Text = "Ready • Loaded"
-    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+    self.Elements.StatusText.Text = "✓ Ready"
+    self.Elements.StatusText.TextColor3 = CONFIG.SuccessAccent
 end
 
--- Toggle window with smooth animations
+-- Toggle Window
 function Gui:ToggleWindow()
     local window = self.Elements.Window
-    local overlay = self.Elements.BGOverlay
     
     if window.Visible then
         -- Hide with animation
-        tween(window, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad)
-        tween(overlay, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad)
-        
+        tween(window, {BackgroundTransparency = 1}, 0.3)
         task.wait(0.3)
         window.Visible = false
-        overlay.Visible = false
     else
         -- Show with animation
-        overlay.Visible = true
-        overlay.BackgroundTransparency = 1
         window.Visible = true
         window.BackgroundTransparency = 1
-        
-        tween(window, {BackgroundTransparency = 0.1}, 0.3, Enum.EasingStyle.Quad)
-        tween(overlay, {BackgroundTransparency = 0.7}, 0.3, Enum.EasingStyle.Quad)
+        tween(window, {BackgroundTransparency = 0.05}, 0.3)
     end
 end
 
--- Make window draggable
+-- Make Window Draggable
 function Gui:MakeDraggable()
     local window = self.Elements.Window
     local titleBar = self.Elements.TitleBar
@@ -666,6 +750,12 @@ function Gui:MakeDraggable()
             dragging = true
             dragStart = input.Position
             startPos = window.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
         end
     end)
     
@@ -680,38 +770,13 @@ function Gui:MakeDraggable()
             )
         end
     end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-end
-
--- Load database
-function Gui:LoadDatabase()
-    local success, result = pcall(function()
-        local baseSource = game:HttpGet(CONFIG.BaseURL)
-        local baseChunk = loadstring(baseSource)
-        if baseChunk then
-            return baseChunk()
-        end
-    end)
-    
-    if success and type(result) == "table" then
-        Database = result
-        self:PopulateCategories("")
-        self.Elements.StatusText.Text = "✓ Database loaded!"
-    else
-        self.Elements.StatusText.Text = "✗ Failed to load database"
-        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
-    end
 end
 
 -- Initialize GUI
 function Gui:Init()
     self.Container = GetSafeContainer()
     
+    -- Create UI elements
     self.Elements = {}
     self.Elements.ToggleButton = self:CreateToggleButton()
     
@@ -733,19 +798,23 @@ function Gui:Init()
         self:BackToCategories()
     end)
     
-    self.Elements.BGOverlay.MouseButton1Click:Connect(function()
-        self:ToggleWindow()
-    end)
-    
     self.Elements.SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
         if self.Elements.CategoryScroll.Visible then
             self:PopulateCategories(self.Elements.SearchBox.Text)
         end
     end)
     
+    -- Make draggable
     self:MakeDraggable()
+    
+    -- Load database
+    CONFIG.BaseURL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/base/base.lua"
     self:LoadDatabase()
+    
+    print("🎨 RussElite GUI Loaded - Premium 2026 Edition")
 end
 
 -- Start
 Gui:Init()
+
+return Gui
