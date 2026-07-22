@@ -1,415 +1,325 @@
--- RussElite Main Interface - gui.lua
--- Premium Glassmorphism UI with Russian Empire Flag Toggle
-
+-- RussElite Main Interface - gui.lua [2026 Modern Glass Design]
 local Gui = {}
 local Database = nil
+local CurrentSubScripts = nil
+local CurrentCategory = nil
 
 -- Services
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
--- Color Palette (Imperial Russian theme)
-local COLORS = {
-    ImperialGold = Color3.fromRGB(218, 165, 32),      -- Золотой
-    ImperialBlack = Color3.fromRGB(10, 10, 10),        -- Чёрный
-    ImperialWhite = Color3.fromRGB(240, 240, 240),      -- Белый
-    ImperialRed = Color3.fromRGB(180, 30, 30),          -- Красный (флаг)
-    ImperialBlue = Color3.fromRGB(30, 60, 180),         -- Синий (флаг)
-    GlassBg = Color3.fromRGB(20, 20, 25),               -- Стеклянный фон
-    GlassStroke = Color3.fromRGB(255, 255, 255),        -- Белая обводка
-    Shadow = Color3.fromRGB(0, 0, 0),                   -- Тень
-    Accent = Color3.fromRGB(200, 160, 40),              -- Золотой акцент
-    Success = Color3.fromRGB(100, 200, 100),
-    Error = Color3.fromRGB(255, 100, 100)
-}
-
--- Configuration
+-- Configuration - 2026 Modern Glass Aesthetic
 local CONFIG = {
     Title = "RussElite",
-    Subtitle = "Имперский Хаб",
-    Version = "v3.0 Imperial",
-    WindowSize = UDim2.new(0, 650, 0, 460),
-    ToggleSize = UDim2.new(0, 60, 0, 60),
-    GlassTransparency = 0.25,
-    StrokeTransparency = 0.7,
-    BorderRadius = 16,
+    Version = "v3.0 • Glass",
+    TextColor = Color3.fromRGB(255, 255, 255),
+    TextSecondary = Color3.fromRGB(200, 200, 200),
+    Accent = Color3.fromRGB(100, 200, 255),           -- Modern blue
+    AccentHover = Color3.fromRGB(120, 220, 255),
+    Background = Color3.fromRGB(5, 5, 10),            -- Deep black
+    Glass = Color3.fromRGB(25, 30, 45),               -- Dark glass
+    GlassLight = Color3.fromRGB(40, 50, 70),          -- Light glass
+    StrokeColor = Color3.fromRGB(80, 100, 150),       -- Glass border
+    StrokeGlow = Color3.fromRGB(100, 200, 255),       -- Glow color
+    WindowSize = UDim2.new(0, 720, 0, 520),
+    ToggleButtonSize = UDim2.new(0, 60, 0, 60),
+    BorderRadius = 20,
     BaseURL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/base/base.lua"
 }
 
--- Safe container
-local function GetContainer()
-    local s, r = pcall(function()
+-- Safe GUI container
+local function GetSafeContainer()
+    local success, result = pcall(function()
         local sg = Instance.new("ScreenGui")
-        sg.Name = "RussEliteImperial"
+        sg.Name = "RussEliteHub2026"
         sg.Parent = CoreGui
-        sg.ResetOnSpawn = false
         return sg
     end)
-    if s then return r end
-    local plr = Players.LocalPlayer
-    if plr then
-        local pg = plr:FindFirstChild("PlayerGui")
-        if pg then
-            local sg = Instance.new("ScreenGui")
-            sg.Name = "RussEliteImperial"
-            sg.Parent = pg
-            sg.ResetOnSpawn = false
-            return sg
-        end
+    if not success then
+        local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+        local sg = Instance.new("ScreenGui")
+        sg.Name = "RussEliteHub2026"
+        sg.Parent = playerGui
+        return sg
     end
-    return nil
+    return result
 end
 
--- Tween utility
-local function createTween(obj, props, duration, easing)
-    return TweenService:Create(obj, TweenInfo.new(duration or 0.35, easing or Enum.EasingStyle.Quart, Enum.EasingDirection.Out), props)
+-- Tween helper with smooth animations
+local function tween(obj, props, dur, style)
+    local easing = style or Enum.EasingStyle.Quad
+    local t = TweenService:Create(obj, TweenInfo.new(dur or 0.3, easing, Enum.EasingDirection.Out), props)
+    t:Play()
+    return t
 end
 
--- Apply glass effect to any frame
-local function applyGlass(frame, customRadius)
-    -- Drop shadow (глубокая тень)
-    local shadow = Instance.new("ImageLabel")
-    shadow.Name = "Shadow"
-    shadow.Size = UDim2.new(1, 24, 1, 24)
-    shadow.Position = UDim2.new(0, -12, 0, -12)
-    shadow.BackgroundTransparency = 1
-    shadow.Image = "rbxassetid://6014261993"
-    shadow.ImageColor3 = COLORS.Shadow
-    shadow.ImageTransparency = 0.4
-    shadow.ScaleType = Enum.ScaleType.Slice
-    shadow.SliceCenter = Rect.new(49, 49, 49, 49)
-    shadow.ZIndex = 0
-    shadow.Parent = frame
-    
-    -- Glass border (стеклянная обводка)
+-- Apply modern glass style
+local function applyGlassStyle(frame, hasGlow)
     local stroke = Instance.new("UIStroke")
-    stroke.Name = "GlassStroke"
-    stroke.Color = COLORS.GlassStroke
-    stroke.Transparency = CONFIG.StrokeTransparency
+    stroke.Color = hasGlow and CONFIG.StrokeGlow or CONFIG.StrokeColor
+    stroke.Transparency = 0.4
     stroke.Thickness = 1.5
-    stroke.LineJoinMode = Enum.LineJoinMode.Round
     stroke.Parent = frame
     
-    -- Inner glow gradient
-    local gradient = Instance.new("UIGradient")
-    gradient.Name = "GlassGradient"
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 200, 220)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 255, 255))
-    })
-    gradient.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.85),
-        NumberSequenceKeypoint.new(0.3, 0.92),
-        NumberSequenceKeypoint.new(0.7, 0.92),
-        NumberSequenceKeypoint.new(1, 0.85)
-    })
-    gradient.Rotation = 135
-    gradient.Parent = stroke
-    
-    -- Rounded corners
     local corner = Instance.new("UICorner")
-    corner.Name = "GlassCorner"
-    corner.CornerRadius = UDim.new(0, customRadius or CONFIG.BorderRadius)
+    corner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
     corner.Parent = frame
     
-    return shadow, stroke, gradient, corner
+    -- Gradient effect for premium look
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, frame.BackgroundColor3),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(math.max(0, frame.BackgroundColor3.R*255-10)/255, 
+                                                   math.max(0, frame.BackgroundColor3.G*255-10)/255, 
+                                                   math.max(0, frame.BackgroundColor3.B*255-10)/255))
+    })
+    gradient.Rotation = 45
+    gradient.Parent = frame
 end
 
--- Create Russian Empire Flag for toggle button
-local function createImperialFlag(parent, size)
-    local flag = Instance.new("Frame")
-    flag.Name = "ImperialFlag"
-    flag.Size = UDim2.new(1, 0, 1, 0)
-    flag.BackgroundTransparency = 1
-    flag.Parent = parent
-    
-    -- Three stripes: Black-Yellow-White (Russian Empire flag)
-    local stripeHeight = 1/3
-    
-    -- Top: Black
-    local blackStripe = Instance.new("Frame")
-    blackStripe.Size = UDim2.new(1, 0, stripeHeight, 0)
-    blackStripe.Position = UDim2.new(0, 0, 0, 0)
-    blackStripe.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    blackStripe.BorderSizePixel = 0
-    blackStripe.Parent = flag
-    
-    -- Middle: Gold/Yellow
-    local goldStripe = Instance.new("Frame")
-    goldStripe.Size = UDim2.new(1, 0, stripeHeight, 0)
-    goldStripe.Position = UDim2.new(0, 0, stripeHeight, 0)
-    goldStripe.BackgroundColor3 = Color3.fromRGB(218, 165, 32)
-    goldStripe.BorderSizePixel = 0
-    goldStripe.Parent = flag
-    
-    -- Bottom: White
-    local whiteStripe = Instance.new("Frame")
-    whiteStripe.Size = UDim2.new(1, 0, stripeHeight, 0)
-    whiteStripe.Position = UDim2.new(0, 0, stripeHeight * 2, 0)
-    whiteStripe.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    whiteStripe.BorderSizePixel = 0
-    whiteStripe.Parent = flag
-    
-    -- Imperial Eagle (текстовый символ)
-    local eagle = Instance.new("TextLabel")
-    eagle.Size = UDim2.new(0.6, 0, 0.5, 0)
-    eagle.Position = UDim2.new(0.2, 0, 0.25, 0)
-    eagle.BackgroundTransparency = 1
-    eagle.Text = "👑"
-    eagle.TextSize = size and size * 0.5 or 14
-    eagle.Font = Enum.Font.GothamBold
-    eagle.TextColor3 = Color3.fromRGB(255, 215, 0)
-    eagle.ZIndex = 5
-    eagle.Parent = flag
-    
-    -- Crown icon
-    local crown = Instance.new("TextLabel")
-    crown.Size = UDim2.new(0.4, 0, 0.3, 0)
-    crown.Position = UDim2.new(0.3, 0, 0, 0)
-    crown.BackgroundTransparency = 1
-    crown.Text = "♛"
-    crown.TextSize = size and size * 0.35 or 12
-    crown.Font = Enum.Font.GothamBold
-    crown.TextColor3 = Color3.fromRGB(255, 215, 0)
-    crown.ZIndex = 6
-    crown.Parent = flag
-    
-    return flag
-end
-
--- Create Toggle Button with Imperial Flag
-function Gui:CreateToggle()
+-- Create premium toggle button (floating action button)
+function Gui:CreateToggleButton()
     local btn = Instance.new("TextButton")
-    btn.Name = "ImperialToggle"
-    btn.Size = CONFIG.ToggleSize
-    btn.Position = UDim2.new(0.94, -30, 0.5, -30)
-    btn.BackgroundColor3 = COLORS.GlassBg
-    btn.BackgroundTransparency = CONFIG.GlassTransparency
+    btn.Name = "ToggleButton"
+    btn.Size = CONFIG.ToggleButtonSize
+    btn.Position = UDim2.new(0.92, 0, 0.5, -30)
+    btn.BackgroundColor3 = CONFIG.GlassLight
+    btn.BackgroundTransparency = 0.15
     btn.Text = ""
     btn.Parent = self.Container
-    btn.ZIndex = 10
+    btn.ZIndex = 100
     
-    applyGlass(btn, 50)
-    btn.Shadow.ImageTransparency = 0.3
-    btn.GlassStroke.Thickness = 2
-    btn.GlassStroke.Transparency = 0.5
+    applyGlassStyle(btn, true)
     
-    -- Make it round
-    btn.GlassCorner.CornerRadius = UDim.new(1, 0)
+    -- Icon with animation
+    local icon = Instance.new("TextLabel")
+    icon.Size = UDim2.new(1, 0, 1, 0)
+    icon.BackgroundTransparency = 1
+    icon.Text = "⚡"
+    icon.TextColor3 = CONFIG.Accent
+    icon.TextSize = 26
+    icon.Font = Enum.Font.GothamBold
+    icon.Parent = btn
     
-    -- Imperial Flag inside button
-    local flagFrame = Instance.new("Frame")
-    flagFrame.Size = UDim2.new(0.75, 0, 0.75, 0)
-    flagFrame.Position = UDim2.new(0.125, 0, 0.125, 0)
-    flagFrame.BackgroundTransparency = 1
-    flagFrame.ZIndex = 11
-    flagFrame.Parent = btn
+    -- Hover animations
+    btn.MouseEnter:Connect(function()
+        tween(btn, {BackgroundTransparency = 0.25}, 0.2, Enum.EasingStyle.Quad)
+        tween(icon, {TextColor3 = CONFIG.AccentHover}, 0.2)
+    end)
     
-    local flagCorner = Instance.new("UICorner")
-    flagCorner.CornerRadius = UDim.new(1, 0)
-    flagCorner.Parent = flagFrame
-    
-    createImperialFlag(flagFrame, 24)
-    
-    -- Glow ring around button
-    local glowRing = Instance.new("UIStroke")
-    glowRing.Color = COLORS.ImperialGold
-    glowRing.Transparency = 0.6
-    glowRing.Thickness = 2
-    glowRing.LineJoinMode = Enum.LineJoinMode.Round
-    glowRing.Parent = btn
+    btn.MouseLeave:Connect(function()
+        tween(btn, {BackgroundTransparency = 0.15}, 0.2, Enum.EasingStyle.Quad)
+        tween(icon, {TextColor3 = CONFIG.Accent}, 0.2)
+    end)
     
     return btn
 end
 
--- Create Main Window
-function Gui:CreateWindow()
+-- Create modern main window with glass-morphism
+function Gui:CreateMainWindow()
+    -- Background blur effect (dark overlay)
+    local bgOverlay = Instance.new("Frame")
+    bgOverlay.Name = "BGOverlay"
+    bgOverlay.Size = UDim2.new(1, 0, 1, 0)
+    bgOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    bgOverlay.BackgroundTransparency = 0.7
+    bgOverlay.Visible = false
+    bgOverlay.ZIndex = 1
+    bgOverlay.Parent = self.Container
+    
+    -- Main window
     local window = Instance.new("Frame")
     window.Name = "MainWindow"
     window.Size = CONFIG.WindowSize
-    window.Position = UDim2.new(0.5, -325, 0.5, -230)
-    window.BackgroundColor3 = COLORS.GlassBg
-    window.BackgroundTransparency = CONFIG.GlassTransparency
+    window.Position = UDim2.new(0.5, -360, 0.5, -260)
+    window.BackgroundColor3 = CONFIG.Glass
+    window.BackgroundTransparency = 0.1
     window.Visible = false
-    window.ClipsDescendants = false
+    window.ZIndex = 50
     window.Parent = self.Container
-    window.ZIndex = 20
     
-    applyGlass(window)
-    window.Shadow.ImageTransparency = 0.25
-    window.GlassStroke.Thickness = 2
-    window.GlassStroke.Transparency = 0.6
+    applyGlassStyle(window)
     
-    -- Top glass accent line
-    local topAccent = Instance.new("Frame")
-    topAccent.Size = UDim2.new(1, -20, 0, 2)
-    topAccent.Position = UDim2.new(0, 10, 0, 2)
-    topAccent.BackgroundColor3 = COLORS.ImperialGold
-    topAccent.BackgroundTransparency = 0.3
-    topAccent.BorderSizePixel = 0
-    topAccent.ZIndex = 25
-    topAccent.Parent = window
+    -- Premium header with gradient
+    local headerBg = Instance.new("Frame")
+    headerBg.Size = UDim2.new(1, 0, 0, 60)
+    headerBg.BackgroundColor3 = CONFIG.GlassLight
+    headerBg.BackgroundTransparency = 0.05
+    headerBg.Parent = window
     
-    local accentCorner = Instance.new("UICorner")
-    accentCorner.CornerRadius = UDim.new(1, 0)
-    accentCorner.Parent = topAccent
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
+    headerCorner.Parent = headerBg
     
-    -- Title Bar with imperial style
-    local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 50)
-    titleBar.BackgroundColor3 = COLORS.GlassBg
-    titleBar.BackgroundTransparency = 0.4
-    titleBar.Parent = window
-    titleBar.ZIndex = 21
+    local headerGradient = Instance.new("UIGradient")
+    headerGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, CONFIG.Accent),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 140, 200))
+    })
+    headerGradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.85),
+        NumberSequenceKeypoint.new(1, 0.95)
+    })
+    headerGradient.Rotation = 45
+    headerGradient.Parent = headerBg
     
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, CONFIG.BorderRadius)
-    titleCorner.Parent = titleBar
-    
-    -- Imperial Eagle icon in title
-    local eagleIcon = Instance.new("TextLabel")
-    eagleIcon.Size = UDim2.new(0, 35, 0, 35)
-    eagleIcon.Position = UDim2.new(0.015, 0, 0.15, 0)
-    eagleIcon.BackgroundTransparency = 1
-    eagleIcon.Text = "👑"
-    eagleIcon.TextSize = 24
-    eagleIcon.Font = Enum.Font.GothamBold
-    eagleIcon.ZIndex = 25
-    eagleIcon.Parent = titleBar
-    
-    -- Title text
+    -- Title
     local titleText = Instance.new("TextLabel")
-    titleText.Size = UDim2.new(0, 180, 0, 30)
-    titleText.Position = UDim2.new(0.07, 0, 0.2, 0)
+    titleText.Size = UDim2.new(0.6, 0, 1, 0)
+    titleText.Position = UDim2.new(0.05, 0, 0, 0)
     titleText.BackgroundTransparency = 1
     titleText.Text = CONFIG.Title
-    titleText.TextColor3 = COLORS.ImperialWhite
-    titleText.TextSize = 22
-    titleText.Font = Enum.Font.GothamBlack
+    titleText.TextColor3 = CONFIG.TextColor
+    titleText.TextSize = 28
+    titleText.Font = Enum.Font.GothamBold
     titleText.TextXAlignment = Enum.TextXAlignment.Left
-    titleText.ZIndex = 25
-    titleText.Parent = titleBar
-    
-    -- Gold underline for title
-    local titleUnderline = Instance.new("Frame")
-    titleUnderline.Size = UDim2.new(0, 140, 0, 2)
-    titleUnderline.Position = UDim2.new(0.07, 0, 0.75, 0)
-    titleUnderline.BackgroundColor3 = COLORS.ImperialGold
-    titleUnderline.BackgroundTransparency = 0.4
-    titleUnderline.BorderSizePixel = 0
-    titleUnderline.ZIndex = 25
-    titleUnderline.Parent = titleBar
+    titleText.Parent = headerBg
     
     -- Version badge
-    local versionBadge = Instance.new("TextLabel")
-    versionBadge.Size = UDim2.new(0, 100, 0, 20)
-    versionBadge.Position = UDim2.new(0.35, 0, 0.45, 0)
-    versionBadge.BackgroundColor3 = COLORS.ImperialGold
-    versionBadge.BackgroundTransparency = 0.7
-    versionBadge.Text = CONFIG.Version
-    versionBadge.TextColor3 = COLORS.ImperialWhite
-    versionBadge.TextSize = 10
-    versionBadge.Font = Enum.Font.GothamBold
-    versionBadge.ZIndex = 25
-    versionBadge.Parent = titleBar
+    local versionBadge = Instance.new("Frame")
+    versionBadge.Size = UDim2.new(0, 140, 0, 24)
+    versionBadge.Position = UDim2.new(0.6, 0, 0.5, -12)
+    versionBadge.BackgroundColor3 = CONFIG.Accent
+    versionBadge.BackgroundTransparency = 0.3
+    versionBadge.Parent = headerBg
     
     local versionCorner = Instance.new("UICorner")
-    versionCorner.CornerRadius = UDim.new(0, 8)
+    versionCorner.CornerRadius = UDim.new(0, 6)
     versionCorner.Parent = versionBadge
     
-    -- Close button (golden)
+    local version = Instance.new("TextLabel")
+    version.Size = UDim2.new(1, 0, 1, 0)
+    version.BackgroundTransparency = 1
+    version.Text = CONFIG.Version
+    version.TextColor3 = CONFIG.TextColor
+    version.TextSize = 11
+    version.Font = Enum.Font.GothamSemibold
+    version.Parent = versionBadge
+    
+    -- Close button (modern X)
     local closeBtn = Instance.new("TextButton")
-    closeBtn.Name = "CloseBtn"
-    closeBtn.Size = UDim2.new(0, 32, 0, 32)
-    closeBtn.Position = UDim2.new(0.93, 0, 0.18, 0)
-    closeBtn.BackgroundColor3 = COLORS.ImperialGold
-    closeBtn.BackgroundTransparency = 0.5
+    closeBtn.Size = UDim2.new(0, 36, 0, 36)
+    closeBtn.Position = UDim2.new(0.93, 0, 0.5, -18)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+    closeBtn.BackgroundTransparency = 0.3
     closeBtn.Text = "✕"
-    closeBtn.TextColor3 = COLORS.ImperialWhite
-    closeBtn.TextSize = 16
+    closeBtn.TextColor3 = CONFIG.TextColor
+    closeBtn.TextSize = 18
     closeBtn.Font = Enum.Font.GothamBold
-    closeBtn.ZIndex = 30
-    closeBtn.Parent = titleBar
+    closeBtn.ZIndex = 51
+    closeBtn.Parent = headerBg
     
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(1, 0)
-    closeCorner.Parent = closeBtn
+    local closeBtnCorner = Instance.new("UICorner")
+    closeBtnCorner.CornerRadius = UDim.new(0, 8)
+    closeBtnCorner.Parent = closeBtn
     
-    -- Close button glow
-    local closeGlow = Instance.new("UIStroke")
-    closeGlow.Color = COLORS.ImperialGold
-    closeGlow.Transparency = 0.3
-    closeGlow.Thickness = 1.5
-    closeGlow.Parent = closeBtn
+    closeBtn.MouseEnter:Connect(function()
+        tween(closeBtn, {BackgroundTransparency = 0.1}, 0.2)
+    end)
+    closeBtn.MouseLeave:Connect(function()
+        tween(closeBtn, {BackgroundTransparency = 0.3}, 0.2)
+    end)
     
-    -- Content Area
+    -- Premium search bar
+    local searchFrame = Instance.new("Frame")
+    searchFrame.Size = UDim2.new(0.93, 0, 0, 40)
+    searchFrame.Position = UDim2.new(0.035, 0, 0, 72)
+    searchFrame.BackgroundColor3 = CONFIG.GlassLight
+    searchFrame.BackgroundTransparency = 0.2
+    searchFrame.Parent = window
+    
+    applyGlassStyle(searchFrame, false)
+    
+    local searchIcon = Instance.new("TextLabel")
+    searchIcon.Size = UDim2.new(0, 36, 1, 0)
+    searchIcon.BackgroundTransparency = 1
+    searchIcon.Text = "🔎"
+    searchIcon.TextColor3 = CONFIG.Accent
+    searchIcon.TextSize = 16
+    searchIcon.Font = Enum.Font.GothamBold
+    searchIcon.Parent = searchFrame
+    
+    local searchBox = Instance.new("TextBox")
+    searchBox.Name = "SearchBox"
+    searchBox.Size = UDim2.new(1, -50, 1, 0)
+    searchBox.Position = UDim2.new(0, 36, 0, 0)
+    searchBox.BackgroundTransparency = 1
+    searchBox.PlaceholderText = "Search scripts..."
+    searchBox.PlaceholderColor3 = Color3.fromRGB(150, 150, 180)
+    searchBox.Text = ""
+    searchBox.TextColor3 = CONFIG.TextColor
+    searchBox.TextSize = 14
+    searchBox.Font = Enum.Font.Gotham
+    searchBox.Parent = searchFrame
+    
+    -- Content area with glass effect
     local contentArea = Instance.new("Frame")
-    contentArea.Name = "ContentArea"
-    contentArea.Size = UDim2.new(0.96, 0, 1, -100)
-    contentArea.Position = UDim2.new(0.02, 0, 0, 60)
-    contentArea.BackgroundColor3 = COLORS.GlassBg
-    contentArea.BackgroundTransparency = 0.5
+    contentArea.Size = UDim2.new(0.93, 0, 1, -140)
+    contentArea.Position = UDim2.new(0.035, 0, 0, 125)
+    contentArea.BackgroundColor3 = CONFIG.Glass
+    contentArea.BackgroundTransparency = 0.15
     contentArea.ClipsDescendants = true
-    contentArea.ZIndex = 22
     contentArea.Parent = window
     
-    applyGlass(contentArea, 14)
+    applyGlassStyle(contentArea, false)
     
-    -- Back button
+    -- Back button (modern style)
     local backBtn = Instance.new("TextButton")
-    backBtn.Name = "BackBtn"
-    backBtn.Size = UDim2.new(0, 80, 0, 28)
-    backBtn.Position = UDim2.new(0.01, 0, 0.01, 0)
-    backBtn.BackgroundColor3 = COLORS.ImperialGold
-    backBtn.BackgroundTransparency = 0.5
-    backBtn.Text = "◀ Назад"
-    backBtn.TextColor3 = COLORS.ImperialWhite
-    backBtn.TextSize = 12
+    backBtn.Name = "BackButton"
+    backBtn.Size = UDim2.new(0, 90, 0, 28)
+    backBtn.Position = UDim2.new(0.015, 0, 0.01, 0)
+    backBtn.BackgroundColor3 = CONFIG.Accent
+    backBtn.BackgroundTransparency = 0.4
+    backBtn.Text = "← Back"
+    backBtn.TextColor3 = CONFIG.TextColor
+    backBtn.TextSize = 13
     backBtn.Font = Enum.Font.GothamBold
     backBtn.Visible = false
-    backBtn.ZIndex = 30
+    backBtn.ZIndex = 51
     backBtn.Parent = contentArea
     
-    local backCorner = Instance.new("UICorner")
-    backCorner.CornerRadius = UDim.new(0, 10)
-    backCorner.Parent = backBtn
+    local backBtnCorner = Instance.new("UICorner")
+    backBtnCorner.CornerRadius = UDim.new(0, 8)
+    backBtnCorner.Parent = backBtn
     
-    -- Category Scroll
+    backBtn.MouseEnter:Connect(function()
+        tween(backBtn, {BackgroundTransparency = 0.2}, 0.2)
+    end)
+    backBtn.MouseLeave:Connect(function()
+        tween(backBtn, {BackgroundTransparency = 0.4}, 0.2)
+    end)
+    
+    -- Category scroll view
     local categoryScroll = Instance.new("ScrollingFrame")
     categoryScroll.Name = "CategoryScroll"
     categoryScroll.Size = UDim2.new(1, 0, 1, 0)
     categoryScroll.BackgroundTransparency = 1
-    categoryScroll.ScrollBarThickness = 4
-    categoryScroll.ScrollBarImageColor3 = COLORS.ImperialGold
-    categoryScroll.ScrollBarImageTransparency = 0.5
+    categoryScroll.ScrollBarThickness = 5
+    categoryScroll.ScrollBarImageColor3 = CONFIG.Accent
     categoryScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
-    categoryScroll.ZIndex = 23
     categoryScroll.Parent = contentArea
     
     local categoryGrid = Instance.new("UIGridLayout")
-    categoryGrid.Name = "CategoryGrid"
-    categoryGrid.CellSize = UDim2.new(0, 140, 0, 95)
+    categoryGrid.CellSize = UDim2.new(0, 140, 0, 110)
     categoryGrid.CellPadding = UDim2.new(0, 10, 0, 10)
     categoryGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    categoryGrid.VerticalAlignment = Enum.VerticalAlignment.Top
     categoryGrid.SortOrder = Enum.SortOrder.Name
     categoryGrid.Parent = categoryScroll
     
-    -- Sub-script Scroll
+    -- Sub-script scroll view
     local subScroll = Instance.new("ScrollingFrame")
-    subScroll.Name = "SubScroll"
-    subScroll.Size = UDim2.new(1, 0, 1, -36)
-    subScroll.Position = UDim2.new(0, 0, 0, 36)
+    subScroll.Name = "SubScriptScroll"
+    subScroll.Size = UDim2.new(1, 0, 1, -40)
+    subScroll.Position = UDim2.new(0, 0, 0, 40)
     subScroll.BackgroundTransparency = 1
-    subScroll.ScrollBarThickness = 4
-    subScroll.ScrollBarImageColor3 = COLORS.ImperialGold
-    subScroll.ScrollBarImageTransparency = 0.5
+    subScroll.ScrollBarThickness = 5
+    subScroll.ScrollBarImageColor3 = CONFIG.Accent
     subScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
     subScroll.Visible = false
-    subScroll.ZIndex = 23
     subScroll.Parent = contentArea
     
     local subList = Instance.new("UIListLayout")
@@ -417,317 +327,287 @@ function Gui:CreateWindow()
     subList.Padding = UDim.new(0, 8)
     subList.Parent = subScroll
     
-    -- Sub-script title
+    -- Sub-title
     local subTitle = Instance.new("TextLabel")
     subTitle.Name = "SubTitle"
-    subTitle.Size = UDim2.new(1, 0, 0, 30)
-    subTitle.Position = UDim2.new(0.01, 0, 0.01, 0)
+    subTitle.Size = UDim2.new(1, 0, 0, 35)
     subTitle.BackgroundTransparency = 1
     subTitle.Text = ""
-    subTitle.TextColor3 = COLORS.ImperialWhite
-    subTitle.TextSize = 16
+    subTitle.TextColor3 = CONFIG.Accent
+    subTitle.TextSize = 18
     subTitle.Font = Enum.Font.GothamBold
-    subTitle.TextXAlignment = Enum.TextXAlignment.Left
     subTitle.Visible = false
-    subTitle.ZIndex = 30
+    subTitle.ZIndex = 51
     subTitle.Parent = contentArea
     
-    -- Status Bar
+    -- Status bar (modern design)
     local statusBar = Instance.new("Frame")
-    statusBar.Name = "StatusBar"
-    statusBar.Size = UDim2.new(0.96, 0, 0, 28)
-    statusBar.Position = UDim2.new(0.02, 0, 0.94, -28)
-    statusBar.BackgroundColor3 = COLORS.GlassBg
-    statusBar.BackgroundTransparency = 0.4
-    statusBar.ZIndex = 22
+    statusBar.Size = UDim2.new(1, 0, 0, 45)
+    statusBar.Position = UDim2.new(0, 0, 1, -45)
+    statusBar.BackgroundColor3 = CONFIG.GlassLight
+    statusBar.BackgroundTransparency = 0.1
     statusBar.Parent = window
     
-    applyGlass(statusBar, 10)
+    local statusBarCorner = Instance.new("UICorner")
+    statusBarCorner.CornerRadius = UDim.new(0, 10)
+    statusBarCorner.Parent = statusBar
     
     -- Status indicator dot
     local statusDot = Instance.new("Frame")
-    statusDot.Name = "StatusDot"
-    statusDot.Size = UDim2.new(0, 8, 0, 8)
-    statusDot.Position = UDim2.new(0.02, 0, 0.35, 0)
-    statusDot.BackgroundColor3 = COLORS.ImperialGold
-    statusDot.BorderSizePixel = 0
-    statusDot.ZIndex = 25
+    statusDot.Size = UDim2.new(0, 12, 0, 12)
+    statusDot.Position = UDim2.new(0.03, 0, 0.5, -6)
+    statusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
     statusDot.Parent = statusBar
     
     local dotCorner = Instance.new("UICorner")
     dotCorner.CornerRadius = UDim.new(1, 0)
     dotCorner.Parent = statusDot
     
-    -- Pulsing animation for status dot
-    coroutine.wrap(function()
-        while statusDot and statusDot.Parent do
-            for _, t in ipairs({0.3, 0.7}) do
-                if not statusDot.Parent then break end
-                createTween(statusDot, {BackgroundTransparency = t}, 0.8):Play()
-                task.wait(0.8)
-            end
-        end
-    end)()
-    
     local statusText = Instance.new("TextLabel")
     statusText.Name = "StatusText"
-    statusText.Size = UDim2.new(0.85, 0, 1, 0)
-    statusText.Position = UDim2.new(0.06, 0, 0, 0)
+    statusText.Size = UDim2.new(0.9, -30, 1, 0)
+    statusText.Position = UDim2.new(0.08, 0, 0, 0)
     statusText.BackgroundTransparency = 1
-    statusText.Text = "Готов к работе"
-    statusText.TextColor3 = COLORS.ImperialWhite
-    statusText.TextSize = 12
+    statusText.Text = "Ready • Loaded"
+    statusText.TextColor3 = CONFIG.TextSecondary
+    statusText.TextSize = 13
     statusText.Font = Enum.Font.Gotham
-    statusText.TextTransparency = 0.3
     statusText.TextXAlignment = Enum.TextXAlignment.Left
-    statusText.ZIndex = 25
     statusText.Parent = statusBar
     
     return {
+        Container = self.Container,
+        BGOverlay = bgOverlay,
         Window = window,
-        TitleBar = titleBar,
+        TitleBar = headerBg,
         CloseButton = closeBtn,
+        SearchBox = searchBox,
         ContentArea = contentArea,
-        BackButton = backBtn,
         CategoryScroll = categoryScroll,
-        CategoryGrid = categoryGrid,
         SubScroll = subScroll,
-        SubList = subList,
         SubTitle = subTitle,
-        StatusBar = statusBar,
-        StatusDot = statusDot,
+        BackButton = backBtn,
         StatusText = statusText,
-        TopAccent = topAccent
+        StatusDot = statusDot
     }
 end
 
--- Populate categories with glass cards
-function Gui:PopulateCategories(filter)
-    local scroll = self.Elements.CategoryScroll
-    local grid = self.Elements.CategoryGrid
-    
-    -- Clear
-    for _, child in ipairs(scroll:GetChildren()) do
-        if child:IsA("Frame") then child:Destroy() end
-    end
-    
+-- Populate categories with modern cards
+function Gui:PopulateCategories(searchText)
     if not Database or not Database.categories then return end
     
-    local search = (filter or ""):lower()
-    local cats = {}
-    for name in pairs(Database.categories) do table.insert(cats, name) end
-    table.sort(cats)
+    local scroll = self.Elements.CategoryScroll
     
-    local count = 0
-    local cols = math.max(1, math.floor(scroll.AbsoluteSize.X / (140 + 10)))
-    
-    for _, name in ipairs(cats) do
-        if search == "" or name:lower():find(search, 1, true) then
-            local card = Instance.new("Frame")
-            card.Name = name
-            card.Size = UDim2.new(0, 140, 0, 95)
-            card.BackgroundColor3 = COLORS.GlassBg
-            card.BackgroundTransparency = CONFIG.GlassTransparency + 0.1
-            card.ZIndex = 23
-            card.Parent = scroll
-            
-            applyGlass(card, 14)
-            card.Shadow.ImageTransparency = 0.35
-            
-            -- Game Icon
-            local iconId = Database.imageIds and Database.imageIds[name]
-            if iconId then
-                local icon = Instance.new("ImageLabel")
-                icon.Size = UDim2.new(0, 50, 0, 50)
-                icon.Position = UDim2.new(0.5, -25, 0.05, 0)
-                icon.BackgroundTransparency = 1
-                icon.Image = iconId
-                icon.ScaleType = Enum.ScaleType.Fit
-                icon.ZIndex = 24
-                icon.Parent = card
-                
-                -- Icon glow
-                local iconGlow = Instance.new("UIStroke")
-                iconGlow.Color = COLORS.ImperialGold
-                iconGlow.Transparency = 0.7
-                iconGlow.Thickness = 1
-                iconGlow.Parent = icon
-            end
-            
-            -- Label
-            local label = Instance.new("TextLabel")
-            label.Size = UDim2.new(1, -8, 0, 22)
-            label.Position = UDim2.new(0, 4, 0, 63)
-            label.BackgroundTransparency = 1
-            label.Text = name
-            label.TextColor3 = COLORS.ImperialWhite
-            label.TextSize = 12
-            label.Font = Enum.Font.GothamBold
-            label.TextTruncate = Enum.TextTruncate.AtEnd
-            label.ZIndex = 24
-            label.Parent = card
-            
-            -- Gold line separator
-            local separator = Instance.new("Frame")
-            separator.Size = UDim2.new(0.6, 0, 0, 1)
-            separator.Position = UDim2.new(0.2, 0, 0, 58)
-            separator.BackgroundColor3 = COLORS.ImperialGold
-            separator.BackgroundTransparency = 0.5
-            separator.BorderSizePixel = 0
-            separator.ZIndex = 24
-            separator.Parent = card
-            
-            -- Click button
-            local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, 0, 1, 0)
-            btn.BackgroundTransparency = 1
-            btn.Text = ""
-            btn.ZIndex = 25
-            btn.Parent = card
-            
-            btn.MouseButton1Click:Connect(function()
-                self:OnCategoryClick(name)
-            end)
-            
-            -- Hover animation
-            btn.MouseEnter:Connect(function()
-                createTween(card, {BackgroundTransparency = CONFIG.GlassTransparency - 0.05}, 0.2):Play()
-                createTween(card.GlassStroke, {Transparency = 0.4}, 0.2):Play()
-            end)
-            btn.MouseLeave:Connect(function()
-                createTween(card, {BackgroundTransparency = CONFIG.GlassTransparency + 0.1}, 0.2):Play()
-                createTween(card.GlassStroke, {Transparency = CONFIG.StrokeTransparency}, 0.2):Play()
-            end)
-            
-            count = count + 1
+    -- Clear existing
+    for _, child in ipairs(scroll:GetChildren()) do
+        if child:IsA("Frame") then
+            child:Destroy()
         end
     end
     
-    local rows = math.ceil(count / cols)
-    scroll.CanvasSize = UDim2.new(0, 0, 0, rows * (95 + 10) + 10)
+    local count = 0
+    for categoryName, _ in pairs(Database.categories) do
+        if not searchText or categoryName:lower():find(searchText:lower(), 1, true) then
+            count = count + 1
+            
+            local card = Instance.new("Frame")
+            card.Name = categoryName
+            card.Size = UDim2.new(0, 135, 0, 105)
+            card.BackgroundColor3 = CONFIG.GlassLight
+            card.BackgroundTransparency = 0.25
+            card.Parent = scroll
+            
+            applyGlassStyle(card, false)
+            
+            -- Card content
+            local inner = Instance.new("Frame")
+            inner.Size = UDim2.new(1, -2, 1, -2)
+            inner.Position = UDim2.new(0, 1, 0, 1)
+            inner.BackgroundTransparency = 1
+            inner.Parent = card
+            
+            -- Icon/Emoji
+            local icon = Instance.new("TextLabel")
+            icon.Size = UDim2.new(1, 0, 0, 40)
+            icon.BackgroundTransparency = 1
+            icon.Text = "📦"
+            icon.TextColor3 = CONFIG.Accent
+            icon.TextSize = 32
+            icon.Font = Enum.Font.GothamBold
+            icon.Parent = inner
+            
+            -- Category name
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 0, 30)
+            label.Position = UDim2.new(0, 0, 0, 45)
+            label.BackgroundTransparency = 1
+            label.Text = categoryName
+            label.TextColor3 = CONFIG.TextColor
+            label.TextSize = 12
+            label.Font = Enum.Font.GothamSemibold
+            label.TextWrapped = true
+            label.Parent = inner
+            
+            -- Click effect
+            local clickableBtn = Instance.new("TextButton")
+            clickableBtn.Size = UDim2.new(1, 0, 1, 0)
+            clickableBtn.BackgroundTransparency = 1
+            clickableBtn.Text = ""
+            clickableBtn.Parent = card
+            
+            -- Hover animations
+            local originalTransparency = card.BackgroundTransparency
+            
+            clickableBtn.MouseEnter:Connect(function()
+                tween(card, {BackgroundTransparency = 0.1}, 0.2)
+                tween(icon, {TextColor3 = CONFIG.AccentHover}, 0.2)
+                tween(card, {Size = UDim2.new(0, 145, 0, 115)}, 0.2)
+            end)
+            
+            clickableBtn.MouseLeave:Connect(function()
+                tween(card, {BackgroundTransparency = 0.25}, 0.2)
+                tween(icon, {TextColor3 = CONFIG.Accent}, 0.2)
+                tween(card, {Size = UDim2.new(0, 135, 0, 105)}, 0.2)
+            end)
+            
+            clickableBtn.MouseButton1Click:Connect(function()
+                self:OnCategoryClick(categoryName)
+            end)
+        end
+    end
+    
+    scroll.CanvasSize = UDim2.new(0, 0, 0, math.ceil(count / 4) * 125)
 end
 
 -- Populate sub-scripts
 function Gui:PopulateSubScripts(scripts, categoryName)
-    local scroll = self.Elements.SubScroll
-    local list = self.Elements.SubList
+    if not scripts or #scripts == 0 then return end
     
-    -- Clear
+    local scroll = self.Elements.SubScroll
+    
+    -- Clear existing
     for _, child in ipairs(scroll:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
+        if child:IsA("TextButton") then
+            child:Destroy()
+        end
     end
     
-    self.Elements.SubTitle.Text = "📜 " .. categoryName .. " (" .. #scripts .. " скриптов)"
+    self.Elements.SubTitle.Text = "📂 " .. categoryName
     
     for i, script in ipairs(scripts) do
         if type(script) == "table" and #script >= 2 then
-            local name = tostring(script[1])
-            local func = script[2]
+            local scriptName = tostring(script[1])
+            local scriptFunc = script[2]
             
             local btn = Instance.new("TextButton")
             btn.Size = UDim2.new(0.96, 0, 0, 42)
-            btn.BackgroundColor3 = COLORS.GlassBg
-            btn.BackgroundTransparency = CONFIG.GlassTransparency + 0.05
-            btn.Text = "  ⚡ " .. name
-            btn.TextColor3 = COLORS.ImperialWhite
+            btn.BackgroundColor3 = CONFIG.GlassLight
+            btn.BackgroundTransparency = 0.2
+            btn.Text = "  ⚙️  " .. scriptName
+            btn.TextColor3 = CONFIG.TextColor
             btn.TextSize = 13
             btn.Font = Enum.Font.Gotham
             btn.TextXAlignment = Enum.TextXAlignment.Left
-            btn.ZIndex = 24
             btn.Parent = scroll
             
-            applyGlass(btn, 12)
-            btn.Shadow.ImageTransparency = 0.4
+            applyGlassStyle(btn, false)
             
             -- Arrow
             local arrow = Instance.new("TextLabel")
-            arrow.Size = UDim2.new(0, 24, 1, 0)
-            arrow.Position = UDim2.new(0.93, 0, 0, 0)
+            arrow.Size = UDim2.new(0, 20, 1, 0)
+            arrow.Position = UDim2.new(0.95, -20, 0, 0)
             arrow.BackgroundTransparency = 1
             arrow.Text = "▶"
-            arrow.TextColor3 = COLORS.ImperialGold
-            arrow.TextSize = 14
+            arrow.TextColor3 = CONFIG.Accent
+            arrow.TextSize = 12
             arrow.Font = Enum.Font.GothamBold
-            arrow.TextTransparency = 0.5
-            arrow.ZIndex = 25
             arrow.Parent = btn
             
+            -- Click handler
             btn.MouseButton1Click:Connect(function()
-                self.Elements.StatusText.Text = "Запуск: " .. name
-                self.Elements.StatusText.TextColor3 = COLORS.ImperialWhite
+                self.Elements.StatusText.Text = "▶ Running: " .. scriptName
+                self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
                 
-                local ok, err = pcall(func)
+                local success, err = pcall(scriptFunc)
                 
-                if ok then
-                    self.Elements.StatusText.Text = "✓ " .. name .. " выполнен!"
-                    self.Elements.StatusText.TextColor3 = COLORS.Success
+                if success then
+                    self.Elements.StatusText.Text = "✓ " .. scriptName .. " executed!"
+                    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
                 else
-                    self.Elements.StatusText.Text = "✗ Ошибка: " .. tostring(err)
-                    self.Elements.StatusText.TextColor3 = COLORS.Error
+                    self.Elements.StatusText.Text = "✗ Error: " .. tostring(err)
+                    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
                 end
                 
-                task.delay(3, function()
-                    self.Elements.StatusText.Text = "Готов к работе"
-                    self.Elements.StatusText.TextColor3 = COLORS.ImperialWhite
+                task.delay(4, function()
+                    self.Elements.StatusText.Text = "Ready • Loaded"
+                    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
                 end)
             end)
             
+            -- Hover effects
             btn.MouseEnter:Connect(function()
-                createTween(btn, {BackgroundTransparency = CONFIG.GlassTransparency - 0.1}, 0.15):Play()
-                createTween(btn.GlassStroke, {Transparency = 0.3}, 0.15):Play()
-                createTween(arrow, {TextTransparency = 0.1}, 0.15):Play()
+                tween(btn, {BackgroundTransparency = 0.05}, 0.15)
             end)
             btn.MouseLeave:Connect(function()
-                createTween(btn, {BackgroundTransparency = CONFIG.GlassTransparency + 0.05}, 0.15):Play()
-                createTween(btn.GlassStroke, {Transparency = CONFIG.StrokeTransparency}, 0.15):Play()
-                createTween(arrow, {TextTransparency = 0.5}, 0.15):Play()
+                tween(btn, {BackgroundTransparency = 0.2}, 0.15)
             end)
         end
     end
     
     scroll.CanvasSize = UDim2.new(0, 0, 0, #scripts * (42 + 8) + 10)
-    scroll.CanvasPosition = Vector2.new(0, 0)
 end
 
 -- Handle category click
 function Gui:OnCategoryClick(categoryName)
-    if not Database or not Database.categories then return end
+    if not Database or not Database.categories then
+        self.Elements.StatusText.Text = "✗ No database loaded!"
+        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+        return
+    end
     
     local fileName = Database.categories[categoryName]
-    if not fileName then return end
+    if not fileName then
+        self.Elements.StatusText.Text = "✗ Category not found!"
+        return
+    end
     
     local url = Database.baseUrl .. "/" .. fileName
     
-    self.Elements.StatusText.Text = "Загрузка " .. categoryName .. "..."
-    self.Elements.StatusText.TextColor3 = COLORS.ImperialGold
+    self.Elements.StatusText.Text = "⏳ Loading " .. categoryName .. "..."
+    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 180, 50)
     
-    local ok, result = pcall(function()
-        local src = game:HttpGet(url)
-        local chunk = loadstring(src)
-        if chunk then return chunk() end
+    local success, result = pcall(function()
+        local source = game:HttpGet(url)
+        local chunk = loadstring(source)
+        if chunk then
+            return chunk()
+        end
     end)
     
-    if not ok then
-        self.Elements.StatusText.Text = "Ошибка: " .. tostring(result)
-        self.Elements.StatusText.TextColor3 = COLORS.Error
+    if not success then
+        self.Elements.StatusText.Text = "✗ Error: " .. tostring(result)
+        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
         return
     end
     
     if type(result) == "table" then
-        -- Switch to sub-script view
         self.Elements.CategoryScroll.Visible = false
         self.Elements.SubScroll.Visible = true
         self.Elements.SubTitle.Visible = true
         self.Elements.BackButton.Visible = true
+        self.Elements.SearchBox.Visible = false
+        
+        CurrentSubScripts = result
+        CurrentCategory = categoryName
+        
         self:PopulateSubScripts(result, categoryName)
-        self.Elements.StatusText.Text = "Загружено: " .. categoryName
-        self.Elements.StatusText.TextColor3 = COLORS.Success
+        self.Elements.StatusText.Text = "✓ " .. categoryName .. " loaded! (" .. #result .. " scripts)"
+        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
     else
-        self.Elements.StatusText.Text = categoryName .. " выполнен!"
-        self.Elements.StatusText.TextColor3 = COLORS.Success
-        task.delay(2, function()
-            self.Elements.StatusText.Text = "Готов к работе"
-            self.Elements.StatusText.TextColor3 = COLORS.ImperialWhite
+        self.Elements.StatusText.Text = "✓ " .. categoryName .. " executed!"
+        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+        task.delay(3, function()
+            self.Elements.StatusText.Text = "Ready • Loaded"
         end)
     end
 end
@@ -738,103 +618,109 @@ function Gui:BackToCategories()
     self.Elements.SubScroll.Visible = false
     self.Elements.SubTitle.Visible = false
     self.Elements.BackButton.Visible = false
-    self.Elements.StatusText.Text = "Готов к работе"
-    self.Elements.StatusText.TextColor3 = COLORS.ImperialWhite
+    self.Elements.SearchBox.Visible = true
+    
+    CurrentSubScripts = nil
+    CurrentCategory = nil
+    
+    self.Elements.StatusText.Text = "Ready • Loaded"
+    self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
 end
 
--- Toggle window with animation
+-- Toggle window with smooth animations
 function Gui:ToggleWindow()
-    local win = self.Elements.Window
+    local window = self.Elements.Window
+    local overlay = self.Elements.BGOverlay
     
-    if win.Visible then
-        createTween(win, {
-            BackgroundTransparency = 1,
-            Size = UDim2.new(0, 600, 0, 410)
-        }, 0.25):Play()
+    if window.Visible then
+        -- Hide with animation
+        tween(window, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad)
+        tween(overlay, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad)
         
-        task.wait(0.25)
-        win.Visible = false
+        task.wait(0.3)
+        window.Visible = false
+        overlay.Visible = false
     else
-        win.Visible = true
-        win.BackgroundTransparency = 1
-        win.Size = UDim2.new(0, 600, 0, 410)
+        -- Show with animation
+        overlay.Visible = true
+        overlay.BackgroundTransparency = 1
+        window.Visible = true
+        window.BackgroundTransparency = 1
         
-        createTween(win, {
-            BackgroundTransparency = CONFIG.GlassTransparency,
-            Size = CONFIG.WindowSize
-        }, 0.3):Play()
+        tween(window, {BackgroundTransparency = 0.1}, 0.3, Enum.EasingStyle.Quad)
+        tween(overlay, {BackgroundTransparency = 0.7}, 0.3, Enum.EasingStyle.Quad)
     end
 end
 
--- Make draggable
+-- Make window draggable
 function Gui:MakeDraggable()
-    local win = self.Elements.Window
-    local bar = self.Elements.TitleBar
-    local dragging, startPos, startInput
+    local window = self.Elements.Window
+    local titleBar = self.Elements.TitleBar
     
-    bar.InputBegan:Connect(function(input)
+    local dragging = false
+    local dragStart = nil
+    local startPos = nil
+    
+    titleBar.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
-            startPos = win.Position
-            startInput = input.Position
-            
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
+            dragStart = input.Position
+            startPos = window.Position
         end
     end)
     
     UserInputService.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - startInput
-            win.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + delta.X,
-                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            local delta = input.Position - dragStart
+            window.Position = UDim2.new(
+                startPos.X.Scale,
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + delta.Y
             )
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
         end
     end)
 end
 
 -- Load database
 function Gui:LoadDatabase()
-    self.Elements.StatusText.Text = "Загрузка базы данных..."
-    self.Elements.StatusText.TextColor3 = COLORS.ImperialGold
-    
-    local ok, result = pcall(function()
-        local data = game:HttpGet(CONFIG.BaseURL)
-        local func = loadstring(data)
-        if func then return func() end
+    local success, result = pcall(function()
+        local baseSource = game:HttpGet(CONFIG.BaseURL)
+        local baseChunk = loadstring(baseSource)
+        if baseChunk then
+            return baseChunk()
+        end
     end)
     
-    if ok and result then
+    if success and type(result) == "table" then
         Database = result
-        self:PopulateCategories()
-        self.Elements.StatusText.Text = "Имперский Хаб готов!"
-        self.Elements.StatusText.TextColor3 = COLORS.Success
-        task.wait(2)
-        self.Elements.StatusText.Text = "Готов к работе"
-        self.Elements.StatusText.TextColor3 = COLORS.ImperialWhite
+        self:PopulateCategories("")
+        self.Elements.StatusText.Text = "✓ Database loaded!"
     else
-        self.Elements.StatusText.Text = "Ошибка загрузки базы!"
-        self.Elements.StatusText.TextColor3 = COLORS.Error
+        self.Elements.StatusText.Text = "✗ Failed to load database"
+        self.Elements.StatusDot.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
     end
 end
 
--- Initialize
+-- Initialize GUI
 function Gui:Init()
-    self.Container = GetContainer()
-    if not self.Container then return end
+    self.Container = GetSafeContainer()
     
     self.Elements = {}
+    self.Elements.ToggleButton = self:CreateToggleButton()
     
-    -- Create UI
-    self.Elements.ToggleButton = self:CreateToggle()
-    local winParts = self:CreateWindow()
-    for k, v in pairs(winParts) do self.Elements[k] = v end
+    local winParts = self:CreateMainWindow()
+    for k, v in pairs(winParts) do
+        self.Elements[k] = v
+    end
     
-    -- Events
+    -- Event handlers
     self.Elements.ToggleButton.MouseButton1Click:Connect(function()
         self:ToggleWindow()
     end)
@@ -847,10 +733,17 @@ function Gui:Init()
         self:BackToCategories()
     end)
     
-    -- Make draggable
-    self:MakeDraggable()
+    self.Elements.BGOverlay.MouseButton1Click:Connect(function()
+        self:ToggleWindow()
+    end)
     
-    -- Load database
+    self.Elements.SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        if self.Elements.CategoryScroll.Visible then
+            self:PopulateCategories(self.Elements.SearchBox.Text)
+        end
+    end)
+    
+    self:MakeDraggable()
     self:LoadDatabase()
 end
 
