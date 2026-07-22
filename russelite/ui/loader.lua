@@ -1,5 +1,5 @@
 -- RussElite Bootstrapper - loader.lua
--- Black aesthetic loading screen (disappears after loading)
+-- Black aesthetic loading screen 
 
 local Loader = {}
 
