@@ -1,8 +1,7 @@
 -- RussElite Bootstrapper - loader.lua
--- 3D Glass Black iPhone Style (2026 Aesthetic)
+-- Glassmorphism Loading Screen
 
 local Loader = {}
-
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
@@ -26,194 +25,245 @@ end
 
 local CONFIG = {
     Title = "RussElite",
-    Subtitle = "Загрузка системы...",
+    Subtitle = "Империя скриптов",
     TextColor = Color3.fromRGB(255, 255, 255),
-    Accent = Color3.fromRGB(180, 180, 180),
-    Background = Color3.fromRGB(8, 8, 8),
-    GlassTop = Color3.fromRGB(25, 25, 25),
-    GlassBottom = Color3.fromRGB(5, 5, 5),
+    Accent = Color3.fromRGB(200, 180, 100),
     ScriptURL = "https://raw.githubusercontent.com/shaypishgithub/infinity/refs/heads/main/russelite/ui/gui.lua"
 }
 
-local function apply3DGlass(frame)
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 20)
-    corner.Parent = frame
-
-    local gradient = Instance.new("UIGradient")
-    gradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, CONFIG.GlassTop),
-        ColorSequenceKeypoint.new(1, CONFIG.GlassBottom)
-    })
-    gradient.Rotation = 90
-    gradient.Parent = frame
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.fromRGB(60, 60, 60)
-    stroke.Transparency = 0.4
-    stroke.Thickness = 1
-    stroke.Parent = frame
-
-    -- Блик сверху
-    local highlight = Instance.new("Frame")
-    highlight.Size = UDim2.new(1, 0, 0, 1)
-    highlight.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    highlight.BackgroundTransparency = 0.85
-    highlight.BorderSizePixel = 0
-    highlight.Parent = frame
-    local hCorner = Instance.new("UICorner")
-    hCorner.CornerRadius = UDim.new(0, 20)
-    hCorner.Parent = highlight
-end
-
 function Loader:CreateLoadingUI()
     local container = GetSafeContainer()
-
-    -- Фон
-    local bg = Instance.new("Frame")
-    bg.Name = "Background"
-    bg.Size = UDim2.new(1, 0, 1, 0)
-    bg.BackgroundColor3 = CONFIG.Background
-    bg.Parent = container
-
-    -- Свечение карточки
-    local cardGlow = Instance.new("Frame")
-    cardGlow.Size = UDim2.new(0, 340, 0, 220)
-    cardGlow.Position = UDim2.new(0.5, -170, 0.5, -110)
-    cardGlow.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-    cardGlow.BackgroundTransparency = 0.9
-    cardGlow.Parent = container
-    Instance.new("UICorner", cardGlow).CornerRadius = UDim.new(0, 24)
-
-    -- Карточка загрузки
+    
+    -- Fullscreen black overlay
+    local overlay = Instance.new("Frame")
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.4
+    overlay.Parent = container
+    
+    -- Main card with glass effect
     local card = Instance.new("Frame")
-    card.Name = "LoadingCard"
-    card.Size = UDim2.new(0, 320, 0, 200)
-    card.Position = UDim2.new(0.5, -160, 0.5, -100)
-    card.BackgroundColor3 = CONFIG.Background
-    card.BackgroundTransparency = 0.05
+    card.Size = UDim2.new(0, 340, 0, 200)
+    card.Position = UDim2.new(0.5, -170, 0.5, -100)
+    card.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+    card.BackgroundTransparency = 0.25
     card.Parent = container
-    apply3DGlass(card)
-
-    -- Логотип / Текст
+    
+    -- Glass border
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.fromRGB(255, 255, 255)
+    stroke.Transparency = 0.65
+    stroke.Thickness = 1.5
+    stroke.Parent = card
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 20)
+    corner.Parent = card
+    
+    -- Gradient overlay for glass effect
+    local glassGradient = Instance.new("UIGradient")
+    glassGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(200, 200, 220)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(150, 150, 170))
+    })
+    glassGradient.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.85),
+        NumberSequenceKeypoint.new(0.5, 0.9),
+        NumberSequenceKeypoint.new(1, 0.85)
+    })
+    glassGradient.Rotation = 135
+    glassGradient.Parent = card
+    
+    -- Drop shadow
+    local shadow = Instance.new("ImageLabel")
+    shadow.Size = UDim2.new(1, 30, 1, 30)
+    shadow.Position = UDim2.new(0, -15, 0, -15)
+    shadow.BackgroundTransparency = 1
+    shadow.Image = "rbxassetid://6014261993"
+    shadow.ImageColor3 = Color3.fromRGB(0, 0, 0)
+    shadow.ImageTransparency = 0.5
+    shadow.ScaleType = Enum.ScaleType.Slice
+    shadow.SliceCenter = Rect.new(49, 49, 49, 49)
+    shadow.ZIndex = 0
+    shadow.Parent = card
+    
+    -- Russian Empire Flag on top
+    local flagContainer = Instance.new("Frame")
+    flagContainer.Size = UDim2.new(0, 60, 0, 40)
+    flagContainer.Position = UDim2.new(0.5, -30, 0, -20)
+    flagContainer.BackgroundTransparency = 1
+    flagContainer.ZIndex = 5
+    flagContainer.Parent = card
+    
+    -- Flag stripes
+    local colors = {
+        Color3.fromRGB(255, 255, 255), -- White
+        Color3.fromRGB(0, 50, 160),    -- Blue
+        Color3.fromRGB(200, 30, 30),   -- Red
+    }
+    
+    for i, color in ipairs(colors) do
+        local stripe = Instance.new("Frame")
+        stripe.Size = UDim2.new(1, 0, 0.33, 0)
+        stripe.Position = UDim2.new(0, 0, (i-1)/3, 0)
+        stripe.BackgroundColor3 = color
+        stripe.Parent = flagContainer
+        
+        local stripeCorner = Instance.new("UICorner")
+        stripeCorner.CornerRadius = UDim.new(0, 3)
+        stripeCorner.Parent = stripe
+    end
+    
+    -- Flag border
+    local flagStroke = Instance.new("UIStroke")
+    flagStroke.Color = Color3.fromRGB(200, 180, 100)
+    flagStroke.Transparency = 0.3
+    flagStroke.Thickness = 1.5
+    flagStroke.Parent = flagContainer
+    
+    local flagCorner = Instance.new("UICorner")
+    flagCorner.CornerRadius = UDim.new(0, 4)
+    flagCorner.Parent = flagContainer
+    
+    -- Title
     local title = Instance.new("TextLabel")
-    title.Name = "Title"
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Position = UDim2.new(0, 0, 0, 30)
+    title.Size = UDim2.new(1, 0, 0, 35)
+    title.Position = UDim2.new(0, 0, 0, 35)
     title.BackgroundTransparency = 1
     title.Text = CONFIG.Title
     title.TextColor3 = CONFIG.TextColor
-    title.TextSize = 32
-    title.Font = Enum.Font.GothamBold
+    title.TextSize = 30
+    title.Font = Enum.Font.GothamBlack
     title.Parent = card
-
-    -- Подзаголовок
+    
+    -- Subtitle
     local subtitle = Instance.new("TextLabel")
-    subtitle.Name = "Subtitle"
     subtitle.Size = UDim2.new(1, 0, 0, 20)
-    subtitle.Position = UDim2.new(0, 0, 0, 72)
+    subtitle.Position = UDim2.new(0, 0, 0, 70)
     subtitle.BackgroundTransparency = 1
     subtitle.Text = CONFIG.Subtitle
-    subtitle.TextColor3 = CONFIG.TextColor
-    subtitle.TextSize = 13
-    subtitle.Font = Enum.Font.GothamMedium
-    subtitle.TextTransparency = 0.5
+    subtitle.TextColor3 = CONFIG.Accent
+    subtitle.TextSize = 14
+    subtitle.Font = Enum.Font.Gotham
+    subtitle.TextTransparency = 0.3
     subtitle.Parent = card
-
-    -- Фон прогресс бара
+    
+    -- Progress bar background
     local barBg = Instance.new("Frame")
-    barBg.Name = "BarBg"
-    barBg.Size = UDim2.new(0.8, 0, 0, 6)
-    barBg.Position = UDim2.new(0.1, 0, 0, 120)
+    barBg.Size = UDim2.new(0.75, 0, 0, 8)
+    barBg.Position = UDim2.new(0.125, 0, 0, 110)
     barBg.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    barBg.BackgroundTransparency = 0.9
+    barBg.BackgroundTransparency = 0.8
     barBg.Parent = card
-    Instance.new("UICorner", barBg).CornerRadius = UDim.new(1, 0)
-
-    -- Заполнение (Белый светящийся)
+    
+    local barBgCorner = Instance.new("UICorner")
+    barBgCorner.CornerRadius = UDim.new(1, 0)
+    barBgCorner.Parent = barBg
+    
+    -- Progress fill with gradient
     local fill = Instance.new("Frame")
-    fill.Name = "Fill"
     fill.Size = UDim2.new(0, 0, 1, 0)
-    fill.BackgroundColor3 = CONFIG.TextColor
+    fill.BackgroundColor3 = Color3.fromRGB(200, 180, 100)
     fill.BackgroundTransparency = 0.2
     fill.Parent = barBg
-    Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
-
-    -- Статус
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(1, 0)
+    fillCorner.Parent = fill
+    
+    -- Progress gradient
+    local progressGradient = Instance.new("UIGradient")
+    progressGradient.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 220, 150)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 160, 80))
+    })
+    progressGradient.Parent = fill
+    
+    -- Status text
     local status = Instance.new("TextLabel")
-    status.Name = "Status"
     status.Size = UDim2.new(1, 0, 0, 20)
-    status.Position = UDim2.new(0, 0, 0, 145)
+    status.Position = UDim2.new(0, 0, 0, 135)
     status.BackgroundTransparency = 1
     status.Text = "Инициализация..."
     status.TextColor3 = CONFIG.TextColor
     status.TextSize = 12
     status.Font = Enum.Font.Gotham
-    status.TextTransparency = 0.6
+    status.TextTransparency = 0.4
     status.Parent = card
-
+    
+    -- Loading dots animation
+    local dots = Instance.new("TextLabel")
+    dots.Size = UDim2.new(0, 30, 0, 15)
+    dots.Position = UDim2.new(0.6, 0, 0, 137)
+    dots.BackgroundTransparency = 1
+    dots.Text = ""
+    dots.TextColor3 = CONFIG.Accent
+    dots.TextSize = 12
+    dots.Font = Enum.Font.Gotham
+    dots.Parent = card
+    
     return {
         Container = container,
         Card = card,
-        CardGlow = cardGlow,
         Fill = fill,
-        Status = status
+        Status = status,
+        Dots = dots
     }
 end
 
 function Loader:Start(elements)
-    -- Плавное появление
-    elements.Card.Size = UDim2.new(0, 280, 0, 180)
-    elements.CardGlow.Size = UDim2.new(0, 300, 0, 200)
-    TweenService:Create(elements.Card, TweenInfo.new(0.6, Enum.EasingStyle.Back), {Size = UDim2.new(0, 320, 0, 200)}):Play()
-    TweenService:Create(elements.CardGlow, TweenInfo.new(0.6, Enum.EasingStyle.Back), {Size = UDim2.new(0, 340, 0, 220)}):Play()
-
+    -- Animate dots
+    local dotStates = {".", "..", "..."}
+    local dotIndex = 1
+    local dotConnection
+    dotConnection = RunService.Heartbeat:Connect(function()
+        elements.Dots.Text = dotStates[dotIndex]
+        dotIndex = dotIndex % 3 + 1
+    end)
+    
+    -- Progress animation
     local progress = TweenService:Create(
         elements.Fill,
-        TweenInfo.new(2.8, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        TweenInfo.new(2.5, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
         { Size = UDim2.new(1, 0, 1, 0) }
     )
-
+    
     local messages = {
         "Инициализация систем...",
         "Загрузка модулей...",
-        "Подготовка интерфейса...",
-        "Почти готово..."
+        "Подключение к базе...",
+        "Подготовка интерфейса..."
     }
+    
     for i, msg in ipairs(messages) do
-        task.delay((i - 1) * 0.7, function()
-            if elements.Status then elements.Status.Text = msg end
+        task.delay((i - 1) * 0.6, function()
+            elements.Status.Text = msg
         end)
     end
-
+    
     progress:Play()
     progress.Completed:Connect(function()
         elements.Status.Text = "Запуск..."
-        elements.Status.TextTransparency = 0
+        dotConnection:Disconnect()
+        elements.Dots.Text = "✓"
         
-        local ok, err = pcall(function()
+        -- Load main script
+        pcall(function()
             local scriptSource = game:HttpGet(CONFIG.ScriptURL)
             local f = loadstring(scriptSource)
             if f then f() end
         end)
         
-        if not ok then
-            warn("RussElite loader error:", err)
-            elements.Status.Text = "Ошибка подключения!"
-            elements.Status.TextColor3 = Color3.fromRGB(255, 80, 80)
-            task.delay(3, function() elements.Container:Destroy() end)
-            return
-        end
-
-        -- Плавное исчезновение
-        TweenService:Create(elements.Card, TweenInfo.new(0.4, Enum.EasingStyle.Quad), {
-            Size = UDim2.new(0, 280, 0, 180),
-            BackgroundTransparency = 1
-        }):Play()
-        TweenService:Create(elements.CardGlow, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
-        TweenService:Create(elements.Container:FindFirstChild("Background"), TweenInfo.new(0.5), {BackgroundTransparency = 1}):Play()
-
-        task.delay(0.5, function()
+        -- Fade out and destroy
+        local fadeOut = TweenService:Create(
+            elements.Card,
+            TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { BackgroundTransparency = 1, Position = UDim2.new(0.5, -170, 0.5, -130) }
+        )
+        
+        fadeOut:Play()
+        fadeOut.Completed:Connect(function()
             elements.Container:Destroy()
         end)
     end)
